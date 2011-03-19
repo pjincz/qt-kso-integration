@@ -1459,7 +1459,7 @@ extern "C" LRESULT QT_WIN_CALLBACK QtWndProc(HWND hwnd, UINT message, WPARAM wPa
     // If it's a non-client-area message the coords are screen coords, otherwise they are
     // client coords.
 #ifndef Q_WS_WINCE
-    if (message < WM_NCMOUSEMOVE || message > WM_NCMBUTTONDBLCLK)
+    if ((message < WM_NCMOUSEMOVE || message > WM_NCMBUTTONDBLCLK) && message != WM_NCHITTEST)
 #endif
         ClientToScreen(msg.hwnd, &msg.pt);
 
