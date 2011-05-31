@@ -120,6 +120,8 @@ bool QTextureGlyphCache::populate(QFontEngine *fontEngine, int numGlyphs, const 
     }
     if (listItemCoordinates.isEmpty())
         return true;
+    if (m_isOverflow)
+        return false;
 
     rowHeight += margin * 2 + paddingDoubled;
     if (isNull())
@@ -158,8 +160,16 @@ bool QTextureGlyphCache::populate(QFontEngine *fontEngine, int numGlyphs, const 
             }
 
             // if no room in the current texture - realloc a larger texture
+            if (new_height <= maxTextureHeight())
+            {
             resizeTextureData(m_w, new_height);
             m_h = new_height;
+        }
+            else
+            {
+                m_isOverflow = true;
+                break;
+            }
         }
 
         c.x = m_cx;
@@ -172,7 +182,7 @@ bool QTextureGlyphCache::populate(QFontEngine *fontEngine, int numGlyphs, const 
         ++iter;
     }
 
-    return true;
+    return !m_isOverflow;
 }
 
 QImage QTextureGlyphCache::textureMapForGlyph(glyph_t g) const
@@ -339,6 +349,31 @@ void QImageTextureGlyphCache::fillTexture(const Coord &c, glyph_t g)
         m_image.setPixel(base, 255);
     m_image.save(QString::fromLatin1("cache-%1.png").arg(int(this)));
 #endif
+}
+
+void QTextureGlyphCache::getCoord(const glyph_t glyph, Coord *coord)
+{
+    glyph_metrics_t metrics = m_current_fontengine->boundingBox(glyph, m_transform);
+
+    memset(coord, 0, sizeof(*coord));
+    int glyph_width = metrics.width.ceil().toInt();
+    int glyph_height = metrics.height.ceil().toInt();
+    if (glyph_height == 0 || glyph_width == 0)
+        return;
+
+    const int margin = glyphMargin();
+    glyph_width += margin * 2 + 4;
+    glyph_height += margin * 2 + 4;
+    // align to 8-bit boundary
+    if (m_type == QFontEngineGlyphCache::Raster_Mono)
+        glyph_width = (glyph_width+7)&~7;
+
+    coord->x = 0;
+    coord->y = 0;
+    coord->w = glyph_width;
+    coord->h = glyph_height;// texture coords
+    coord->baseLineX = metrics.x.round().truncate();
+    coord->baseLineY = -metrics.y.truncate(); // baseline for horizontal scripts
 }
 
 QT_END_NAMESPACE
