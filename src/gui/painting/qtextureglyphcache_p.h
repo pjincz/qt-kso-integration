@@ -81,7 +81,8 @@ class Q_GUI_EXPORT QTextureGlyphCache : public QFontEngineGlyphCache
 public:
     QTextureGlyphCache(QFontEngineGlyphCache::Type type, const QTransform &matrix)
         : QFontEngineGlyphCache(matrix, type), m_current_fontengine(0),
-                                               m_w(0), m_h(0), m_cx(0), m_cy(0), m_currentRowHeight(0)
+                                               m_w(0), m_h(0), m_cx(0), m_cy(0), m_currentRowHeight(0),
+                                               m_isOverflow(false)
         { }
 
     virtual ~QTextureGlyphCache() { }
@@ -120,6 +121,9 @@ public:
     virtual int maxTextureWidth() const { return QT_DEFAULT_TEXTURE_GLYPH_CACHE_WIDTH; }
     virtual int maxTextureHeight() const { return -1; }
 
+    // NOTE: coord->x and coord->y is unused
+    void getCoord(const glyph_t glyph, Coord *coord);
+
 protected:
     QFontEngine *m_current_fontengine;
 
@@ -128,6 +132,7 @@ protected:
     int m_cx; // current x
     int m_cy; // current y
     int m_currentRowHeight; // Height of last row
+    bool m_isOverflow; // whether the cache is overflow
 };
 
 

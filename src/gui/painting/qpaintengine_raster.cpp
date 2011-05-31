@@ -3518,8 +3518,10 @@ void QRasterPaintEngine::drawCachedGlyphs(int numGlyphs, const glyph_t *glyphs,
         fontEngine->setGlyphCache(0, cache);
     }
 
-    cache->populate(fontEngine, numGlyphs, glyphs, positions);
+    const bool ok = cache->populate(fontEngine, numGlyphs, glyphs, positions);
 
+    if (ok)
+    {
     const QImage &image = cache->image();
     int bpl = image.bytesPerLine();
 
@@ -3550,6 +3552,24 @@ void QRasterPaintEngine::drawCachedGlyphs(int numGlyphs, const glyph_t *glyphs,
 //                positions[i].x.toInt(), positions[i].y.toInt());
 
         alphaPenBlt(bits + ((c.x << leftShift) >> rightShift) + c.y * bpl, bpl, depth, x, y, c.w, c.h);
+    }
+    }
+    else
+    {
+        int margin = cache->glyphMargin();
+        const QFixed offs = QFixed::fromReal(aliasedCoordinateDelta);
+        for (int i=0; i<numGlyphs; ++i) {
+            const QImage image = cache->textureMapForGlyph(glyphs[i]);
+            int bpl = image.bytesPerLine();
+            int depth = image.depth();
+            const uchar *bits = image.bits();
+            QTextureGlyphCache::Coord c;
+            cache->getCoord(glyphs[i], &c);
+            int x = qFloor(positions[i].x + offs) + c.baseLineX - margin;
+            int y = qFloor(positions[i].y + offs) - c.baseLineY - margin;
+
+            alphaPenBlt(bits, bpl, depth, x, y, c.w, c.h);
+        }
     }
 
     return;
