@@ -160,6 +160,7 @@ public:
     static QFont font(const QWidget*);
     static QFont font(const char *className);
     static void setFont(const QFont &, const char* className = 0);
+    static void setFont(const QFont &, bool bReset);
     static QFontMetrics fontMetrics();
 
     static void setWindowIcon(const QIcon &icon);
