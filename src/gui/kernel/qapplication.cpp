@@ -2062,6 +2062,52 @@ void QApplication::setFont(const QFont &font, const char *className)
     }
 }
 
+/*
+    Use this to replace application without reset other settings.
+        --by kingsoft
+*/
+void QApplication::setFont(const QFont &font, bool bReset)
+{
+    FontHash *hash = app_fonts();
+    {
+        QMutexLocker locker(applicationFontMutex());
+        if (!QApplicationPrivate::app_font)
+            QApplicationPrivate::app_font = new QFont(font);
+        else
+            *QApplicationPrivate::app_font = font;
+        if (bReset && hash && hash->size()) {
+            hash->clear();
+        }
+    }
+    if (QApplicationPrivate::is_app_running && !QApplicationPrivate::is_app_closing) {
+        // Send ApplicationFontChange to qApp itself, and to the widgets.
+        QEvent e(QEvent::ApplicationFontChange);
+        QApplication::sendEvent(QApplication::instance(), &e);
+
+        QWidgetList wids = QApplication::allWidgets();
+        for (QWidgetList::ConstIterator it = wids.constBegin(); it != wids.constEnd(); ++it) {
+            register QWidget *w = *it;
+            sendEvent(w, &e);
+        }
+
+#ifndef QT_NO_GRAPHICSVIEW
+        // Send to all scenes as well.
+        QList<QGraphicsScene *> &scenes = qApp->d_func()->scene_list;
+        for (QList<QGraphicsScene *>::ConstIterator it = scenes.constBegin();
+             it != scenes.constEnd(); ++it) {
+            QApplication::sendEvent(*it, &e);
+        }
+#endif //QT_NO_GRAPHICSVIEW
+    }
+    if (!QApplicationPrivate::sys_font || !font.isCopyOf(*QApplicationPrivate::sys_font)) {
+        if (!QApplicationPrivate::set_font)
+            QApplicationPrivate::set_font = new QFont(font);
+        else
+            *QApplicationPrivate::set_font = font;
+    }
+}
+
+
 /*! \internal
 */
 void QApplicationPrivate::setSystemFont(const QFont &font)
