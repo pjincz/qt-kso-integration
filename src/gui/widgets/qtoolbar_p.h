@@ -64,6 +64,7 @@ QT_BEGIN_NAMESPACE
 
 class QToolBarLayout;
 class QTimer;
+class QStyleOptionDockWidget;
 
 class QToolBarPrivate : public QWidgetPrivate
 {
@@ -71,7 +72,8 @@ class QToolBarPrivate : public QWidgetPrivate
 
 public:
     inline QToolBarPrivate()
-        : explicitIconSize(false), explicitToolButtonStyle(false), movable(true), floatable(true),
+        : fullSize(false), closable(true),
+		  explicitIconSize(false), explicitToolButtonStyle(false), movable(true), floatable(true),
           allowedAreas(Qt::AllToolBarAreas), orientation(Qt::Horizontal),
           toolButtonStyle(Qt::ToolButtonIconOnly),
           layout(0), state(0)
@@ -90,6 +92,8 @@ public:
     bool explicitToolButtonStyle;
     bool movable;
     bool floatable;
+	bool fullSize;
+	bool closable;
     Qt::ToolBarAreas allowedAreas;
     Qt::Orientation orientation;
     Qt::ToolButtonStyle toolButtonStyle;
@@ -115,15 +119,19 @@ public:
     bool mousePressEvent(QMouseEvent *e);
     bool mouseReleaseEvent(QMouseEvent *e);
     bool mouseMoveEvent(QMouseEvent *e);
+	bool mouseDblClickEvent(QMouseEvent* e);
 
     void updateWindowFlags(bool floating, bool unplug = false);
     void setWindowState(bool floating, bool unplug = false, const QRect &rect = QRect());
     void initDrag(const QPoint &pos);
     void startDrag(bool moving = false);
-    void endDrag();
+    void endDrag(bool abort = false);
 
     void unplug(const QRect &r);
     void plug(const QRect &r);
+
+	void initStyleOption(QStyleOptionDockWidget *option) const;
+	QRect dragRect() const;
 
     QBasicTimer waitForPopupTimer;
 };
