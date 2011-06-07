@@ -47,6 +47,7 @@
 #include <qmenu.h>
 #include <qdebug.h>
 #include <qmath.h>
+#include <qtoolbaritemwidget.h>
 
 #include "qmainwindowlayout_p.h"
 #include "qtoolbarextension_p.h"
@@ -61,6 +62,66 @@ QT_BEGIN_NAMESPACE
 extern QMainWindowLayout *qt_mainwindow_layout(const QMainWindow *window);
 
 /******************************************************************************
+** QToolBarTitleButton
+*/
+
+class QToolBarTitleButton : public QAbstractButton
+{
+public:
+    QToolBarTitleButton(QToolBar *toolbar);
+
+    void enterEvent(QEvent *event);
+    void leaveEvent(QEvent *event);
+    void paintEvent(QPaintEvent *event);
+};
+
+QToolBarTitleButton::QToolBarTitleButton(QToolBar *toolbar)
+    : QAbstractButton(toolbar)
+{
+    setFocusPolicy(Qt::NoFocus);
+#ifndef QT_NO_CURSOR
+	setCursor(Qt::ArrowCursor);
+#endif
+}
+
+void QToolBarTitleButton::enterEvent(QEvent *event)
+{
+    if (isEnabled()) update();
+    QAbstractButton::enterEvent(event);
+}
+
+void QToolBarTitleButton::leaveEvent(QEvent *event)
+{
+    if (isEnabled()) update();
+    QAbstractButton::leaveEvent(event);
+}
+
+void QToolBarTitleButton::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+
+    QRect r = rect();
+    QStyleOptionToolButton opt;
+    opt.init(this);
+    opt.state |= QStyle::State_AutoRaise;
+
+    if (isEnabled() && underMouse() && !isChecked() && !isDown())
+        opt.state |= QStyle::State_Raised;
+    if (isChecked())
+        opt.state |= QStyle::State_On;
+    if (isDown())
+        opt.state |= QStyle::State_Sunken;
+
+    opt.icon = icon();
+    opt.subControls = 0;
+    opt.activeSubControls = 0;
+    opt.features = QStyleOptionToolButton::None;
+    opt.arrowType = Qt::NoArrow;
+    opt.iconSize = opt.icon.actualSize(QSize(10, 10));
+    style()->drawComplexControl(QStyle::CC_ToolButton, &opt, &p, this);
+}
+
+/******************************************************************************
 ** QToolBarItem
 */
 
@@ -72,6 +133,110 @@ QToolBarItem::QToolBarItem(QWidget *widget)
 bool QToolBarItem::isEmpty() const
 {
     return action == 0 || !action->isVisible();
+}
+
+QSize QToolBarItem::sizeHint(Qt::Orientation o) const
+{
+    QSize s(0, 0);
+    if (!isEmpty())
+	{
+		const QToolBarItemWidget* item = dynamic_cast<const QToolBarItemWidget*>(wid);
+		if (item)
+		{
+			s = item->sizeHint(o)
+				.expandedTo(item->minimumSizeHint(o))
+				.boundedTo(item->maximumSize(o))
+				.expandedTo(item->minimumSize(o));
+
+			s = layoutItemSize(s);
+			if (wid->sizePolicy().horizontalPolicy() == QSizePolicy::Ignored)
+				s.setWidth(0);
+			if (wid->sizePolicy().verticalPolicy() == QSizePolicy::Ignored)
+				s.setHeight(0);
+		}
+		else
+		{
+			s = QWidgetItem::sizeHint();
+		}
+    }
+
+	return s;
+}
+
+QSize QToolBarItem::minimumSize(Qt::Orientation o) const
+{
+	QSize s(0, 0);
+	if (!isEmpty())
+	{
+		const QToolBarItemWidget* item = dynamic_cast<const QToolBarItemWidget*>(wid);
+		if (item)
+		{
+			s = qSmartMinSize(item->sizeHint(o),
+							  item->minimumSizeHint(o),
+							  item->minimumSize(o),
+							  item->maximumSize(o),
+							  wid->sizePolicy());
+			s = layoutItemSize(s);
+		}
+		else
+		{
+			s = QWidgetItem::minimumSize();
+		}
+	}
+
+	return s;
+}
+
+QSize QToolBarItem::maximumSize(Qt::Orientation o) const
+{
+	QSize s(0, 0);
+	if (!isEmpty())
+	{
+		const QToolBarItemWidget* item = dynamic_cast<const QToolBarItemWidget*>(wid);
+		if (item)
+		{
+			s = qSmartMaxSize(item->sizeHint(o).expandedTo(item->minimumSizeHint(o)),
+							  item->minimumSize(o),
+							  item->maximumSize(o),
+							  wid->sizePolicy(),
+							  align);
+			s = layoutItemSize(s);
+		}
+		else
+		{
+			s = QWidgetItem::maximumSize();
+		}
+	}
+
+	return s;
+}
+
+void QToolBarItem::setGeometry(Qt::Orientation o, const QRect& rc)
+{
+	QToolBarItemWidget* item = dynamic_cast<QToolBarItemWidget*>(wid);
+	if (item)
+		item->setOrientation(o);
+
+	if (o == Qt::Vertical)
+	{
+		QSize s = rc.size().boundedTo(maximumSize(o));
+		int x = rc.x();
+		if (align & Qt::AlignBottom)
+		{
+			x += (rc.width() - s.width());
+		}
+		else if (!(align & Qt::AlignTop))
+		{
+			x += (rc.width() - s.width()) / 2;
+		}
+
+		QRect rc2(x, rc.y(), s.width(), s.height());
+		QWidgetItem::setGeometry(rc2);
+	}
+	else
+	{
+		QWidgetItem::setGeometry(rc);
+	}
 }
 
 /******************************************************************************
@@ -91,6 +256,11 @@ QToolBarLayout::QToolBarLayout(QWidget *parent)
     extension->hide();
     QObject::connect(tb, SIGNAL(orientationChanged(Qt::Orientation)),
                      extension, SLOT(setOrientation(Qt::Orientation)));
+
+	closebutton = new QToolBarTitleButton(tb);
+    QObject::connect(closebutton, SIGNAL(clicked()), tb, SLOT(close()));
+	closebutton->setVisible(tb->isClosable() && tb->isFloating());
+	closebutton->setIcon(tb->style()->standardIcon(QStyle::SP_TitleBarCloseButton));
 
     setUsePopupMenu(qobject_cast<QMainWindow*>(tb->parentWidget()) == 0);
 }
@@ -123,6 +293,60 @@ void QToolBarLayout::updateMarginAndSpacing()
 bool QToolBarLayout::hasExpandFlag() const
 {
     return expandFlag;
+}
+
+int QToolBarLayout::titleHeight() const
+{
+    QToolBar *tb = qobject_cast<QToolBar*>(parentWidget());
+	return tb ? (tb->fontMetrics().height() + 2) : 0;
+}
+
+QSize QToolBarLayout::getMargins(Qt::Orientation o, bool bFloating) const
+{
+	QSize s;
+	QToolBar *tb = qobject_cast<QToolBar*>(parentWidget());
+	if (tb)
+	{
+		QStyle *style = tb->style();
+		QStyleOptionToolBar opt;
+		tb->initStyleOption(&opt);
+
+		const int margin = bFloating ? style->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, tb) : this->margin();
+		s = QSize(margin * 2, margin * 2);
+		if (bFloating)
+			s.rheight() += titleHeight();
+		else if (movable())
+			rpick(o, s) += style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb);
+	}
+
+	return s;
+}
+
+QRect QToolBarLayout::dragRect() const
+{
+	QRect r;
+	QToolBar *tb = qobject_cast<QToolBar*>(parentWidget());
+    if (tb)
+	{
+		if (tb->isFloating())
+		{
+			const int margin = tb->style()->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, tb);
+			r = tb->rect();
+			r.adjust(margin, margin, -margin, -margin);
+			int height = tb->fontMetrics().height() + 2;
+			if (tb->isClosable())
+				r.setWidth(r.width() - height);
+			r.setHeight(height);
+		}
+		else if (tb->isMovable())
+		{
+			QStyleOptionToolBar opt;
+			tb->initStyleOption(&opt);
+			r = tb->style()->subElementRect(QStyle::SE_ToolBarHandle, &opt, tb);
+		}
+	}
+
+	return r;
 }
 
 void QToolBarLayout::setUsePopupMenu(bool set)
@@ -259,20 +483,24 @@ void QToolBarLayout::updateGeomArray() const
     QToolBar *tb = qobject_cast<QToolBar*>(parentWidget());
     if (!tb)
         return;
+
     QStyle *style = tb->style();
     QStyleOptionToolBar opt;
     tb->initStyleOption(&opt);
-    const int handleExtent = movable()
-            ? style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb) : 0;
-    const int margin = this->margin();
+
+	const Qt::Orientation o = tb->orientation();
+	const bool bFloating = tb->isFloating() && o == Qt::Horizontal;
+	const int nToolBarHandleExtent = style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb);
+	const int topMargin = bFloating ? titleHeight() : 0;
+    const int handleExtent = movable() && !bFloating ? nToolBarHandleExtent : 0;
+	const int margin = bFloating ? style->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, tb) : this->margin();
     const int spacing = this->spacing();
     const int extensionExtent = style->pixelMetric(QStyle::PM_ToolBarExtensionExtent, &opt, tb);
-    Qt::Orientation o = tb->orientation();
 
     that->minSize = QSize(0, 0);
     that->hint = QSize(0, 0);
-    rperp(o, that->minSize) = style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb);
-    rperp(o, that->hint) = style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb);
+    rperp(o, that->minSize) = nToolBarHandleExtent;
+    rperp(o, that->hint) = nToolBarHandleExtent;
 
     that->expanding = false;
     that->empty = false;
@@ -280,33 +508,39 @@ void QToolBarLayout::updateGeomArray() const
     QVector<QLayoutStruct> a(items.count() + 1); // + 1 for the stretch
 
     int count = 0;
-    for (int i = 0; i < items.count(); ++i) {
+    for (int i = 0; i < items.count(); ++i)
+	{
         QToolBarItem *item = items.at(i);
 
-        QSize max = item->maximumSize();
-        QSize min = item->minimumSize();
-        QSize hint = item->sizeHint();
+        QSize max = item->maximumSize(o);
+        QSize min = item->minimumSize(o);
+        QSize hint = item->sizeHint(o);
         Qt::Orientations exp = item->expandingDirections();
         bool empty = item->isEmpty();
 
         that->expanding = expanding || exp & o;
 
-
-        if (item->widget()) {
-            if ((item->widget()->sizePolicy().horizontalPolicy() & QSizePolicy::ExpandFlag)) {
+        if (item->widget())
+		{
+            if ((item->widget()->sizePolicy().horizontalPolicy() & QSizePolicy::ExpandFlag))
+			{
                 that->expandFlag = true;
             }
         }
 
-        if (!empty) {
+        if (!empty)
+		{
+			if (!bFloating)
+			{
             if (count == 0) // the minimum size only displays one widget
                 rpick(o, that->minSize) += pick(o, min);
             int s = perp(o, minSize);
             rperp(o, that->minSize) = qMax(s, perp(o, min));
+			}
 
             //we only add spacing before item (ie never before the first one)
             rpick(o, that->hint) += (count == 0 ? 0 : spacing) + pick(o, hint);
-            s = perp(o, that->hint);
+            int s = perp(o, that->hint);
             rperp(o, that->hint) = qMax(s, perp(o, hint));
             ++count;
         }
@@ -325,14 +559,22 @@ void QToolBarLayout::updateGeomArray() const
     that->geomArray = a;
     that->empty = count == 0;
 
-    rpick(o, that->minSize) += handleExtent;
-    that->minSize += QSize(2*margin, 2*margin);
+	QSize margins(2 * margin, 2 * margin);
+	rpick(o, margins) += handleExtent;
+	rperp(o, margins) += topMargin;
+    that->hint += margins;
+	if (bFloating)
+	{
+		that->minSize = that->hint;
+		that->updateDockSize();
+	}
+	else
+	{
+		that->minSize += margins;
     if (items.count() > 1)
         rpick(o, that->minSize) += spacing + extensionExtent;
+	}
 
-    rpick(o, that->hint) += handleExtent;
-    that->hint += QSize(2*margin, 2*margin);
-    that->dirty = false;
 #ifdef Q_WS_MAC
     if (QMainWindow *mw = qobject_cast<QMainWindow *>(parentWidget()->parentWidget())) {
         if (mw->unifiedTitleAndToolBarOnMac()
@@ -349,6 +591,66 @@ void QToolBarLayout::updateGeomArray() const
     that->dirty = false;
 }
 
+void QToolBarLayout::updateDockSize()
+{
+	QToolBar *tb = qobject_cast<QToolBar*>(parentWidget());
+    if (!tb)
+        return;
+
+    QStyle *style = tb->style();
+    QStyleOptionToolBar opt;
+    tb->initStyleOption(&opt);
+
+	const int nToolBarHandleExtent = style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb);
+    const int handleExtent = movable() ? nToolBarHandleExtent : 0;
+	const int margin = this->margin() * 2;
+    const int spacing = this->spacing();
+    const int extensionExtent = style->pixelMetric(QStyle::PM_ToolBarExtensionExtent, &opt, tb);
+
+	dockHint = dockMinSize = QSize(0, nToolBarHandleExtent);
+	dockHintVert = dockMinSizeVert = QSize(nToolBarHandleExtent, 0);
+
+    int count = 0;
+    for (int i = 0; i < items.count(); ++i)
+	{
+        QToolBarItem *item = items.at(i);
+        bool empty = item->isEmpty();
+
+        if (!empty)
+		{
+			QSize min = item->minimumSize(Qt::Horizontal);
+			QSize minV = item->minimumSize(Qt::Vertical);
+            if (count == 0) // the minimum size only displays one widget
+			{
+				dockMinSize.rwidth() += min.width() + spacing + extensionExtent;
+				dockMinSizeVert.rheight() += min.height() + spacing + extensionExtent;
+			}
+			//int s = dockMinSize.rheight();// perp(o, minSize);
+			dockMinSize.rheight() = qMax(dockMinSize.height(), min.height());
+			dockMinSizeVert.rwidth() = qMax(dockMinSizeVert.width(), minV.width());
+
+			//we only add spacing before item (ie never before the first one)
+			QSize hint = item->sizeHint(Qt::Horizontal);
+			QSize hintV = item->sizeHint(Qt::Vertical);
+			int space = count == 0 ? 0 : spacing;
+			dockHint.rwidth() += space + hint.width();
+			dockHintVert.rheight() += space + hintV.height();
+
+			dockHint.rheight() = qMax(dockHint.height(), hint.height());
+			dockHintVert.rwidth() = qMax(dockHintVert.width(), hintV.width());
+ 			++count;
+       }
+    }
+
+	QSize margins(margin + handleExtent, margin);
+    dockHint += margins;
+    dockMinSize += margins;
+
+	margins.transpose();
+    dockHintVert += margins;
+    dockMinSizeVert += margins;
+}
+
 static bool defaultWidgetAction(QToolBarItem *item)
 {
     QWidgetAction *a = qobject_cast<QWidgetAction*>(item->action);
@@ -363,9 +665,11 @@ void QToolBarLayout::setGeometry(const QRect &rect)
     QStyle *style = tb->style();
     QStyleOptionToolBar opt;
     tb->initStyleOption(&opt);
-    const int margin = this->margin();
+	const Qt::Orientation o = tb->orientation();
+	const bool bFloating = tb->isFloating() && o == Qt::Horizontal;
+	const int topMargin = bFloating ? titleHeight() : 0;
+	const int margin = bFloating ? style->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, tb) : this->margin();
     const int extensionExtent = style->pixelMetric(QStyle::PM_ToolBarExtensionExtent, &opt, tb);
-    Qt::Orientation o = tb->orientation();
 
     QLayout::setGeometry(rect);
 
@@ -382,12 +686,12 @@ void QToolBarLayout::setGeometry(const QRect &rect)
         QPoint pos;
         rpick(o, pos) = pick(o, rect.bottomRight()) - margin - extensionExtent + 2;
         if (area == Qt::LeftToolBarArea || area == Qt::TopToolBarArea)
-            rperp(o, pos) = perp(o, rect.topLeft()) + margin;
+            rperp(o, pos) = perp(o, rect.topLeft()) + margin + topMargin;
         else
-            rperp(o, pos) = perp(o, rect.bottomRight()) - margin - (perp(o, hint) - 2*margin) + 1;
+            rperp(o, pos) = perp(o, rect.bottomRight()) - margin - topMargin - (perp(o, hint) - 2*margin) + 1;
         QSize size;
         rpick(o, size) = extensionExtent;
-        rperp(o, size) = perp(o, hint) - 2*margin;
+        rperp(o, size) = perp(o, hint) - 2*margin - topMargin;
         QRect r(pos, size);
 
         if (o == Qt::Horizontal)
@@ -401,6 +705,27 @@ void QToolBarLayout::setGeometry(const QRect &rect)
         if (!extension->isHidden())
             extension->hide();
     }
+
+	if (tb->isClosable() && bFloating)
+	{
+		QRect rcClose(rect.width() - margin - topMargin, margin, topMargin, topMargin);
+		closebutton->setGeometry(rcClose);
+        if (closebutton->isHidden())
+            closebutton->show();
+	}
+	else
+	{
+        if (!closebutton->isHidden())
+            closebutton->hide();
+	}
+
+	if (bFloating)
+	{
+		QSize hint = tb->sizeHint();
+		if (hint != rect.size())
+			tb->resize(hint);
+	}
+
 #ifdef Q_WS_MAC
     // Nothing to do for Carbon... probably   
 #  ifdef QT_MAC_USE_COCOA
@@ -430,24 +755,26 @@ bool QToolBarLayout::layoutActions(const QSize &size)
     QStyle *style = tb->style();
     QStyleOptionToolBar opt;
     tb->initStyleOption(&opt);
-    const int handleExtent = movable()
+	const Qt::Orientation o = tb->orientation();
+	const bool bFloating = tb->isFloating() && o == Qt::Horizontal;
+	const int topMargin = bFloating ? titleHeight() : 0;
+    const int handleExtent = movable() && !bFloating
             ? style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb) : 0;
-    const int margin = this->margin();
+	const int margin = bFloating ? style->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, tb) : this->margin();
     const int spacing = this->spacing();
     const int extensionExtent = style->pixelMetric(QStyle::PM_ToolBarExtensionExtent, &opt, tb);
-    Qt::Orientation o = tb->orientation();
     bool extensionMenuContainsOnlyWidgetActions = true;
 
     int space = pick(o, rect.size()) - 2*margin - handleExtent;
     if (space <= 0)
         return false;  // nothing to do.
 
-    if(popupMenu)
+    if (popupMenu)
         popupMenu->clear();
 
     bool ranOutOfSpace = false;
     int rows = 0;
-    int rowPos = perp(o, rect.topLeft()) + margin;
+    int rowPos = perp(o, rect.topLeft()) + margin + topMargin;
     int i = 0;
     while (i < items.count()) {
         QVector<QLayoutStruct> a = geomArray;
@@ -475,7 +802,7 @@ bool QToolBarLayout::layoutActions(const QSize &size)
             }
 
             if (expanded)
-                rowHeight = qMax(rowHeight, perp(o, items.at(i)->sizeHint()));
+                rowHeight = qMax(rowHeight, perp(o, items.at(i)->sizeHint(o)));
             expansiveRow = expansiveRow || a[i].expansive;
             size = newSize;
             maximumSize += spacing + (a[i].expansive ? a[i].maximumSize : a[i].smartSizeHint());
@@ -517,13 +844,13 @@ bool QToolBarLayout::layoutActions(const QSize &size)
             if (expanded)
                 rperp(o, size) = rowHeight;
             else
-                rperp(o, size) = perp(o, rect.size()) - 2*margin;
+                rperp(o, size) = perp(o, rect.size()) - 2*margin - topMargin;
             QRect r(pos, size);
 
             if (o == Qt::Horizontal)
                 r = QStyle::visualRect(parentWidget()->layoutDirection(), rect, r);
 
-            item->setGeometry(r);
+            item->setGeometry(o, r);
 
             if (item->widget()->isHidden())
                 showWidgets << item->widget();
@@ -572,13 +899,15 @@ QSize QToolBarLayout::expandedSize(const QSize &size) const
     if (!tb)
         return QSize(0, 0);
     QMainWindow *win = qobject_cast<QMainWindow*>(tb->parentWidget());
-    Qt::Orientation o = tb->orientation();
     QStyle *style = tb->style();
     QStyleOptionToolBar opt;
     tb->initStyleOption(&opt);
-    const int handleExtent = movable()
+	const Qt::Orientation o = tb->orientation();
+	const bool bFloating = tb->isFloating() && o == Qt::Horizontal;
+	const int topMargin = bFloating ? titleHeight() : 0;
+    const int handleExtent = movable() && !bFloating
             ? style->pixelMetric(QStyle::PM_ToolBarHandleExtent, &opt, tb) : 0;
-    const int margin = this->margin();
+	const int margin = bFloating ? style->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, tb) : this->margin();
     const int spacing = this->spacing();
     const int extensionExtent = style->pixelMetric(QStyle::PM_ToolBarExtensionExtent, &opt, tb);
 
@@ -603,7 +932,7 @@ QSize QToolBarLayout::expandedSize(const QSize &size) const
         space = qMin(space, pick(o, win->size()) - 2*margin - handleExtent);
 
     int w = 0;
-    int h = 0;
+    int h = topMargin;
     int i = 0;
     while (i < items.count()) {
         int count = 0;
@@ -615,7 +944,7 @@ QSize QToolBarLayout::expandedSize(const QSize &size) const
                 continue;
 
             int newSize = size + (count == 0 ? 0 : spacing) + geomArray[i].minimumSize;
-            rowHeight = qMax(rowHeight, perp(o, items.at(i)->sizeHint()));
+            rowHeight = qMax(rowHeight, perp(o, items.at(i)->sizeHint(o)));
             if (prev != -1 && newSize > space) {
                 if (count > 1 && size + spacing + extensionExtent > space) {
                     size -= spacing + geomArray[prev].minimumSize;
@@ -688,6 +1017,22 @@ QSize QToolBarLayout::sizeHint() const
     if (dirty)
         updateGeomArray();
     return hint;
+}
+
+QSize QToolBarLayout::dockSizeHint(Qt::Orientation o) const
+{
+    if (dirty)
+        updateGeomArray();
+
+	return o == Qt::Horizontal ? dockHint : dockHintVert;
+}
+
+QSize QToolBarLayout::dockMinimumSize(Qt::Orientation o) const
+{
+    if (dirty)
+        updateGeomArray();
+
+	return o == Qt::Horizontal ? dockMinSize : dockMinSizeVert;
 }
 
 QToolBarItem *QToolBarLayout::createItem(QAction *action)

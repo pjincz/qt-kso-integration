@@ -403,10 +403,14 @@ QList<int> QMainWindowLayoutState::gapIndex(QWidget *widget,
 {
     QList<int> result;
 
+	QRect r = rect.adjusted(-40, -40, 40, 40);
+	if (r.contains(pos))
+	{
 #ifndef QT_NO_TOOLBAR
     // is it a toolbar?
-    if (qobject_cast<QToolBar*>(widget) != 0) {
-        result = toolBarAreaLayout.gapIndex(pos);
+		QToolBar* toolbar = qobject_cast<QToolBar*>(widget);
+		if (toolbar != 0) {
+			result = toolBarAreaLayout.gapIndex(pos, toolbar->isFullSize());
         if (!result.isEmpty())
             result.prepend(0);
         return result;
@@ -422,6 +426,7 @@ QList<int> QMainWindowLayoutState::gapIndex(QWidget *widget,
         return result;
     }
 #endif //QT_NO_DOCKWIDGET
+	}
 
     return result;
 }
@@ -1556,7 +1561,7 @@ void QMainWindowLayout::revert(QLayoutItem *widgetItem)
     QWidget *widget = widgetItem->widget();
     layoutState = savedState;
     currentGapPos = layoutState.indexOf(widget);
-    fixToolBarOrientation(widgetItem, currentGapPos.at(1));
+    //fixToolBarOrientation(widgetItem, currentGapPos.at(1));
     layoutState.unplug(currentGapPos);
     layoutState.fitLayout();
     currentGapRect = layoutState.itemRect(currentGapPos);
@@ -1814,7 +1819,7 @@ QLayoutItem *QMainWindowLayout::unplug(QWidget *widget)
     currentGapRect = r;
     updateGapIndicator();
 
-    fixToolBarOrientation(item, currentGapPos.at(1));
+    fixToolBarOrientation(item, 2); // 2 = top dock, ie. horizontal
 
     return item;
 }
@@ -1862,12 +1867,12 @@ QList<int> QMainWindowLayout::hover(QLayoutItem *widgetItem, const QPoint &mouse
 
     currentGapPos = path;
     if (path.isEmpty()) {
-        fixToolBarOrientation(widgetItem, 2); // 2 = top dock, ie. horizontal
+        //fixToolBarOrientation(widgetItem, 2); // 2 = top dock, ie. horizontal
         restore(true);
         return QList<int>();
     }
 
-    fixToolBarOrientation(widgetItem, currentGapPos.at(1));
+	//fixToolBarOrientation(widgetItem, currentGapPos.at(1));
 
     QMainWindowLayoutState newState = savedState;
 

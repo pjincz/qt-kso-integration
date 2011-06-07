@@ -2357,27 +2357,28 @@ extern "C" LRESULT QT_WIN_CALLBACK QtWndProc(HWND hwnd, UINT message, WPARAM wPa
             }
             result = false;
             break;
-        case WM_GETTEXT:
-            if (!widget->isWindow()) {
-                int ret = 0;
-                QAccessibleInterface *acc = QAccessible::queryAccessibleInterface(widget);
-                if (acc) {
-                    QString text = acc->text(QAccessible::Name, 0);
-                    if (text.isEmpty())
-                        text = widget->objectName();
-                    ret = qMin<int>(wParam - 1, text.size());
-                    text.resize(ret);
-                    memcpy((void *)lParam, text.utf16(), (text.size() + 1) * sizeof(ushort));
-                    delete acc;
-                }
-                if (!ret) {
-                    result = false;
-                    break;
-                }
-                RETURN(ret);
-            }
-            result = false;
-            break;
+        // 
+        //case WM_GETTEXT:
+            //if (!widget->isWindow()) {
+            //    int ret = 0;
+            //    QAccessibleInterface *acc = QAccessible::queryAccessibleInterface(widget);
+            //    if (acc) {
+            //        QString text = acc->text(QAccessible::Name, 0);
+            //        if (text.isEmpty())
+            //            text = widget->objectName();
+            //        ret = qMin<int>(wParam - 1, text.size());
+            //        text.resize(ret);
+            //        memcpy((void *)lParam, text.utf16(), (text.size() + 1) * sizeof(ushort));
+            //        delete acc;
+            //    }
+            //    if (!ret) {
+            //        result = false;
+            //        break;
+            //    }
+            //    RETURN(ret);
+            //}
+            //result = false;
+            //break;
 #endif
         case WT_PACKET:
             if (ptrWTPacketsGet) {
