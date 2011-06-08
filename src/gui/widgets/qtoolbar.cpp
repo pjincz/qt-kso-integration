@@ -289,6 +289,7 @@ void QToolBarPrivate::endDrag(bool abort)
                                       // and activates the resizer
 #endif
                 q->activateWindow();
+			   emit q->dragFinished();
             } else {
                 layout->revert(state->widgetItem);
             }

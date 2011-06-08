@@ -152,6 +152,7 @@ Q_SIGNALS:
     void toolButtonStyleChanged(Qt::ToolButtonStyle toolButtonStyle);
     void topLevelChanged(bool topLevel);
     void visibilityChanged(bool visible);
+	void dragFinished();
 
 protected:
 	void setFullSize(bool fullSize);
