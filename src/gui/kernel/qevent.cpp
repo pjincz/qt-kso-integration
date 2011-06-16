@@ -4568,4 +4568,14 @@ const QGestureEventPrivate *QGestureEvent::d_func() const
 
 #endif // QT_NO_GESTURES
 
+QModalEvent::QModalEvent( Type type, QWidget * w )
+    : QEvent(type), w(w)
+{
+}
+
+QWidget * QModalEvent::widget()
+{
+    return w;
+}
+
 QT_END_NAMESPACE
