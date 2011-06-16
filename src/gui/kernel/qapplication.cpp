@@ -2934,6 +2934,8 @@ bool QApplicationPrivate::isBlockedByModal(QWidget *widget)
 
     for (int i = 0; i < qt_modal_stack->size(); ++i) {
         QWidget *modalWidget = qt_modal_stack->at(i);
+        if (!modalWidget)
+            return true;
 
         {
             // check if the active modal widget is our widget or a parent of our widget
@@ -3017,6 +3019,9 @@ bool QApplicationPrivate::isBlockedByModal(QWidget *widget)
  */
 void QApplicationPrivate::enterModal(QWidget *widget)
 {
+    QModalEvent me(QEvent::EnterModal, widget);
+    QCoreApplication::sendEvent(qApp, &me);
+
     QSet<QWidget*> blocked;
     QList<QWidget*> windows = QApplication::topLevelWidgets();
     for (int i = 0; i < windows.count(); ++i) {
@@ -3040,6 +3045,9 @@ void QApplicationPrivate::enterModal(QWidget *widget)
  */
 void QApplicationPrivate::leaveModal(QWidget *widget)
 {
+    QModalEvent me(QEvent::LeaveModal, widget);
+    QCoreApplication::sendEvent(qApp, &me);
+ 
     QSet<QWidget*> blocked;
     QList<QWidget*> windows = QApplication::topLevelWidgets();
     for (int i = 0; i < windows.count(); ++i) {

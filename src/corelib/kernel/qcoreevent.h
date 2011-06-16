@@ -288,6 +288,9 @@ public:
         Gesture = 198,
         GestureOverride = 202,
 #endif
+        EnterModal = 250,	// added by kingsoft temp code will rollbacked by shell3 --by jinchizhong
+        LeaveModal = 251,	// added by kingsoft temp code will rollbacked by shell3 --by jinchizhong
+
         // 512 reserved for Qt Jambi's MetaCall event
         // 513 reserved for Qt Jambi's DeleteOnMainThread event
 
