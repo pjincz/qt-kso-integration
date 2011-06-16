@@ -411,7 +411,8 @@ public:
     inline void drawText(int x, int y, int w, int h, int flags, const QString &text, QRect *br=0);
 
     void drawText(const QRectF &r, const QString &text, const QTextOption &o = QTextOption());
-
+    void drawText(const QPointF &p, const QString &str, unsigned int flags, const QRectF &rectangle, const QVector<qreal> &advanceWidths);
+    void drawText(const QPointF &p, const QVector<quint32> &glyphIndices, unsigned int flags, const QRectF &rectangle, const QVector<qreal> &advanceWidths);
     QRectF boundingRect(const QRectF &rect, int flags, const QString &text);
     QRect boundingRect(const QRect &rect, int flags, const QString &text);
     inline QRect boundingRect(int x, int y, int w, int h, int flags, const QString &text);

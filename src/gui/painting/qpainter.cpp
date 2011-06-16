@@ -5948,6 +5948,89 @@ void QPainter::drawStaticText(const QPointF &topLeftPosition, const QStaticText 
         d->state->matrix = oldMatrix;
 }
 
+void QPainter::drawText(const QPointF &p, const QVector<quint32> &glyphIndices, unsigned int flags, const QRectF &rectangle, const QVector<qreal> &advanceWidths)
+{
+    Q_UNUSED(rectangle)
+    Q_UNUSED(flags)
+#ifdef QT_DEBUG_DRAW
+    if (qt_show_painter_debug_output)
+        printf("QPainter::drawText(), pos=[%.2f,%.2f], str='%s'\n", p.x(), p.y(), str.toLatin1().constData());
+#endif
+
+    Q_D(QPainter);
+
+    if (!d->engine || glyphIndices.isEmpty() || pen().style() == Qt::NoPen)
+        return;
+
+    if (advanceWidths.size() < glyphIndices.size())
+        return;
+
+    // Skip harfbuzz complex shaping, shape using glyph advances only
+    int len = glyphIndices.size();
+    QVarLengthGlyphLayoutArray glyphs(len);
+    QFontEngine *fontEngine = d->state->font.d->engineForScript(QUnicodeTables::Common);
+
+    QFixed width = QFixed::fromReal(0.0);
+    for (int i = 0; i < len; ++i) {
+        glyphs.glyphs[i] = glyphIndices[i];
+        glyphs.advances_x[i] = QFixed::fromReal(advanceWidths[i]);
+        width = width + glyphs.advances_x[i];
+    }
+
+    QString str;
+    str.resize(len);
+    QTextItemInt gf(glyphs, &d->state->font, str.data(), len, fontEngine);
+    if (gf.f->underline())
+        gf.underlineStyle = QTextCharFormat::SingleUnderline;
+    gf.flags |= QTextItem::DrawGlyphs;
+    gf.flags |= QTextItem::CustomAdvanceWidths;
+    gf.width = width;
+    drawTextItem(p, gf);
+}
+
+
+void QPainter::drawText(const QPointF &p, const QString &str,unsigned int flags,const QRectF &rectangle,const QVector<qreal> &advanceWidths)
+{
+    Q_UNUSED(rectangle)
+        Q_UNUSED(flags)
+#ifdef QT_DEBUG_DRAW
+        if (qt_show_painter_debug_output)
+            printf("QPainter::drawText(), pos=[%.2f,%.2f], str='%s'\n", p.x(), p.y(), str.toLatin1().constData());
+#endif
+
+    Q_D(QPainter);
+
+    if (!d->engine || str.isEmpty() || pen().style() == Qt::NoPen)
+        return;
+    if (advanceWidths.size() < str.length())
+        return;
+
+    // Skip harfbuzz complex shaping, shape using glyph advances only
+    int len = str.length();
+    int numGlyphs = len;
+    QVarLengthGlyphLayoutArray glyphs(len);
+    QFontEngine *fontEngine = d->state->font.d->engineForScript(QUnicodeTables::Common);
+    if (!fontEngine->stringToCMap(str.data(), len, &glyphs, &numGlyphs, 0)) {
+        glyphs.resize(numGlyphs);
+        if (!fontEngine->stringToCMap(str.data(), len, &glyphs, &numGlyphs, 0))
+            Q_ASSERT_X(false, Q_FUNC_INFO, "stringToCMap shouldn't fail twice");
+    }
+
+    QFixed width = QFixed::fromReal(0.0);
+    for (int i = 0; i < len; ++i) {
+        glyphs.advances_x[i] = QFixed::fromReal(advanceWidths[i]);
+        width = width + glyphs.advances_x[i];
+    }
+
+    QTextItemInt gf(glyphs, &d->state->font, str.data(), len, fontEngine);
+    if (gf.f->underline())
+    {
+        gf.underlineStyle = QTextCharFormat::SingleUnderline;
+    }
+    gf.flags |= QTextItem::CustomAdvanceWidths;
+    gf.width = width;
+    drawTextItem(p, gf);
+}
 /*!
    \internal
 */
@@ -7863,6 +7946,26 @@ void qt_painter_removePaintDevice(QPaintDevice *dev)
                 ++i;
         }
     }
+}
+
+// invoke by QPicture::exec
+void qt_format_text(const QFont &fnt, const QPointF &point, const QVector<qreal> &advanceWidths,
+                    const QVector<uint> &glyphIndices, QPainter *painter)
+{
+    QFont font = painter->font();
+    painter->setFont(fnt);
+    painter->drawText(point, glyphIndices, 0, QRectF(), advanceWidths);
+    painter->setFont(font);
+}
+
+// invoke by QPicture::exec
+void qt_format_text(const QFont &fnt, const QPointF &point, const QString &str, const QVector<qreal> &advanceWidths,
+                    QPainter *painter)
+{
+    QFont font = painter->font();
+    painter->setFont(fnt);
+    painter->drawText(point, str, 0, QRectF(), advanceWidths);
+    painter->setFont(font);	
 }
 
 void qt_format_text(const QFont &fnt, const QRectF &_r,
