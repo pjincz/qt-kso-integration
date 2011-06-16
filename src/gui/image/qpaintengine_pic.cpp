@@ -503,6 +503,23 @@ void QPicturePaintEngine::drawTextItem(const QPointF &p , const QTextItem &ti)
             justificationWidth = si.width.toReal();
 
         d->s << p << ti.text() << fnt << ti.renderFlags() << double(fnt.d->dpi)/qt_defaultDpi() << justificationWidth;
+
+        if ((ti.renderFlags() & QTextItem::CustomAdvanceWidths)) {
+            // ensure that we write doubles here instead of streaming a QVector<qreal>
+            // directly; otherwise, platforms that redefine qreal might generate
+            // data that cannot be read on other platforms.
+            d->s << quint32(si.glyphs.numGlyphs);
+            for (int i = 0; i < si.glyphs.numGlyphs; ++i)
+                d->s << double(si.glyphs.advances_x[i].toReal());	
+        }
+
+        if (ti.renderFlags() & QTextItem::DrawGlyphs) {
+            d->s << quint32(si.glyphs.numGlyphs);
+            for (int i = 0; i < si.glyphs.numGlyphs; ++i) {
+                d->s << uint(si.glyphs.glyphs[i]);
+            }
+        }
+
         writeCmdLength(pos, /*brect=*/QRectF(), /*corr=*/false);
     } else if (d->pic_d->formatMajor >= 8) {
         // old old (buggy) format

@@ -375,7 +375,10 @@ void QWin32PrintEngine::drawTextItem(const QPointF &p, const QTextItem &textItem
             convertToText = false;
             break;
         }
-
+        if (ti.logClusters == NULL) {
+            convertToText = false;
+            break;
+        } 
         if (ti.logClusters[i] != i) {
             convertToText = false;
             break;
