@@ -72,6 +72,8 @@ public:
         Overline = 0x10,
         Underline = 0x20,
         StrikeOut = 0x40,
+        CustomAdvanceWidths = 0x80,
+        DrawGlyphs = 0x100,
 
         Dummy = 0xffffffff
     };

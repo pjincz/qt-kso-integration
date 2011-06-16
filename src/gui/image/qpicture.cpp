@@ -64,6 +64,13 @@ void qt_format_text(const QFont &fnt, const QRectF &_r,
                     int tabstops, int *, int tabarraylen,
                     QPainter *painter);
 
+void qt_format_text(const QFont &fnt, const QPointF &point, 
+                    const QString &str, const QVector<qreal> &advanceWidths, 
+                    QPainter *painter);
+
+void qt_format_text(const QFont &fnt, const QPointF &point, 
+                    const QVector<qreal> &advanceWidths, const QVector<uint> &glyphIndices, 
+                    QPainter *painter);
 /*!
     \class QPicture
     \brief The QPicture class is a paint device that records and
@@ -701,8 +708,39 @@ bool QPicture::exec(QPainter *painter, QDataStream &s, int nrecords)
 
                 QFontMetrics fm(fnt);
                 QPointF pt(p.x(), p.y() - fm.ascent());
-                qt_format_text(fnt, QRectF(pt, size), flags, /*opt*/0,
-                               str, /*brect=*/0, /*tabstops=*/0, /*...*/0, /*tabarraylen=*/0, painter);
+				
+                QVector<qreal> advanceDist;
+                if (ul & QTextItem::CustomAdvanceWidths) {
+                    quint32 numAdvanceDist;
+                    s >> numAdvanceDist;
+                    double dist;
+                    for (quint32 i = 0; i < numAdvanceDist; ++i) {
+                        s >> dist;
+                        advanceDist << dist;
+                    }
+                }
+
+                QVector<uint> glyphIndices;
+                if (ul & QTextItem::DrawGlyphs) {
+                    quint32 numGlyphIndex;
+                    uint index;
+                    s >> numGlyphIndex;
+                    for (quint32 i = 0; i < numGlyphIndex; ++i) {
+                        s >> index;
+                        glyphIndices << index;
+                    }
+                }
+
+                if (glyphIndices.isEmpty()) {
+                    if (advanceDist.isEmpty()) {
+                        qt_format_text(fnt, QRectF(pt, size), flags, /*opt*/0,
+                                       str, /*brect=*/0, /*tabstops=*/0, /*...*/0, /*tabarraylen=*/0, painter);
+                    } else {
+                        qt_format_text(fnt, p, str, advanceDist, painter);
+                    }
+                } else {
+                    qt_format_text(fnt, p, advanceDist, glyphIndices, painter);
+                }
             } else {
                 qt_format_text(font, QRectF(p, QSizeF(1, 1)), Qt::TextSingleLine | Qt::TextDontClip, /*opt*/0,
                                str, /*brect=*/0, /*tabstops=*/0, /*...*/0, /*tabarraylen=*/0, painter);
