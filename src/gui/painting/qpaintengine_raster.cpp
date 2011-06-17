@@ -3383,7 +3383,8 @@ void QRasterPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textIte
         QTransform matrix = s->matrix;
         matrix.translate(p.x(), p.y());
 
-        ti.fontEngine->getGlyphPositions(ti.glyphs, matrix, ti.flags, glyphs, positions);
+        ti.fontEngine->getGlyphPositions(
+            ti.glyphs, ti.fontEngine->applyTextRotation(matrix), ti.flags, glyphs, positions);
 
         drawCachedGlyphs(glyphs.size(), glyphs.constData(), positions.constData(), ti.fontEngine);
         return;
