@@ -173,6 +173,7 @@ public:
 #endif
     virtual void addGlyphsToPath(glyph_t *glyphs, QFixedPoint *positions, int nglyphs,
                                  QPainterPath *path, QTextItem::RenderFlags flags);
+    QTransform applyTextRotation(const QTransform &matrix);
     void getGlyphPositions(const QGlyphLayout &glyphs, const QTransform &matrix, QTextItem::RenderFlags flags,
                            QVarLengthArray<glyph_t> &glyphs_out, QVarLengthArray<QFixedPoint> &positions);
 

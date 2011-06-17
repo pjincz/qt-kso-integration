@@ -139,6 +139,8 @@ bool QFontDef::exactMatch(const QFontDef &other) const
             && styleStrategy == other.styleStrategy
             && weight        == other.weight
             && style        == other.style
+            && escapementAngle == other.escapementAngle
+            && verticalMetrics == other.verticalMetrics
             && this_family   == other_family
             && (this_foundry.isEmpty()
                 || other_foundry.isEmpty()
@@ -374,6 +376,12 @@ void QFontPrivate::resolve(uint mask, const QFontPrivate *other)
         wordSpacing = other->wordSpacing;
     if (! (mask & QFont::CapitalizationResolved))
         capital = other->capital;
+
+    if (! (mask & QFont::VerticalMetricsResolved))
+        request.verticalMetrics = other->request.verticalMetrics;
+
+    if (! (mask & QFont::EscapementAngleResolved))
+        request.escapementAngle = other->request.escapementAngle;
 }
 
 
@@ -587,6 +595,8 @@ QFontEngineData::~QFontEngineData()
     \value LetterSpacingResolved
     \value WordSpacingResolved
     \value CompletelyResolved
+    \value VerticalMetricsResolved
+    \value EscapementAngleResolved
 */
 
 /*!
@@ -1570,6 +1580,35 @@ QFont::Capitalization QFont::capitalization() const
     return static_cast<QFont::Capitalization> (d->capital);
 }
 
+bool QFont::verticalMetrics() const
+{
+    return d->request.verticalMetrics;
+}
+void QFont::setVerticalMetrics(bool enable)
+{
+    if ((resolve_mask & VerticalMetricsResolved) &&
+        verticalMetrics() == enable) {
+            return;
+    }
+
+    d->request.verticalMetrics = enable;
+    resolve_mask |= VerticalMetricsResolved;
+}
+
+qreal QFont::escapementAngle() const
+{
+    return d->request.escapementAngle;
+}
+
+void QFont::setEscapementAngle(qreal degree)
+{
+    if ((resolve_mask & EscapementAngleResolved) &&
+        qFuzzyCompare(escapementAngle(), degree)) {
+            return;
+    } 
+    d->request.escapementAngle = degree;
+    resolve_mask |= EscapementAngleResolved;
+}
 
 /*!
     If \a enable is true, turns raw mode on; otherwise turns raw mode
@@ -1658,6 +1697,8 @@ bool QFont::operator<(const QFont &f) const
     QFontDef &r2 = d->request;
     if (r1.pointSize != r2.pointSize) return r1.pointSize < r2.pointSize;
     if (r1.pixelSize != r2.pixelSize) return r1.pixelSize < r2.pixelSize;
+    if (r1.escapementAngle != r2.escapementAngle) return r1.escapementAngle < r2.escapementAngle;
+    if (r1.verticalMetrics != r2.verticalMetrics) return r1.verticalMetrics < r2.verticalMetrics;
     if (r1.weight != r2.weight) return r1.weight < r2.weight;
     if (r1.style != r2.style) return r1.style < r2.style;
     if (r1.stretch != r2.stretch) return r1.stretch < r2.stretch;
@@ -2202,6 +2243,10 @@ QDataStream &operator<<(QDataStream &s, const QFont &font)
         s << font.d->letterSpacing.value();
         s << font.d->wordSpacing.value();
     }
+    if (s.version() >= QDataStream::Qt_4_7) {
+        s << font.d->request.escapementAngle;
+        s << static_cast<bool>(font.d->request.verticalMetrics);
+    }
     return s;
 }
 
@@ -2277,7 +2322,14 @@ QDataStream &operator>>(QDataStream &s, QFont &font)
         s >> value;
         font.d->wordSpacing.setValue(value);
     }
-
+    if (s.version() >= QDataStream::Qt_4_7) {
+        qreal escepement = 0;
+        s >> escepement;
+        font.d->request.escapementAngle = escepement;
+        bool vertical = false;
+        s >> vertical;
+        font.d->request.verticalMetrics = vertical;
+    }
     return s;
 }
 

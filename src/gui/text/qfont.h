@@ -133,22 +133,24 @@ public:
     };
 
     enum ResolveProperties {
-        FamilyResolved         = 0x0001,
-        SizeResolved           = 0x0002,
-        StyleHintResolved      = 0x0004,
-        StyleStrategyResolved  = 0x0008,
-        WeightResolved         = 0x0010,
-        StyleResolved          = 0x0020,
-        UnderlineResolved      = 0x0040,
-        OverlineResolved       = 0x0080,
-        StrikeOutResolved      = 0x0100,
-        FixedPitchResolved     = 0x0200,
-        StretchResolved        = 0x0400,
-        KerningResolved        = 0x0800,
-        CapitalizationResolved = 0x1000,
-        LetterSpacingResolved  = 0x2000,
-        WordSpacingResolved    = 0x4000,
-        AllPropertiesResolved  = 0x7fff
+        FamilyResolved          = 0x00001,
+        SizeResolved            = 0x00002,
+        StyleHintResolved       = 0x00004,
+        StyleStrategyResolved   = 0x00008,
+        WeightResolved          = 0x00010,
+        StyleResolved           = 0x00020,
+        UnderlineResolved       = 0x00040,
+        OverlineResolved        = 0x00080,
+        StrikeOutResolved       = 0x00100,
+        FixedPitchResolved      = 0x00200,
+        StretchResolved         = 0x00400,
+        KerningResolved         = 0x00800,
+        CapitalizationResolved  = 0x01000,
+        LetterSpacingResolved   = 0x02000,
+        WordSpacingResolved     = 0x04000,
+        VerticalMetricsResolved = 0x08000,
+        EscapementAngleResolved = 0x10000,
+        AllPropertiesResolved   = 0x1ffff
     };
 
     QFont();
@@ -212,6 +214,12 @@ public:
 
     void setCapitalization(Capitalization);
     Capitalization capitalization() const;
+
+    bool verticalMetrics() const;
+    void setVerticalMetrics(bool);
+
+    qreal escapementAngle() const;
+    void setEscapementAngle(qreal degree);
 
     // is raw mode still needed?
     bool rawMode() const;
