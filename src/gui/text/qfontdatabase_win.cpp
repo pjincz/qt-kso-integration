@@ -683,8 +683,14 @@ QFontEngine *loadEngine(int script, const QFontPrivate *fp, const QFontDef &requ
 
         lf.lfHeight = -qRound(request.pixelSize);
         lf.lfWidth                = 0;
-        lf.lfEscapement        = 0;
-        lf.lfOrientation        = 0;
+        if (qFuzzyIsNull(request.escapementAngle)) {
+            lf.lfEscapement = 0;
+            lf.lfOrientation = 0;
+        } else {
+            lf.lfEscapement = -request.escapementAngle * 10;
+            lf.lfOrientation = lf.lfEscapement;
+        }
+
         if (desc->style->key.weight == 50)
             lf.lfWeight = FW_DONTCARE;
         else
@@ -744,7 +750,13 @@ QFontEngine *loadEngine(int script, const QFontPrivate *fp, const QFontDef &requ
         if (fam == QLatin1String("Courier") && !(request.styleStrategy & QFont::PreferBitmap))
             fam = QLatin1String("Courier New");
 
-        memcpy(lf.lfFaceName, fam.utf16(), sizeof(wchar_t) * qMin(fam.length() + 1, 32));  // 32 = Windows hard-coded
+        if (request.verticalMetrics) {
+            lf.lfFaceName[0] = '@';
+            memcpy(lf.lfFaceName+1, fam.utf16(), sizeof(wchar_t) * qMin(fam.length() + 1, 32-1));  // 32 = Windows hard-coded
+        } else {
+            memcpy(lf.lfFaceName, fam.utf16(), sizeof(wchar_t) * qMin(fam.length() + 1, 32));  // 32 = Windows hard-coded
+        }
+
         hfont = CreateFontIndirect(&lf);
         if (!hfont)
             qErrnoWarning("QFontEngine::loadEngine: CreateFontIndirect failed");

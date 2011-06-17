@@ -70,12 +70,14 @@ struct QFontDef
 {
     inline QFontDef()
         : pointSize(-1.0), pixelSize(-1),
+          escapementAngle(0.0),
           styleStrategy(QFont::PreferDefault), styleHint(QFont::AnyStyle),
           weight(50), fixedPitch(false), style(QFont::StyleNormal), stretch(100),
           ignorePitch(true)
 #ifdef Q_WS_MAC
           ,fixedPitchComputed(false)
 #endif
+        , verticalMetrics(false)
     {
     }
 
@@ -87,6 +89,7 @@ struct QFontDef
 
     qreal pointSize;
     qreal pixelSize;
+    qreal escapementAngle;
 
     uint styleStrategy : 16;
     uint styleHint     : 8;
@@ -98,18 +101,21 @@ struct QFontDef
 
     uint ignorePitch : 1;
     uint fixedPitchComputed : 1; // for Mac OS X only
-    int reserved   : 16; // for future extensions
+    uint verticalMetrics : 1;
+    int reserved   : 15; // for future extensions
 
     bool exactMatch(const QFontDef &other) const;
     bool operator==(const QFontDef &other) const
     {
         return pixelSize == other.pixelSize
+                    && escapementAngle == other.escapementAngle
                     && weight == other.weight
                     && style == other.style
                     && stretch == other.stretch
                     && styleHint == other.styleHint
                     && styleStrategy == other.styleStrategy
                     && ignorePitch == other.ignorePitch && fixedPitch == other.fixedPitch
+                    && verticalMetrics ==  other.verticalMetrics
                     && family == other.family
 #ifdef Q_WS_X11
                     && addStyle == other.addStyle
@@ -119,6 +125,7 @@ struct QFontDef
     inline bool operator<(const QFontDef &other) const
     {
         if (pixelSize != other.pixelSize) return pixelSize < other.pixelSize;
+        if (escapementAngle != other.escapementAngle) return escapementAngle < other.escapementAngle;
         if (weight != other.weight) return weight < other.weight;
         if (style != other.style) return style < other.style;
         if (stretch != other.stretch) return stretch < other.stretch;
@@ -132,6 +139,7 @@ struct QFontDef
 
         if (ignorePitch != other.ignorePitch) return ignorePitch < other.ignorePitch;
         if (fixedPitch != other.fixedPitch) return fixedPitch < other.fixedPitch;
+        if (verticalMetrics != other.verticalMetrics) return verticalMetrics < other.verticalMetrics;
         return false;
     }
 };

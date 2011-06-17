@@ -1944,7 +1944,7 @@ void QPdfBaseEnginePrivate::drawTextItem(const QPointF &p, const QTextItemInt &t
 
     QVarLengthArray<glyph_t> glyphs;
     QVarLengthArray<QFixedPoint> positions;
-    QTransform m = QTransform::fromTranslate(p.x(), p.y());
+    QTransform m = ti.fontEngine->applyTextRotation(QTransform::fromTranslate(p.x(), p.y()));
     ti.fontEngine->getGlyphPositions(ti.glyphs, m, ti.flags,
                                      glyphs, positions);
     if (glyphs.size() == 0)
