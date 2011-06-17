@@ -2680,7 +2680,7 @@ void QApplicationPrivate::enterModal_sys(QWidget *widget)
 
 void QApplicationPrivate::leaveModal_sys(QWidget *widget)
 {
-    if (qt_modal_stack && qt_modal_stack->removeAll(widget)) {
+    if (qt_modal_stack && qt_modal_stack->removeOne(widget)) {
         if (qt_modal_stack->isEmpty()) {
             delete qt_modal_stack;
             qt_modal_stack = 0;

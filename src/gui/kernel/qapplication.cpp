@@ -3009,8 +3009,8 @@ void QApplicationPrivate::enterModal(QWidget *widget)
  */
 void QApplicationPrivate::leaveModal(QWidget *widget)
 {
-    QModalEvent me(QEvent::LeaveModal, widget);
-    QCoreApplication::sendEvent(qApp, &me);
+    if (!qt_modal_stack || !qt_modal_stack->contains(widget))
+        return;
  
     QSet<QWidget*> blocked;
     QList<QWidget*> windows = QApplication::topLevelWidgets();
@@ -3029,6 +3029,9 @@ void QApplicationPrivate::leaveModal(QWidget *widget)
         if(blocked.contains(window) && window->windowType() != Qt::Tool && !isBlockedByModal(window))
             QApplication::sendEvent(window, &e);
     }
+
+    QModalEvent me(QEvent::LeaveModal, widget);
+    QCoreApplication::sendEvent(qApp, &me);
 }
 
 
