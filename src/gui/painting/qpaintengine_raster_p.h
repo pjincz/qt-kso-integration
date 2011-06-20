@@ -90,6 +90,8 @@ public:
     QBrush lastBrush;
     QSpanData brushData;
     uint fillFlags;
+    //for texture brush
+    QRectF lastRect;
 
     uint pixmapFlags;
     int intOpacity;
@@ -161,7 +163,7 @@ public:
         return static_cast<const QRasterPaintEngineState *>(QPaintEngineEx::state());
     }
 
-    void updateBrush(const QBrush &brush);
+    void updateBrush(const QBrush &brush, const QRectF &rc = QRectF());
     void updatePen(const QPen &pen);
 
     void updateMatrix(const QTransform &matrix);
@@ -268,11 +270,13 @@ private:
 
     bool setClipRectInDeviceCoords(const QRect &r, Qt::ClipOperation op);
 
-    inline void ensureBrush(const QBrush &brush) {
-        if (!qbrush_fast_equals(state()->lastBrush, brush) || (brush.style() != Qt::NoBrush && state()->fillFlags))
-            updateBrush(brush);
+    inline void ensureBrush(const QBrush &brush, const QRectF &rc = QRectF()) {
+        if (!qbrush_fast_equals(state()->lastBrush, brush) 
+            || (brush.style() != Qt::NoBrush && state()->fillFlags)
+            || rc != state()->lastRect)
+            updateBrush(brush, rc);
     }
-    inline void ensureBrush() { ensureBrush(state()->brush); }
+    inline void ensureBrush(const QRectF &rc = QRectF()) { ensureBrush(state()->brush, rc); }
 
     inline void ensurePen(const QPen &pen) {
         if (!qpen_fast_equals(state()->lastPen, pen) || (pen.style() != Qt::NoPen && state()->strokeFlags))

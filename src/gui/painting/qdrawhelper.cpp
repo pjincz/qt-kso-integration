@@ -562,6 +562,51 @@ qt_fetchUntransformed<QImage::Format_ARGB32_Premultiplied>(uint *, const Operato
     return ((const uint *)scanLine) + x;
 }
 
+struct QTextureExpander
+{
+    QTextureExpander(qreal l, qreal r, qreal t, qreal b, int w, int h)
+    {
+        memset(this, 0, sizeof(*this));
+        width = w;
+        height = h;
+
+        if (l <= 0)
+            left = true;
+        if (r <= 0)
+            right = true;
+        if (t <= 0)
+            top = true;
+        if (b <= 0)
+            bottom = true;
+
+        if (qFuzzyIsNull(l + r -1) || qFuzzyIsNull(t + b -1))
+            bEmpty = true;
+    }
+
+    void handle(int &x, int &y) const
+    {
+        if (left && x < 0)
+            x = 0;
+        else if (right && x >= width)
+            x = width - 1;
+
+        if (top && y < 0)
+            y = 0;
+        else if (bottom && y >= height)
+            y = height - 1;
+    }
+
+    inline bool isEmpty() const {return bEmpty;}
+
+    bool bEmpty;
+    bool left;
+    bool right;
+    bool top;
+    bool bottom;
+    int width;
+    int height;
+};
+
 template<TextureBlendType blendType>  /* either BlendTransformed or BlendTransformedTiled */
 Q_STATIC_TEMPLATE_FUNCTION
 const uint * QT_FASTCALL fetchTransformed(uint *buffer, const Operator *, const QSpanData *data,
@@ -571,6 +616,18 @@ const uint * QT_FASTCALL fetchTransformed(uint *buffer, const Operator *, const 
 
     int image_width = data->texture.width;
     int image_height = data->texture.height;
+
+    QTextureExpander expander(data->texture.offsetLeft, 
+                                data->texture.offsetRight,
+                                data->texture.offsetTop,
+                                data->texture.offsetBottom,
+                                image_width,
+                                image_height);
+    if (blendType == BlendTransformed && expander.isEmpty())
+    {
+        memset(buffer, 0, sizeof(uint) * length);
+        return buffer;
+    }
 
     const qreal cx = x + 0.5;
     const qreal cy = y + 0.5;
@@ -600,6 +657,8 @@ const uint * QT_FASTCALL fetchTransformed(uint *buffer, const Operator *, const 
                 const uchar *scanLine = data->texture.scanLine(py);
                 *b = fetch(scanLine, px, data->texture.colorTable);
             } else {
+                expander.handle(px, py);
+
                 if ((px < 0) || (px >= image_width)
                     || (py < 0) || (py >= image_height)) {
                     *b = uint(0);
@@ -637,6 +696,8 @@ const uint * QT_FASTCALL fetchTransformed(uint *buffer, const Operator *, const 
                 const uchar *scanLine = data->texture.scanLine(py);
                 *b = fetch(scanLine, px, data->texture.colorTable);
             } else {
+                expander.handle(px, py);
+
                 if ((px < 0) || (px >= image_width)
                     || (py < 0) || (py >= image_height)) {
                     *b = uint(0);
@@ -6054,6 +6115,13 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTransformed(int count, const QSpan *spans, 
     const int image_width = data->texture.width;
     const int image_height = data->texture.height;
 
+    QTextureExpander expander(data->texture.offsetLeft, 
+                                data->texture.offsetRight,
+                                data->texture.offsetTop,
+                                data->texture.offsetBottom,
+                                image_width,
+                                image_height);
+
     if (data->fast_matrix) {
         // The increment pr x in the scanline
         const int fdx = (int)(data->m11 * fixed_scale);
@@ -6081,9 +6149,15 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTransformed(int count, const QSpan *spans, 
 
                 const SRC *end = buffer + l;
                 SRC *b = buffer;
+                if (expander.isEmpty()) {
+                    memset(buffer, 0, sizeof(SRC) * l);
+                    b = buffer + l;
+                }
                 while (b < end) {
-                    const int px = (x >> 16);
-                    const int py = (y >> 16);
+                    int px = (x >> 16);
+                    int py = (y >> 16);
+
+                    expander.handle(px, py);
 
                     if ((px < 0) || (px >= image_width) ||
                         (py < 0) || (py >= image_height))
@@ -6143,13 +6217,19 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTransformed(int count, const QSpan *spans, 
                 const int l = qMin(length, buffer_size);
                 const SRC *end = buffer + l;
                 SRC *b = buffer;
+                if (expander.isEmpty()) {
+                    memset(buffer, 0, sizeof(SRC) * l);
+                    b = buffer + l;
+                }
                 while (b < end) {
                     const qreal iw = w == 0 ? 1 : 1 / w;
                     const qreal tx = x * iw;
                     const qreal ty = y * iw;
 
-                    const int px = int(tx) - (tx < 0);
-                    const int py = int(ty) - (ty < 0);
+                    int px = int(tx) - (tx < 0);
+                    int py = int(ty) - (ty < 0);
+
+                    expander.handle(px, py);
 
                     if ((px < 0) || (px >= image_width) ||
                         (py < 0) || (py >= image_height))

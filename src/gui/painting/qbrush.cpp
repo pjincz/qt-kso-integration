@@ -174,7 +174,10 @@ struct QTexturedBrushData : public QBrushData
     QTexturedBrushData() {
         m_has_pixmap_texture = false;
         m_pixmap = 0;
+        m_wrapMode = Qt::TextureTiling;
+        initTilingData();
     }
+
     ~QTexturedBrushData() {
         delete m_pixmap;
     }
@@ -213,9 +216,88 @@ struct QTexturedBrushData : public QBrushData
         return m_image;
     }
 
+    Qt::TextureWrapMode textureWrapMode() const{
+        return m_wrapMode;
+    }
+
+    void setTextureWrapMode(Qt::TextureWrapMode wrapMode){
+        if (m_wrapMode == wrapMode)
+            return;
+        
+        if (wrapMode == Qt::TextureStretching)
+            initStretchingData();
+        else if (m_wrapMode == Qt::TextureStretching)
+            initTilingData();
+
+        m_wrapMode = wrapMode;
+    }
+
+    Qt::TextureAlignment textureAlignment() const {
+        return m_data.tile.alignment;
+    }
+
+    void setTextureAlignment(Qt::TextureAlignment alignment){
+        m_data.tile.alignment = alignment;
+    }
+
+    void getTextureOffset(qreal &offsetX, qreal &offsetY) const{
+        offsetX = m_data.tile.offsetX;
+        offsetY = m_data.tile.offsetY;
+    }
+    void setTextureOffset(qreal offsetX, qreal offsetY){
+        m_data.tile.offsetX = offsetX;
+        m_data.tile.offsetY = offsetY;
+    }
+
+    void getTextureScale(qreal &scaleX, qreal &scaleY) const{
+        scaleX = m_data.tile.scaleX;
+        scaleY = m_data.tile.scaleY;
+    }
+    void setTextureScale(qreal scaleX, qreal scaleY){
+        m_data.tile.scaleX = scaleX;
+        m_data.tile.scaleY = scaleY;
+    }
+
+    //for TexturePattern brush with TextureWrapMode == TextureWrapModeExpand
+    void getTextureStretchingOffset(qreal &left, qreal &right, qreal &top, qreal &bottom) const{
+        left = m_data.expand.l;
+        right = m_data.expand.r;
+        top = m_data.expand.t;
+        bottom = m_data.expand.b;
+    }
+
+    void setTextureStretchingOffset(qreal left = 0, qreal right = 0, qreal top = 0, qreal bottom = 0){
+        m_data.expand.l = left;
+        m_data.expand.r = right;
+        m_data.expand.t = top;
+        m_data.expand.b = bottom;
+    }
+
+    void initTilingData(){
+        m_data.tile.alignment = Qt::TextureAlignmentNone;
+        m_data.tile.offsetX = m_data.tile.offsetY = 0;
+        m_data.tile.scaleX = m_data.tile.scaleY = 1.0;
+    }
+
+    void initStretchingData(){
+        m_data.expand.l = m_data.expand.r = m_data.expand.t = m_data.expand.b = 0;
+    }
+
     QPixmap *m_pixmap;
     QImage m_image;
     bool m_has_pixmap_texture;
+    Qt::TextureWrapMode m_wrapMode;
+
+    union {
+        struct {
+            Qt::TextureAlignment alignment;
+            qreal offsetX, offsetY;
+            qreal scaleX, scaleY;
+        } tile;
+        struct {
+            qreal l, r, t, b;
+        } expand;
+    } m_data;
 };
 
 // returns true if the brush has a pixmap (or bitmap) set as the
@@ -600,6 +682,9 @@ void QBrush::detach(Qt::BrushStyle newStyle)
                 tbd->setPixmap(data->pixmap());
             else
                 tbd->setImage(data->image());
+
+            tbd->m_wrapMode = data->m_wrapMode;
+            memcpy(&(tbd->m_data), &(data->m_data), sizeof(tbd->m_data));
         }
         x.reset(tbd);
         break;
@@ -822,6 +907,234 @@ void QBrush::setTextureImage(const QImage &image)
     }
 }
 
+/*!
+    Returns the wrap mode of the texture brush
+    Note:the current brush's style must be TexturePattern
+
+    \sa textureImage(), setTexture(), setTextureAlignment(), setTextureOffset(),
+    setTextureScale()
+*/
+Qt::TextureWrapMode QBrush::textureWrapMode() const
+{
+    if (d->style != Qt::TexturePattern)
+    {
+        qWarning("Not a TexturePattern");
+        return Qt::TextureTiling;
+    }
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    return data->textureWrapMode();
+}
+
+/*!
+    Set the wrap mode of the texture brush
+    Note:the current brush's style must be TexturePattern
+
+    \sa textureImage(), setTexture(), setTextureAlignment(), setTextureOffset(), 
+    setTextureScale(), setTextureStretchingOffset()
+*/
+void QBrush::setTextureWrapMode(Qt::TextureWrapMode wrapMode)
+{
+    if (d->style != Qt::TexturePattern)
+    {
+        qWarning("Not a TexturePattern");
+        return;
+    }
+    if (textureWrapMode() == wrapMode)
+        return;
+    else
+        detach(Qt::TexturePattern);
+
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->setTextureWrapMode(wrapMode);
+}
+
+/*!
+    Returns the alignment mode of the texture brush
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must not be TextureWrapModeStretching.
+
+    \sa setTextureAlignment(), setTextureOffset(), setTextureScale()
+*/
+Qt::TextureAlignment QBrush::textureAlignment() const
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() > Qt::TextureNoTiling)
+    {
+        qWarning("Not a TexturePattern with tile mode");
+        return Qt::TextureAlignmentNone;
+    }
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    return data->textureAlignment();
+}
+
+/*!
+    Set the alignment mode of the texture brush
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must not be TextureWrapModeStretching. 
+
+    \sa textureAlignment(), setTextureOffset(), setTextureScale()
+*/
+void QBrush::setTextureAlignment(Qt::TextureAlignment alignment)
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() > Qt::TextureNoTiling)
+    {
+        qWarning("Not a TexturePattern with tile mode");
+        return;
+    }
+    if (textureAlignment() == alignment)
+        return;
+    else
+        detach(Qt::TexturePattern);
+
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->setTextureAlignment(alignment);
+}
+
+/*!
+    Returns the offset of the texture brush
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must not be TextureWrapModeStretching.
+
+    \sa setTextureAlignment(), setTextureOffset(), setTextureScale()
+*/
+void QBrush::getTextureOffset(qreal &offsetX, qreal &offsetY) const
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() > Qt::TextureNoTiling)
+    {
+        qWarning("Not a TexturePattern with tile mode");
+        return;
+    }
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->getTextureOffset(offsetX, offsetY);
+}
+
+/*!
+    Set the offset of the texture brush
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must not be TextureWrapModeStretching.
+    The brush's matrix will be changed.
+
+    \sa setTextureAlignment(), getTextureOffset(), setTextureScale()
+*/
+void QBrush::setTextureOffset(qreal offsetX, qreal offsetY)
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() > Qt::TextureNoTiling)
+    {
+        qWarning("Not a TexturePattern with tile mode");
+        return;
+    }
+
+    detach(Qt::TexturePattern);
+
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->setTextureOffset(offsetX, offsetY);
+}
+
+/*!
+    Returns the scale of the texture brush
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must not be TextureWrapModeStretching.
+
+    \sa setTextureAlignment(), setTextureOffset(), setTextureScale()
+*/
+void QBrush::getTextureScale(qreal &scaleX, qreal &scaleY) const
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() > Qt::TextureNoTiling)
+    {
+        qWarning("Not a TexturePattern with tile mode");
+        return;
+    }
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->getTextureScale(scaleX, scaleY);
+}
+
+/*!
+    Set the scale of the texture brush
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must not be TextureWrapModeStretching.
+    The brush's matrix will be changed.
+
+    \sa setTextureAlignment(), setTextureOffset(), setTextureScale()
+*/
+void QBrush::setTextureScale(qreal scaleX, qreal scaleY)
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() > Qt::TextureNoTiling)
+    {
+        qWarning("Not a TexturePattern with tile mode");
+        return;
+    }
+
+    detach(Qt::TexturePattern);
+
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->setTextureScale(scaleX, scaleY);
+}
+
+/*!
+    Set the texture brush to the expand mode and set the offset
+    Note:the current brush's style must be TexturePattern
+
+    \sa setTextureStretchingOffset()
+*/
+void QBrush::setTextureStretching(qreal left/* = 0*/, 
+                              qreal right/* = 0*/, 
+                              qreal top/* = 0*/, 
+                              qreal bottom/* = 0*/)
+{
+    if (d->style != Qt::TexturePattern)
+    {
+        qWarning("Not a TexturePattern");
+        return;
+    }
+
+    detach(Qt::TexturePattern);
+
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->setTextureWrapMode(Qt::TextureStretching);
+    data->setTextureStretchingOffset(left, right, top, bottom);
+}
+
+/*!
+    Returns the offset of the texture brush in four direction
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must be TextureWrapModeStretching.
+
+    \sa getTextureStretchingOffset()
+*/
+void QBrush::getTextureStretchingOffset(qreal &left, qreal &right, qreal &top, qreal &bottom) const
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() != Qt::TextureStretching)
+    {
+        qWarning("Not a TexturePattern with expand mode");
+        return;
+    }
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->getTextureStretchingOffset(left, right, top, bottom);
+}
+
+/*!
+    Returns the offset of the texture brush in four direction
+    Note:the current brush's style must be TexturePattern and the wrap mode 
+    must be TextureWrapModeStretching.
+    The brush's matrix will be changed.
+
+    \sa getTextureStretchingOffset()
+*/
+void QBrush::setTextureStretchingOffset(qreal left/* = 0*/,
+                                    qreal right/* = 0*/,
+                                    qreal top/* = 0*/, 
+                                    qreal bottom/* = 0*/)
+{
+    if (d->style != Qt::TexturePattern || textureWrapMode() != Qt::TextureStretching)
+    {
+        qWarning("Not a TexturePattern with expand mode");
+        return;
+    }
+
+    detach(Qt::TexturePattern);
+
+    QTexturedBrushData *data  = static_cast<QTexturedBrushData*>(d.data());
+    data->setTextureStretchingOffset(left, right, top, bottom);
+}
 
 /*!
     Returns the gradient describing this brush.
@@ -944,6 +1257,31 @@ bool QBrush::operator==(const QBrush &b) const
     switch (d->style) {
     case Qt::TexturePattern:
         {
+            if (textureWrapMode() != b.textureWrapMode())
+                return false;
+            if (textureWrapMode() == Qt::TextureStretching)
+            {
+                qreal l1, t1, r1, b1;
+                qreal l2, t2, r2, b2;
+                getTextureStretchingOffset(l1, r1, t1, b1);
+                b.getTextureStretchingOffset(l2, r2, t2, b2);
+                if (QRectF(l1, r1, t1, b1) != QRectF(l2, r2, t2, b2))
+                    return false;
+            } 
+            else
+            {
+                if (textureAlignment() != b.textureAlignment())
+                    return false;
+                qreal x1, y1, x2, y2;
+                getTextureOffset(x1, y1);
+                b.getTextureOffset(x2, y2);
+                if (x1 != x2 || y1 != y2)
+                    return false;
+                getTextureScale(x1, y1);
+                b.getTextureScale(x2, y2);
+                if (x1 != x2 || y1 != y2)
+                    return false; 
+            }
             const QPixmap &us = (static_cast<QTexturedBrushData *>(d.data()))->pixmap();
             const QPixmap &them = (static_cast<QTexturedBrushData *>(b.d.data()))->pixmap();
             return ((us.isNull() && them.isNull()) || us.cacheKey() == them.cacheKey());
@@ -1040,6 +1378,22 @@ QDataStream &operator<<(QDataStream &s, const QBrush &b)
     s << style << b.color();
     if (b.style() == Qt::TexturePattern) {
         s << b.texture();
+        s << quint8(b.textureWrapMode());
+        if (b.textureWrapMode() == Qt::TextureStretching)
+        {
+            qreal l, r, t, bo;
+            b.getTextureStretchingOffset(l, r, t, bo);
+            s << double(l) << double(r) << double(t) << double(bo);
+        } 
+        else
+        {
+            qreal dx, dy, sx, sy;
+            s << (quint8)b.textureAlignment();
+            b.getTextureOffset(dx, dy);
+            s << double(dx) << double(dy);
+            b.getTextureScale(sx, sy);
+            s << double(sx) << double(sy);
+        }
     } else if (s.version() >= QDataStream::Qt_4_0 && gradient_style) {
         const QGradient *gradient = b.gradient();
         int type_as_int = int(gradient->type());
@@ -1095,7 +1449,6 @@ QDataStream &operator<<(QDataStream &s, const QBrush &b)
 
     \sa {Serializing Qt Data Types}
 */
-
 QDataStream &operator>>(QDataStream &s, QBrush &b)
 {
     quint8 style;
@@ -1106,6 +1459,25 @@ QDataStream &operator>>(QDataStream &s, QBrush &b)
         QPixmap pm;
         s >> pm;
         b = QBrush(color, pm);
+        quint8 wm;
+        s >> wm;
+        b.setTextureWrapMode((Qt::TextureWrapMode)wm);
+        if (wm == Qt::TextureStretching)
+        {
+            double l, r, t, bo;
+            s >> l >> r >> t >> bo;
+            b.setTextureStretching(l, r, t, bo);
+        } 
+        else
+        {
+            quint8 alignment;
+            s >> alignment;
+            double dx, dy, sx, sy;
+            s >> dx >> dy >> sx >> sy;
+            b.setTextureAlignment(Qt::TextureAlignment(alignment));
+            b.setTextureOffset(dx, dy);
+            b.setTextureScale(sx, sy);
+        }
     } else if (style == Qt::LinearGradientPattern
                || style == Qt::RadialGradientPattern
                || style == Qt::ConicalGradientPattern 
