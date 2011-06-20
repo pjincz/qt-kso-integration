@@ -84,7 +84,6 @@ void QEmulationPaintEngine::fill(const QVectorPath &path, const QBrush &brush)
             real_engine->fill(path, s->bgBrush);
     }
 
-    Qt::BrushStyle style = qbrush_style(brush);
     if (qbrush_is_gradient(brush)) {
         const QGradient *g = brush.gradient();
 

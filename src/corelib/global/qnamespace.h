@@ -1182,6 +1182,29 @@ public:
 #endif
     };
 
+    // for TexturePattern
+    enum TextureWrapMode {
+        TextureTiling,
+        TextureFlippingX,
+        TextureFlippingY,
+        TextureFlippingXY,
+        TextureNoTiling,
+        TextureStretching
+    };
+
+    enum TextureAlignment{
+        TextureAlignmentNone,
+        TextureAlignmentTopLeft,
+        TextureAlignmentTop,
+        TextureAlignmentTopRight,
+        TextureAlignmentLeft,
+        TextureAlignmentCenter,
+        TextureAlignmentRight,
+        TextureAlignmentBottomLeft,
+        TextureAlignmentBottom,
+        TextureAlignmentBottomRight,
+    };
+
     enum SizeMode {
         AbsoluteSize,
         RelativeSize
