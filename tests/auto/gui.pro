@@ -187,6 +187,7 @@ SUBDIRS=\
     qtextscriptengine \
     qtextstream \
     qtexttable \
+    qtexturebrush \
     qtipc \
     qtoolbar \
     qtoolbox \

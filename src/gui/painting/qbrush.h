@@ -73,6 +73,7 @@ class QGradient;
 class QVariant;
 struct QBrushDataPointerDeleter;
 
+
 class Q_GUI_EXPORT QBrush
 {
 public:
@@ -108,6 +109,24 @@ public:
 
     QImage textureImage() const;
     void setTextureImage(const QImage &image);
+
+    //for TexturePattern brush
+    Qt::TextureWrapMode textureWrapMode() const;
+    void setTextureWrapMode(Qt::TextureWrapMode wrapMode);
+
+    Qt::TextureAlignment textureAlignment() const;
+    void setTextureAlignment(Qt::TextureAlignment alignment);
+
+    void getTextureOffset(qreal &offsetX, qreal &offsetY) const;
+    void setTextureOffset(qreal offsetX, qreal offsetY);
+
+    void getTextureScale(qreal &scaleX, qreal &scaleY) const;
+    void setTextureScale(qreal scaleX, qreal scaleY);
+
+    //for TexturePattern brush with TextureWrapMode == TextureWrapModeExpand
+    void setTextureStretching(qreal left = 0, qreal right = 0, qreal top = 0, qreal bottom = 0);
+    void getTextureStretchingOffset(qreal &left, qreal &right, qreal &top, qreal &bottom) const;
+    void setTextureStretchingOffset(qreal left = 0, qreal right = 0, qreal top = 0, qreal bottom = 0);
 
     inline const QColor &color() const;
     void setColor(const QColor &color);

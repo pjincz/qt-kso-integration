@@ -841,11 +841,140 @@ void QRasterPaintEngine::brushChanged()
 
 
 
+static QPointF qt_getRectPoint(const QRectF rc, Qt::TextureAlignment alignment)
+{
+    QPointF center = rc.center();
 
+    switch (alignment)
+    {
+    case Qt::TextureAlignmentNone:
+        return QPointF(0, 0);
+    case Qt::TextureAlignmentTopLeft:
+        return rc.topLeft();
+    case Qt::TextureAlignmentTop:
+        return QPointF(center.x(), rc.top());
+    case Qt::TextureAlignmentTopRight:
+        return rc.topRight();
+    case Qt::TextureAlignmentLeft:
+        return QPointF(rc.left(), center.y());
+    case Qt::TextureAlignmentCenter:
+        return center;
+    case Qt::TextureAlignmentRight:
+        return QPointF(rc.right(), center.y());
+    case Qt::TextureAlignmentBottomLeft:
+        return rc.bottomLeft();
+    case Qt::TextureAlignmentBottom:
+        return QPointF(center.x(), rc.bottom());
+    case Qt::TextureAlignmentBottomRight:
+        return rc.bottomRight();
+    default:
+        Q_ASSERT(false);
+        break;
+    }
+    return rc.topLeft();
+}
+
+static QMatrix qt_getAlignmentMatrix(const QRectF &textureRect,
+                                     const QRectF &boundingRect, 
+                                     Qt::TextureAlignment alignment = Qt::TextureAlignmentTopLeft,
+                                     qreal offsetX = 0,
+                                     qreal offsetY = 0,
+                                     qreal scaleX = 1,
+                                     qreal scaleY = 1)
+{
+    Q_ASSERT(textureRect.isValid() && boundingRect.isValid());
+
+    QMatrix mtx(scaleX, 0, 0, scaleY, 0, 0);
+    QPointF ptTexture = qt_getRectPoint(textureRect, alignment);
+    ptTexture = mtx.map(ptTexture);
+    QPointF ptBounding = qt_getRectPoint(boundingRect, alignment);
+    QPointF dpt = ptBounding - ptTexture;
+
+    return QMatrix(scaleX, 0, 0, scaleY, dpt.x() + offsetX, dpt.y() + offsetY);
+}
+
+static QMatrix qt_getTileBrushMatrix(const QBrush &brush, QRectF &boundingRect)
+{
+    Q_ASSERT(boundingRect.isValid());
+
+    Qt::TextureAlignment alignment = brush.textureAlignment();
+    qreal dx = 0, dy = 0;
+    qreal sx = 1, sy = 1;
+    brush.getTextureOffset(dx, dy);
+    brush.getTextureScale(sx, sy);
+    const QRectF &textureRect = brush.textureImage().rect();
+
+    return qt_getAlignmentMatrix(textureRect, boundingRect, alignment, dx, dy, sx, sy);
+}
+
+//TextureWrapModeStretching
+static QMatrix qt_getStretchingBrushMatrix(const QRectF &textureRect,
+                                        const QRectF &boundingRect, 
+                                        qreal left = 0,
+                                        qreal right = 0,
+                                        qreal top = 0,
+                                        qreal bottom = 0)
+{
+    right = 1 - right;
+    bottom = 1- bottom;
+
+    qreal absLeft = qMin(left, right);
+    qreal absRight = qMax(left, right);
+    qreal absTop = qMin(top, bottom);
+    qreal absBottom = qMax(top, bottom);
+
+    qreal sx = boundingRect.width() / textureRect.width() * (absRight - absLeft);
+    sx = left < right ? sx : -sx;
+    qreal sy = boundingRect.height() / textureRect.height() * (absBottom - absTop);
+    sy = top < bottom ? sy : -sy;
+
+    //if sx or sy is zero, the matrix is not invertible!
+    if (qFuzzyIsNull(sx) || qFuzzyIsNull(sy))
+        return QMatrix(1, 0, 0, 1, boundingRect.right(), boundingRect.bottom());
+
+    qreal dx = boundingRect.x() + boundingRect.width() * left;
+    qreal dy = boundingRect.y() + boundingRect.height() * top;
+
+    return QMatrix(sx, 0, 0, sy, dx, dy);
+}
+
+static bool qt_needBoundingRect(const QBrush &brush)
+{
+    return (brush.style() == Qt::TexturePattern 
+        && (brush.textureWrapMode() == Qt::TextureStretching 
+        || brush.textureAlignment() != Qt::TextureAlignmentNone));
+}
+
+static QMatrix qt_getAdjustMatrix(const QBrush &brush, const QRectF &rc)
+{    
+
+    if (!qt_needBoundingRect(brush)) {
+        return QMatrix(1, 0, 0, 1, 0, 0);
+    }else {
+        QRectF rcNormal = rc.normalized();
+        if (!rcNormal.isValid()){
+            qWarning("The bounding rect is not valid!");
+            return QMatrix(1, 0, 0, 1, 0, 0);
+        }
+
+        QRectF textureRect = brush.textureImage().rect();
+        textureRect = brush.matrix().mapRect(textureRect);
+        if (brush.textureWrapMode() == Qt::TextureStretching) {
+            qreal l, r, t, b;
+            brush.getTextureStretchingOffset(l, r, t, b);
+
+            return qt_getStretchingBrushMatrix(textureRect, rcNormal, l, r, t, b);            
+        } else {
+            Q_ASSERT(brush.textureAlignment() != Qt::TextureAlignmentNone);
+
+            return qt_getTileBrushMatrix(brush, rcNormal);
+        }
+    }
+}
 /*!
     \internal
 */
-void QRasterPaintEngine::updateBrush(const QBrush &brush)
+void QRasterPaintEngine::updateBrush(const QBrush &brush, const QRectF &rc/* = QRectF()*/)
 {
 #ifdef QT_DEBUG_DRAW
     qDebug() << "QRasterPaintEngine::updateBrush()" << brush;
@@ -855,12 +984,24 @@ void QRasterPaintEngine::updateBrush(const QBrush &brush)
     // must set clip prior to setup, as setup uses it...
     s->brushData.clip = d->clip();
     
-    if (s->fillFlags & DirtyTransform
-        || brush.transform().type() >= QTransform::TxNone)
-        d_func()->updateMatrixData(&s->brushData, brush, d->brushMatrix());
+    if (brush.style() == Qt::PathGradientPattern) {
+        if (s->fillFlags & DirtyTransform
+            || brush.transform().type() >= QTransform::TxNone)
+            d_func()->updateMatrixData(&s->brushData, brush, d->brushMatrix());
 
-    // must set matrix prior to setup, as setup uses it...
-    s->brushData.setup(brush, s->intOpacity, s->composition_mode);
+        // must set matrix prior to setup, as the path gradient brush uses it...
+        s->brushData.setup(brush, s->intOpacity, s->composition_mode);
+    } else {
+        QMatrix mtx = qt_getAdjustMatrix(brush, rc);
+
+        s->brushData.setup(brush, s->intOpacity, s->composition_mode);
+
+        if (s->fillFlags & DirtyTransform
+            || brush.transform().type() >= QTransform::TxNone)
+            d_func()->updateMatrixData(&s->brushData, brush, QTransform(mtx) * d->brushMatrix());
+
+        s->lastRect = rc;
+    }
 
     s->lastBrush = brush;
     s->fillFlags = 0;
@@ -1514,8 +1655,31 @@ void QRasterPaintEngine::drawRects(const QRect *rects, int rectCount)
     QRasterPaintEngineState *s = state();
 
     // Fill
-    ensureBrush();
-    if (s->brushData.blend) {
+    if (!qt_needBoundingRect(s->brush))
+    {
+        ensureBrush();
+        if (s->brushData.blend) {
+            if (!s->flags.antialiased && s->matrix.type() <= QTransform::TxTranslate) {
+                const QRect *r = rects;
+                const QRect *lastRect = rects + rectCount;
+
+                int offset_x = int(s->matrix.dx());
+                int offset_y = int(s->matrix.dy());
+                while (r < lastRect) {
+                    QRect rect = r->normalized();
+                    QRect rr = rect.translated(offset_x, offset_y);
+                    fillRect_normalized(rr, &s->brushData, d);
+                    ++r;
+                }
+            } else {
+                QRectVectorPath path;
+                for (int i=0; i<rectCount; ++i) {
+                    path.set(rects[i]);
+                    fill(path, s->brush);
+                }
+            }
+        }
+    } else {
         if (!s->flags.antialiased && s->matrix.type() <= QTransform::TxTranslate) {
             const QRect *r = rects;
             const QRect *lastRect = rects + rectCount;
@@ -1524,6 +1688,9 @@ void QRasterPaintEngine::drawRects(const QRect *rects, int rectCount)
             int offset_y = int(s->matrix.dy());
             while (r < lastRect) {
                 QRect rect = r->normalized();
+                ensureBrush(rect);
+                if (!s->brushData.blend)
+                    break;
                 QRect rr = rect.translated(offset_x, offset_y);
                 fillRect_normalized(rr, &s->brushData, d);
                 ++r;
@@ -1531,6 +1698,9 @@ void QRasterPaintEngine::drawRects(const QRect *rects, int rectCount)
         } else {
             QRectVectorPath path;
             for (int i=0; i<rectCount; ++i) {
+                ensureBrush(rects[i]);
+                if (!s->brushData.blend)
+                    break;
                 path.set(rects[i]);
                 fill(path, s->brush);
             }
@@ -1588,13 +1758,31 @@ void QRasterPaintEngine::drawRects(const QRectF *rects, int rectCount)
     ensureState();
 
     if (s->flags.tx_noshear) {
-        ensureBrush();
-        if (s->brushData.blend) {
-            d->initializeRasterizer(&s->brushData);
+        if (!qt_needBoundingRect(s->brush)) {
+            ensureBrush();
+            if (s->brushData.blend) {
+                d->initializeRasterizer(&s->brushData);
+                for (int i = 0; i < rectCount; ++i) {
+                    const QRectF &rect = rects[i].normalized();
+                    if (rect.isEmpty())
+                        continue;
+                    const QPointF a = s->matrix.map((rect.topLeft() + rect.bottomLeft()) * 0.5f);
+                    const QPointF b = s->matrix.map((rect.topRight() + rect.bottomRight()) * 0.5f);
+                    d->rasterizer->rasterizeLine(a, b, rect.height() / rect.width());
+                }
+            }
+        } 
+        else {
             for (int i = 0; i < rectCount; ++i) {
                 const QRectF &rect = rects[i].normalized();
                 if (rect.isEmpty())
                     continue;
+
+                ensureBrush(rect);
+                if (!s->brushData.blend)
+                    break;
+                d->initializeRasterizer(&s->brushData);
+
                 const QPointF a = s->matrix.map((rect.topLeft() + rect.bottomLeft()) * 0.5f);
                 const QPointF b = s->matrix.map((rect.topRight() + rect.bottomRight()) * 0.5f);
                 d->rasterizer->rasterizeLine(a, b, rect.height() / rect.width());
@@ -1789,7 +1977,11 @@ void QRasterPaintEngine::fill(const QVectorPath &path, const QBrush &brush)
     Q_D(QRasterPaintEngine);
     QRasterPaintEngineState *s = state();
 
-    ensureBrush(brush);
+    if (qt_needBoundingRect(brush))
+        ensureBrush(brush, path.convertToPainterPath().boundingRect());
+    else
+        ensureBrush(brush);
+
     if (!s->brushData.blend)
         return;
 
@@ -1906,7 +2098,11 @@ void QRasterPaintEngine::fillRect(const QRectF &r, const QBrush &brush)
 #endif
     QRasterPaintEngineState *s = state();
 
-    ensureBrush(brush);
+    if (!qt_needBoundingRect(brush))
+        ensureBrush(brush);
+    else
+        ensureBrush(brush, r);
+
     if (!s->brushData.blend)
         return;
 
@@ -2025,6 +2221,33 @@ void QRasterPaintEngine::fillPolygon(const QPointF *points, int pointCount, Poly
     d->rasterize(outline, brushBlend, &s->brushData, d->rasterBuffer.data());
 }
 
+template<typename T>
+static QRectF qt_getBoundingRect(const T *points, int pointCount)
+{
+    if (pointCount <= 0)
+        return QRectF(0, 0, 0, 0);
+
+    const T *pd = points;
+    qreal minx, maxx, miny, maxy;
+    minx = maxx = pd->x();
+    miny = maxy = pd->y();
+    ++pd;
+
+    for (int i = 1; i < pointCount; ++i) {
+        if (pd->x() < minx)
+            minx = pd->x();
+        else if (pd->x() > maxx)
+            maxx = pd->x();
+
+        if (pd->y() < miny)
+            miny = pd->y();
+        else if (pd->y() > maxy)
+            maxy = pd->y();
+        ++pd;
+    }
+    return QRectF(minx, miny, maxx - minx, maxy - miny);
+}
+
 /*!
     \reimp
 */
@@ -2047,7 +2270,12 @@ void QRasterPaintEngine::drawPolygon(const QPointF *points, int pointCount, Poly
     }
 
     ensurePen();
-    ensureBrush();
+    const QBrush brush = state()->brush;
+    if (qt_needBoundingRect(brush))
+        ensureBrush(qt_getBoundingRect(points, pointCount));
+    else
+        ensureBrush();
+
     if (mode != PolylineMode) {
         // Do the fill...
         if (s->brushData.blend) {
@@ -2101,7 +2329,11 @@ void QRasterPaintEngine::drawPolygon(const QPoint *points, int pointCount, Polyg
 
     // Do the fill
     if (mode != PolylineMode) {
-        ensureBrush();
+        const QBrush brush = state()->brush;
+        if (qt_needBoundingRect(brush))
+            ensureBrush(qt_getBoundingRect(points, pointCount));
+        else
+            ensureBrush();
         if (s->brushData.blend) {
             // Compose polygon fill..,
             ensureOutlineMapper();
@@ -3783,7 +4015,11 @@ void QRasterPaintEngine::drawEllipse(const QRectF &rect)
         && !rect.isEmpty()
         && s->matrix.type() <= QTransform::TxScale) // no shear
     {
-        ensureBrush();
+        if (!qt_needBoundingRect(s->brush))
+            ensureBrush();
+        else
+            ensureBrush(rect);
+
         const QRectF r = s->matrix.mapRect(rect);
         ProcessSpans penBlend = d->getPenFunc(r, &s->penData);
         ProcessSpans brushBlend = d->getBrushFunc(r, &s->brushData);
@@ -5249,9 +5485,60 @@ void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode 
 
         if (qHasPixmapTexture(brush) && brush.texture().isQBitmap())
             *tempImage = rasterBuffer->colorizeBitmap(brush.textureImage(), brush.color());
+        else {
+            const Qt::TextureWrapMode wrapMode = brush.textureWrapMode();
+            const QImage &textureImg = brush.textureImage();
+
+            if (wrapMode == Qt::TextureTiling 
+                || wrapMode == Qt::TextureNoTiling
+                || wrapMode == Qt::TextureStretching) {
+                *tempImage = brush.textureImage();
+            } else if (wrapMode == Qt::TextureFlippingX) {
+                QPixmap mirrored(textureImg.width() * 2, textureImg.height());
+                mirrored.fill(QColor(0, 0, 0, 0));
+
+                QPainter painter(&mirrored);
+                painter.setCompositionMode(QPainter::CompositionMode_Source);
+                painter.drawImage(0, 0, textureImg);
+                painter.drawImage(textureImg.width(), 0, textureImg.mirrored(true, false));
+                painter.end();
+                *tempImage = mirrored.toImage();
+            } else if (wrapMode == Qt::TextureFlippingY) {
+                QPixmap mirrored(textureImg.width(), textureImg.height() * 2);
+                mirrored.fill(QColor(0, 0, 0, 0));
+
+                QPainter painter(&mirrored);
+                painter.setCompositionMode(QPainter::CompositionMode_Source);
+                painter.drawImage(0, 0, textureImg);
+                painter.drawImage(0, textureImg.height(), textureImg.mirrored(false, true));
+                painter.end();
+                *tempImage = mirrored.toImage();
+            } else if (wrapMode == Qt::TextureFlippingXY) {
+                QPixmap mirrored(textureImg.width() * 2, textureImg.height() * 2);
+                mirrored.fill(QColor(0, 0, 0, 0));
+
+                QPainter painter(&mirrored);
+                painter.setCompositionMode(QPainter::CompositionMode_Source);
+                painter.drawImage(0, 0, textureImg);
+                painter.drawImage(textureImg.width(), 0, textureImg.mirrored(true, false));
+                painter.drawImage(0, textureImg.height(), textureImg.mirrored(false, true));
+                painter.drawImage(textureImg.width(), textureImg.height(), textureImg.mirrored(true, true));
+                painter.end();
+                *tempImage = mirrored.toImage();
+            }
+        }
+
+        if (brush.textureWrapMode() >= Qt::TextureNoTiling)
+            initTexture(tempImage, alpha, QTextureData::Plain, tempImage->rect());
         else
-            *tempImage = brush.textureImage();
-        initTexture(tempImage, alpha, QTextureData::Tiled, tempImage->rect());
+            initTexture(tempImage, alpha, QTextureData::Tiled, tempImage->rect());
+
+        if (brush.textureWrapMode() == Qt::TextureStretching) {
+            brush.getTextureStretchingOffset(texture.offsetLeft, 
+                                        texture.offsetRight, 
+                                        texture.offsetTop, 
+                                        texture.offsetBottom);
+        }
         break;
 
     case Qt::NoBrush:
@@ -5321,7 +5608,11 @@ void QSpanData::setupMatrix(const QTransform &matrix, int bilin)
     // make sure we round off correctly in qdrawhelper.cpp
     delta.translate(1.0 / 65536, 1.0 / 65536);
 
-    QTransform inv = (delta * matrix).inverted();
+    bool bInvertible = false;
+    QTransform inv = (delta * matrix).inverted(&bInvertible);
+    if (!bInvertible)
+        qWarning("the matrix is not invertible!");
+
     m11 = inv.m11();
     m12 = inv.m12();
     m13 = inv.m13();
@@ -5386,6 +5677,11 @@ void QSpanData::initTexture(const QImage *image, int alpha, QTextureData::Type _
     }
     texture.const_alpha = alpha;
     texture.type = _type;
+
+    texture.offsetLeft = 0;
+    texture.offsetRight = 0;
+    texture.offsetTop = 0;
+    texture.offsetBottom = 0;
 
     adjustSpanMethods();
 }

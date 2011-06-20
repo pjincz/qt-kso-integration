@@ -272,6 +272,12 @@ struct QTextureData
     };
     Type type;
     int const_alpha;
+
+    //for TextureWrapModeExpand brush
+    qreal offsetLeft;
+    qreal offsetRight;
+    qreal offsetTop;
+    qreal offsetBottom;
 };
 
 struct QSpanData
