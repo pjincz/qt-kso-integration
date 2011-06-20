@@ -244,6 +244,7 @@ struct QBrushDataPointerDeleter
         case Qt::LinearGradientPattern:
         case Qt::RadialGradientPattern:
         case Qt::ConicalGradientPattern:
+        case Qt::PathGradientPattern:
             delete static_cast<QGradientBrushData*>(d);
             break;
         default:
@@ -375,6 +376,7 @@ static bool qbrush_check_type(Qt::BrushStyle style) {
     case Qt::LinearGradientPattern:
     case Qt::RadialGradientPattern:
     case Qt::ConicalGradientPattern:
+    case Qt::PathGradientPattern:
         qWarning("QBrush: Wrong use of a gradient pattern");
         break;
     default:
@@ -402,6 +404,7 @@ void QBrush::init(const QColor &color, Qt::BrushStyle style)
     case Qt::LinearGradientPattern:
     case Qt::RadialGradientPattern:
     case Qt::ConicalGradientPattern:
+    case Qt::PathGradientPattern:
         d.reset(new QGradientBrushData);
         break;
     default:
@@ -547,19 +550,20 @@ QBrush::QBrush(const QBrush &other)
     Constructs a brush based on the given \a gradient.
 
     The brush style is set to the corresponding gradient style (either
-    Qt::LinearGradientPattern, Qt::RadialGradientPattern or
-    Qt::ConicalGradientPattern).
+    Qt::LinearGradientPattern, Qt::RadialGradientPattern,
+    Qt::ConicalGradientPattern or Qt::PathGradientPattern).
 */
 QBrush::QBrush(const QGradient &gradient)
 {
     Q_ASSERT_X(gradient.type() != QGradient::NoGradient, "QBrush::QBrush",
-               "QGradient should not be used directly, use the linear, radial\n"
-               "or conical gradients instead");
+               "QGradient should not be used directly, use the linear, radial,\n"
+               "conical or path gradients instead");
 
     const Qt::BrushStyle enum_table[] = {
         Qt::LinearGradientPattern,
         Qt::RadialGradientPattern,
-        Qt::ConicalGradientPattern
+        Qt::ConicalGradientPattern,
+        Qt::PathGradientPattern
     };
 
     init(QColor(), enum_table[gradient.type()]);
@@ -603,6 +607,7 @@ void QBrush::detach(Qt::BrushStyle newStyle)
     case Qt::LinearGradientPattern:
     case Qt::RadialGradientPattern:
     case Qt::ConicalGradientPattern:
+    case Qt::PathGradientPattern:
         x.reset(new QGradientBrushData);
         static_cast<QGradientBrushData *>(x.data())->gradient =
             static_cast<QGradientBrushData *>(d.data())->gradient;
@@ -823,9 +828,7 @@ void QBrush::setTextureImage(const QImage &image)
 */
 const QGradient *QBrush::gradient() const
 {
-    if (d->style == Qt::LinearGradientPattern
-        || d->style == Qt::RadialGradientPattern
-        || d->style == Qt::ConicalGradientPattern) {
+    if (Qt::LinearGradientPattern <= style() && style() <= Qt::PathGradientPattern) {
         return &static_cast<const QGradientBrushData *>(d.data())->gradient;
     }
     return 0;
@@ -853,7 +856,8 @@ bool QBrush::isOpaque() const
 
     if (d->style == Qt::LinearGradientPattern
         || d->style == Qt::RadialGradientPattern
-        || d->style == Qt::ConicalGradientPattern) {
+        || d->style == Qt::ConicalGradientPattern
+        || d->style == Qt::PathGradientPattern) {
         QGradientStops stops = gradient()->stops();
         for (int i=0; i<stops.size(); ++i)
             if (stops.at(i).second.alpha() != 255)
@@ -867,7 +871,6 @@ bool QBrush::isOpaque() const
 
     return false;
 }
-
 
 /*!
     \since 4.2
@@ -948,6 +951,7 @@ bool QBrush::operator==(const QBrush &b) const
     case Qt::LinearGradientPattern:
     case Qt::RadialGradientPattern:
     case Qt::ConicalGradientPattern:
+    case Qt::PathGradientPattern:
         {
             const QGradientBrushData *d1 = static_cast<QGradientBrushData *>(d.data());
             const QGradientBrushData *d2 = static_cast<QGradientBrushData *>(b.d.data());
@@ -992,7 +996,8 @@ QDebug operator<<(QDebug dbg, const QBrush &b)
      "LinearGradientPattern",
      "RadialGradientPattern",
      "ConicalGradientPattern",
-     0, 0, 0, 0, 0, 0,
+     "PathGradientPattern",
+     0, 0, 0, 0, 0,
      "TexturePattern" // 24
     };
 
@@ -1026,7 +1031,7 @@ QDataStream &operator<<(QDataStream &s, const QBrush &b)
     bool gradient_style = false;
 
     if (style == Qt::LinearGradientPattern || style == Qt::RadialGradientPattern
-        || style == Qt::ConicalGradientPattern)
+        || style == Qt::ConicalGradientPattern || style == Qt::PathGradientPattern)
         gradient_style = true;
 
     if (s.version() < QDataStream::Qt_4_0 && gradient_style)
@@ -1068,7 +1073,10 @@ QDataStream &operator<<(QDataStream &s, const QBrush &b)
             s << static_cast<const QRadialGradient *>(gradient)->center();
             s << static_cast<const QRadialGradient *>(gradient)->focalPoint();
             s << (double) static_cast<const QRadialGradient *>(gradient)->radius();
-        } else { // type == Conical
+        } else if (gradient->type() == QGradient::PathGradient) {
+            s << static_cast<const QPathGradient *>(gradient)->center();
+            s << static_cast<const QPathGradient *>(gradient)->path();
+        }else { // type == Conical
             s << static_cast<const QConicalGradient *>(gradient)->center();
             s << (double) static_cast<const QConicalGradient *>(gradient)->angle();
         }
@@ -1100,7 +1108,8 @@ QDataStream &operator>>(QDataStream &s, QBrush &b)
         b = QBrush(color, pm);
     } else if (style == Qt::LinearGradientPattern
                || style == Qt::RadialGradientPattern
-               || style == Qt::ConicalGradientPattern) {
+               || style == Qt::ConicalGradientPattern 
+               || style == Qt::PathGradientPattern) {
 
         int type_as_int;
         QGradient::Type type;
@@ -1159,6 +1168,17 @@ QDataStream &operator>>(QDataStream &s, QBrush &b)
             rg.setCoordinateMode(cmode);
             rg.setInterpolationMode(imode);
             b = QBrush(rg);
+        } else if (type == QGradient::PathGradient) {
+            QPointF center;
+            QPainterPath path;
+            s >> center;
+            s >> path;
+            QPathGradient pg(center, path);
+            pg.setStops(stops);
+            pg.setSpread(spread);
+            pg.setCoordinateMode(cmode);
+            pg.setInterpolationMode(imode);
+            b = QBrush(pg);
         } else { // type == QGradient::ConicalGradient
             QPointF center;
             double angle;
@@ -1533,6 +1553,12 @@ bool QGradient::operator==(const QGradient &gradient) const
             || m_data.radial.fx != gradient.m_data.radial.fx
             || m_data.radial.fy != gradient.m_data.radial.fy
             || m_data.radial.radius != gradient.m_data.radial.radius)
+            return false;
+    } else if (m_type == PathGradient) {
+        const QPathGradient *pg1 = static_cast<const QPathGradient*>(&gradient);
+        const QPathGradient *pg2 = static_cast<const QPathGradient*>(this);
+        if (pg1->path() != pg2->path()
+            || pg1->center() != pg2->center())
             return false;
     } else { // m_type == ConicalGradient
         if (m_data.conical.cx != gradient.m_data.conical.cx
@@ -2143,6 +2169,203 @@ void QConicalGradient::setAngle(qreal angle)
 {
     Q_ASSERT(m_type == ConicalGradient);
     m_data.conical.angle = angle;
+}
+
+
+/*!
+    \class QPathGradient
+    \ingroup painting
+
+    \brief The QPathGradient class is used in combination with QBrush to
+    specify a path gradient brush.
+
+    Path gradients interpolate colors between the center point and the 
+    points in the path.
+
+    The colors in a gradient is defined using stop points of the
+    QGradientStop type, i.e. a position and a color. Use the
+    QGradient::setColorAt() or the QGradient::setStops() function to
+    define the stop points. It is the gradient's complete set of stop
+    points that describes how the gradient area should be filled. If
+    no stop points have been specified, a gradient of black at 0 to
+    white at 1 is used.
+
+    There must be at least two points in the stops of a path gradient, and 
+    the first point must be at 0 while the last one must be at 1. That means 
+    (m_stops.size() >= 2
+    && m_stops.front().first == 0
+    && m_stops.back().first == 1);
+    should always be true.
+
+    Stop point 0 releates to the center point while stop point 1 releates to 
+    the boundary of the path. 
+    The center point doesn't have to be the centroid of the path, but it
+    should be inside the path, or the result is undefined.
+   
+
+    In addition to the functions inherited from QGradient, the
+    QPathGradient class provides the path() and center() functions
+    returning the path and center of the gradient.
+
+    \sa QLinearGradient, QRadialGradient, QConicalGradient{demos/gradients}{The
+    Gradients Demo}
+*/
+
+
+/*!
+    Constructs a default path gradient.
+
+    The center point and the path should be set before a path gradient brush
+    is constructed.
+
+    \sa QGradient::setColorAt(), setStart(), setFinalStop(), setCenter()
+    setPath()
+*/
+
+QPathGradient::QPathGradient()
+{
+    init(0, 0);
+}
+/*!
+    Return the centroid of the \a path.
+*/
+static QPointF qt_get_path_center_point(const QPainterPath &path)
+{
+    Q_ASSERT(!path.isEmpty());
+
+    QPointF pt(0, 0);
+    int nCount = path.elementCount();
+    for (int i = 0; i < nCount ; i++)
+    	pt += (QPointF)path.elementAt(i);
+    
+    pt /= nCount;
+
+    return pt;
+}
+
+/*!
+    Constructs a path gradient with interpolation area \a path.
+    The center point will be set to the centroid of this \a path.
+
+    \note The expected parameter values are in pixels.
+
+    \sa QGradient::setColorAt(), setStart(), setFinalStop(), setCenter()
+    setPath()
+*/
+QPathGradient::QPathGradient(const QPainterPath &path)
+{
+    if (path.isEmpty())
+        qWarning("path is empty!");
+
+    QPointF center = qt_get_path_center_point(path);
+    init(center.x(), center.y(), path);
+}
+
+/*!
+    Constructs a path gradient with interpolation area \a path and set the 
+    center point to \a center.
+
+    \note The expected parameter values are in pixels.
+    \note The center point doesn't have to be the centroid of the path, but 
+    it should be inside the path, or the result is undefined.
+
+    \sa QGradient::setColorAt(), setStart(), setFinalStop(), setCenter()
+    setPath()
+*/
+QPathGradient::QPathGradient(const QPointF &center, const QPainterPath &path)
+{
+    if (path.isEmpty())
+        qWarning("path is empty!");
+
+    init(center.x(), center.y(), path);
+}
+
+/*!
+    Constructs a path gradient with interpolation area \a path and set the 
+    center point to QPointF(cx, cy).
+
+    \note The expected parameter values are in pixels.
+    \note The center point doesn't have to be the centroid of the path, but 
+    it should be inside the path, or the result is undefined.
+
+    \sa QGradient::setColorAt(), setStart(), setFinalStop(), setCenter()
+    setPath()
+*/
+QPathGradient::QPathGradient(qreal cx, qreal cy, const QPainterPath &path)
+{
+    if (path.isEmpty())
+        qWarning("path is empty!");
+
+    init(cx, cy, path);
+}
+
+/*!
+    Returns the center of the path gradient in logical
+    coordinates.
+
+    \sa setCenter()
+*/
+QPointF QPathGradient::center() const
+{
+    Q_ASSERT(PathGradient == m_type);
+
+    return QPointF(m_data.path.cx, m_data.path.cy);
+}
+
+/*!
+    Sets the center of this path gradient in logical coordinates to
+    \a center.
+
+    \sa center()
+*/
+void QPathGradient::setCenter(const QPointF &center)
+{
+    Q_ASSERT(PathGradient == m_type);
+
+    m_data.path.cx = center.x();
+    m_data.path.cy = center.y();
+}
+
+/*!
+    Returns the path of the path gradient in logical
+    coordinates.
+
+    \sa setPath()
+*/
+QPainterPath QPathGradient::path() const
+{
+    Q_ASSERT(PathGradient == m_type);
+
+    return m_path;
+}
+
+/*!
+    Sets the path of this path gradient in logical coordinates to
+    \a path.
+
+    \sa path()
+*/
+void QPathGradient::setPath(const QPainterPath &path)
+{
+    Q_ASSERT(PathGradient == m_type);
+    if (path.isEmpty())
+        qWarning("path is empty!");
+
+    m_path = path;
+}
+
+/*!
+    Initialize the path gradient.
+*/
+void QPathGradient::init(qreal cx, qreal cy, const QPainterPath &path)
+{
+    m_type = PathGradient;
+    m_spread = PadSpread;
+    m_data.path.cx = cx;
+    m_data.path.cy = cy;
+    m_path = path;
+    setColorAt(0, Qt::black);
+    setColorAt(1, Qt::white);
 }
 
 /*!

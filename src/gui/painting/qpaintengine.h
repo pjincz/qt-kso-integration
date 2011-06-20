@@ -112,6 +112,7 @@ public:
         BlendModes                  = 0x00008000, // Can do extended Porter&Duff composition
         ObjectBoundingModeGradients = 0x00010000, // Can do object bounding mode gradients
         RasterOpModes               = 0x00020000, // Can do logical raster operations
+        PathGradientFill            = 0x00040000, // Can render path gradients
         PaintOutsidePaintEvent      = 0x20000000, // Engine is capable of painting outside paint events
         /*                          0x10000000, // Used for emulating
                                     QGradient::StretchToDevice,

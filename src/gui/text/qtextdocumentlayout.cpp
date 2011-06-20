@@ -404,7 +404,8 @@ Q_STATIC_GLOBAL_OPERATOR bool operator<(const QCheckPoint &checkPoint, int pos)
 static void fillBackground(QPainter *p, const QRectF &rect, QBrush brush, const QPointF &origin, QRectF gradientRect = QRectF())
 {
     p->save();
-    if (brush.style() >= Qt::LinearGradientPattern && brush.style() <= Qt::ConicalGradientPattern) {
+    if (Qt::LinearGradientPattern <= brush.style() 
+        && brush.style() <= Qt::PathGradientPattern) {
         if (!gradientRect.isNull()) {
             QTransform m;
             m.translate(gradientRect.left(), gradientRect.top());
