@@ -483,6 +483,12 @@ static void qBrushSetAlphaF(QBrush *brush, qreal alpha)
             *brush = QBrush(grad);
             break;
         }
+        case QGradient::PathGradient: {
+            QPathGradient grad = *static_cast<const QPathGradient *>(gradient);
+            grad.setStops(stops);
+            *brush = QBrush(grad);
+            break;
+        }
         }
     } else if (!brush->texture().isNull()) {
         // Modify the texture - ridiculously expensive.
@@ -546,6 +552,12 @@ static QBrush qBrushLight(QBrush brush, int light)
             brush = QBrush(grad);
             break;
         }
+        case QGradient::PathGradient: {
+            QPathGradient grad = *static_cast<const QPathGradient *>(gradient);
+            grad.setStops(stops);
+            brush = QBrush(grad);
+            break;
+        }
         }
     } else if (!brush.texture().isNull()) {
         // Modify the texture - ridiculously expensive.
@@ -604,6 +616,12 @@ static QBrush qBrushDark(QBrush brush, int dark)
                      " - falling back to QLinearGradient");
         case QGradient::LinearGradient: {
             QLinearGradient grad = *static_cast<const QLinearGradient *>(gradient);
+            grad.setStops(stops);
+            brush = QBrush(grad);
+            break;
+        }
+        case QGradient::PathGradient: {
+            QPathGradient grad = *static_cast<const QPathGradient *>(gradient);
             grad.setStops(stops);
             brush = QBrush(grad);
             break;

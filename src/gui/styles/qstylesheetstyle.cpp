@@ -511,8 +511,11 @@ public:
 
     bool hasPalette() const { return pal != 0; }
     bool hasBackground() const { return bg != 0 && (!bg->pixmap.isNull() || bg->brush.style() != Qt::NoBrush); }
-    bool hasGradientBackground() const { return bg && bg->brush.style() >= Qt::LinearGradientPattern
-                                                   && bg->brush.style() <= Qt::ConicalGradientPattern; }
+    bool hasGradientBackground() const { 
+        return bg 
+                && Qt::LinearGradientPattern <= bg->brush.style() 
+                && bg->brush.style() <= Qt::PathGradientPattern; 
+    }
 
     bool hasNativeBorder() const {
         return bd == 0

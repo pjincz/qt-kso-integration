@@ -201,6 +201,7 @@ public:
         LinearGradient,
         RadialGradient,
         ConicalGradient,
+        PathGradient,
         NoGradient
     };
 
@@ -249,10 +250,15 @@ private:
     friend class QLinearGradient;
     friend class QRadialGradient;
     friend class QConicalGradient;
+    friend class QPathGradient;
 
     Type m_type;
     Spread m_spread;
     QGradientStops m_stops;
+
+    //for path gradient only
+    QPainterPath m_path;
+
     union {
         struct {
             qreal x1, y1, x2, y2;
@@ -263,6 +269,10 @@ private:
         struct {
             qreal cx, cy, angle;
         } conical;
+        struct {
+            qreal cx, cy;
+            // QPainterPath *pPath;
+        } path;
     } m_data;
     void *dummy;
 };
@@ -323,6 +333,25 @@ public:
 
     qreal angle() const;
     void setAngle(qreal angle);
+};
+
+class Q_GUI_EXPORT QPathGradient : public QGradient
+{
+public:
+    QPathGradient();
+    QPathGradient(const QPainterPath &path);
+    QPathGradient(const QPointF &center, const QPainterPath &path);
+    QPathGradient(qreal cx, qreal cy, const QPainterPath &path);
+
+    QPointF center() const;
+    void setCenter(const QPointF &center);
+    inline void setCenter(qreal x, qreal y) { setCenter(QPointF(x, y)); }
+
+    QPainterPath path() const;
+    void setPath(const QPainterPath &path);
+
+private:
+    void init(qreal cx, qreal cy, const QPainterPath &path = QPainterPath());
 };
 
 QT_END_NAMESPACE

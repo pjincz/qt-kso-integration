@@ -221,6 +221,13 @@ struct QConicalGradientData
     qreal angle;
 };
 
+class path_gradient_span_gen;
+
+struct QPathGradientData
+{    
+   path_gradient_span_gen *pSpanGenerotor;
+};
+
 struct QGradientData
 {
     QGradient::Spread spread;
@@ -229,7 +236,8 @@ struct QGradientData
         QLinearGradientData linear;
         QRadialGradientData radial;
         QConicalGradientData conical;
-    };
+        QPathGradientData  path;
+    };    
 
 #ifdef Q_WS_QWS
 #define GRADIENT_STOPTABLE_SIZE 256
@@ -269,7 +277,7 @@ struct QTextureData
 struct QSpanData
 {
     QSpanData() : tempImage(0) {}
-    ~QSpanData() { delete tempImage; }
+    ~QSpanData();
 
     QRasterBuffer *rasterBuffer;
 #ifdef Q_WS_QWS
@@ -289,6 +297,7 @@ struct QSpanData
         LinearGradient,
         RadialGradient,
         ConicalGradient,
+        PathGradient,
         Texture
     } type : 8;
     int txop : 8;

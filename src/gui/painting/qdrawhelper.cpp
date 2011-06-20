@@ -48,6 +48,8 @@
 #include <private/qmath_p.h>
 #include <qmath.h>
 
+#include "qpathgradient_p.h" //for path gradient span
+
 QT_BEGIN_NAMESPACE
 
 
@@ -1522,6 +1524,18 @@ static const uint * QT_FASTCALL fetchConicalGradient(uint *buffer, const Operato
         }
     }
     return b;
+}
+
+static const uint * QT_FASTCALL fetchPathGradient(uint *buffer, const Operator *, const QSpanData *data,
+                                                     int y, int x, int length)
+{
+    Q_ASSERT(NULL != data && data->type == QSpanData::PathGradient);
+    Q_ASSERT(NULL != data->gradient.path.pSpanGenerotor);
+
+    path_gradient_span_gen *span_gen = data->gradient.path.pSpanGenerotor;
+    span_gen->generate((path_gradient_span_gen::color_type *)buffer, x, y, length);
+
+    return buffer;
 }
 
 #if defined(Q_CC_RVCT)
@@ -3241,6 +3255,10 @@ static inline Operator getOperator(const QSpanData *data, const QSpan *spans, in
         solidSource = !data->gradient.alphaColor;
         getRadialGradientValues(&op.radial, data);
         op.src_fetch = fetchRadialGradient;
+        break;
+    case QSpanData::PathGradient:
+        solidSource = !data->gradient.alphaColor;
+        op.src_fetch = fetchPathGradient;
         break;
     case QSpanData::ConicalGradient:
         solidSource = !data->gradient.alphaColor;

@@ -85,7 +85,7 @@ void QEmulationPaintEngine::fill(const QVectorPath &path, const QBrush &brush)
     }
 
     Qt::BrushStyle style = qbrush_style(brush);
-    if (style >= Qt::LinearGradientPattern && style <= Qt::ConicalGradientPattern) {
+    if (qbrush_is_gradient(brush)) {
         const QGradient *g = brush.gradient();
 
         if (g->coordinateMode() > QGradient::LogicalMode) {
@@ -125,8 +125,7 @@ void QEmulationPaintEngine::stroke(const QVectorPath &path, const QPen &pen)
 
     QBrush brush = pen.brush();
     QPen copy = pen;
-    Qt::BrushStyle style = qbrush_style(brush);
-    if (style >= Qt::LinearGradientPattern && style <= Qt::ConicalGradientPattern) {
+    if (qbrush_is_gradient(brush)) {
         const QGradient *g = brush.gradient();
 
         if (g->coordinateMode() > QGradient::LogicalMode) {
@@ -174,8 +173,7 @@ void QEmulationPaintEngine::drawTextItem(const QPointF &p, const QTextItem &text
     }
 
     QPainterState *s = state();
-    Qt::BrushStyle style = qbrush_style(s->pen.brush());
-    if (style >= Qt::LinearGradientPattern && style <= Qt::ConicalGradientPattern)
+    if (qbrush_is_gradient(s->pen.brush()))
     {
         QPen savedPen = s->pen;
         QGradient g = *s->pen.brush().gradient();

@@ -95,6 +95,7 @@ inline bool qbrush_fast_equals(const QBrush &a, const QBrush &b) { return data_p
 inline Qt::BrushStyle qbrush_style(const QBrush &b) { return data_ptr(b)->style; }
 inline const QColor &qbrush_color(const QBrush &b) { return data_ptr(b)->color; }
 inline bool qbrush_has_transform(const QBrush &b) { return data_ptr(b)->transform.type() > QTransform::TxNone; }
+inline bool qbrush_is_gradient(const QBrush &b) {return (Qt::LinearGradientPattern <= data_ptr(b)->style && data_ptr(b)->style <= Qt::PathGradientPattern);}
 
 class QPainterClipInfo
 {
