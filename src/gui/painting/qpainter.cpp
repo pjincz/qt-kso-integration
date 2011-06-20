@@ -105,6 +105,7 @@ static inline QGradient::CoordinateMode coordinateMode(const QBrush &brush)
     switch (brush.style()) {
     case Qt::LinearGradientPattern:
     case Qt::RadialGradientPattern:
+    case Qt::PathGradientPattern:
     case Qt::ConicalGradientPattern:
         return brush.gradient()->coordinateMode();
     default:
@@ -519,8 +520,7 @@ void QPainterPrivate::drawOpaqueBackground(const QPainterPath &path, DrawOperati
 
 static inline QBrush stretchGradientToUserSpace(const QBrush &brush, const QRectF &boundingRect)
 {
-    Q_ASSERT(brush.style() >= Qt::LinearGradientPattern
-             && brush.style() <= Qt::ConicalGradientPattern);
+    Q_ASSERT(qbrush_is_gradient(brush));
 
     QTransform gradientToUser(boundingRect.width(), 0, 0, boundingRect.height(),
                               boundingRect.x(), boundingRect.y());
@@ -679,6 +679,7 @@ void QPainterPrivate::updateEmulationSpecifier(QPainterState *s)
     bool linearGradient = false;
     bool radialGradient = false;
     bool conicalGradient = false;
+    bool pathGradient = false;
     bool patternBrush = false;
     bool xform = false;
     bool complexXform = false;
@@ -711,6 +712,8 @@ void QPainterPrivate::updateEmulationSpecifier(QPainterState *s)
                            (brushStyle == Qt::RadialGradientPattern));
         conicalGradient = ((penBrushStyle == Qt::ConicalGradientPattern) ||
                             (brushStyle == Qt::ConicalGradientPattern));
+        pathGradient = ((penBrushStyle == Qt::PathGradientPattern) ||
+                            (brushStyle == Qt::PathGradientPattern));
         patternBrush = (((penBrushStyle > Qt::SolidPattern
                            && penBrushStyle < Qt::LinearGradientPattern)
                           || penBrushStyle == Qt::TexturePattern) ||
@@ -802,6 +805,12 @@ void QPainterPrivate::updateEmulationSpecifier(QPainterState *s)
         s->emulationSpecifier |= QPaintEngine::ConicalGradientFill;
     else
         s->emulationSpecifier &= ~QPaintEngine::ConicalGradientFill;
+
+    //Path gradient emulation
+    if (pathGradient && !engine->hasFeature(QPaintEngine::PathGradientFill))
+        s->emulationSpecifier |= QPaintEngine::PathGradientFill;
+    else
+        s->emulationSpecifier &= QPaintEngine::PathGradientFill;
 
     // Pattern brushes
     if (patternBrush && !engine->hasFeature(QPaintEngine::PatternBrush))
@@ -6972,7 +6981,7 @@ static inline bool needsResolving(const QBrush &brush)
 {
     Qt::BrushStyle s = brush.style();
     return ((s == Qt::LinearGradientPattern || s == Qt::RadialGradientPattern ||
-             s == Qt::ConicalGradientPattern) &&
+                s == Qt::ConicalGradientPattern || s == Qt::PathGradientPattern) &&
             brush.gradient()->coordinateMode() == QGradient::ObjectBoundingMode);
 }
 

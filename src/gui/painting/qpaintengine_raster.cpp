@@ -135,6 +135,7 @@ extern bool qt_cleartype_enabled;
 extern bool qt_applefontsmoothing_enabled;
 #endif
 
+#include "qpathgradient_p.h"//for path gradient fill
 
 /********************************************************************************
  * Span functions
@@ -854,10 +855,14 @@ void QRasterPaintEngine::updateBrush(const QBrush &brush)
     QRasterPaintEngineState *s = state();
     // must set clip prior to setup, as setup uses it...
     s->brushData.clip = d->clip();
-    s->brushData.setup(brush, s->intOpacity, s->composition_mode);
+    
     if (s->fillFlags & DirtyTransform
         || brush.transform().type() >= QTransform::TxNone)
         d_func()->updateMatrixData(&s->brushData, brush, d->brushMatrix());
+
+    // must set matrix prior to setup, as setup uses it...
+    s->brushData.setup(brush, s->intOpacity, s->composition_mode);
+
     s->lastBrush = brush;
     s->fillFlags = 0;
 }
@@ -5131,6 +5136,15 @@ void QGradientCache::generateGradientColorTable(const QGradient& gradient, uint 
 
 Q_GLOBAL_STATIC(QGradientCache, qt_gradient_cache)
 
+QSpanData::~QSpanData() 
+{ 
+    delete tempImage; 
+    if (type == PathGradient)
+    {
+        Q_ASSERT(NULL != gradient.path.pSpanGenerotor);
+        delete gradient.path.pSpanGenerotor;//allocated in setup()
+    }
+}
 
 void QSpanData::init(QRasterBuffer *rb, const QRasterPaintEngine *pe)
 {
@@ -5147,6 +5161,25 @@ void QSpanData::init(QRasterBuffer *rb, const QRasterPaintEngine *pe)
 }
 
 Q_GUI_EXPORT extern QImage qt_imageForBrush(int brushStyle, bool invert);
+
+static path_gradient_span_gen* qt_createPGSpanGenerator(const QSpanData *data
+                                                        ,const QPathGradient *pg)
+{
+    Q_ASSERT(NULL != data && data->type == QSpanData::PathGradient);
+
+    QMatrix qmtx(data->m11, data->m12, data->m21, data->m22, data->dx, data->dy);
+    if (qmtx.isInvertible())
+        qmtx = qmtx.inverted();
+    else
+        qWarning("matrix is not inverted!");
+
+    QPathGradientBrush pgb(pg->path(), pg->center(), pg->stops(), qmtx);
+
+    path_gradient_span_gen *span_gen = new path_gradient_span_gen(pgb);
+    span_gen->prepare();
+
+    return span_gen;
+}
 
 void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode compositionMode)
 {
@@ -5217,6 +5250,19 @@ void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode 
         }
         break;
 
+    case Qt::PathGradientPattern:
+        {
+            type = PathGradient;
+            const QPathGradient *g = static_cast<const QPathGradient *>(brush.gradient());
+            gradient.alphaColor = !brush.isOpaque() || alpha !=256;
+            gradient.colorTable = NULL; //we use span generator
+            gradient.spread = g->spread();
+
+            //will be deleted in deconstructor
+            gradient.path.pSpanGenerotor = qt_createPGSpanGenerator(this, g);
+        }
+        break;
+
     case Qt::Dense1Pattern:
     case Qt::Dense2Pattern:
     case Qt::Dense3Pattern:
@@ -5278,6 +5324,7 @@ void QSpanData::adjustSpanMethods()
     case LinearGradient:
     case RadialGradient:
     case ConicalGradient:
+    case PathGradient:
         unclipped_blend = rasterBuffer->drawHelper->blendGradient;
         break;
     case Texture:

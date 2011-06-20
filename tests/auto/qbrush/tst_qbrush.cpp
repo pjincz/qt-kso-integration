@@ -70,6 +70,7 @@ private slots:
     void testQLinearGradientSetters();
     void testQRadialGradientSetters();
     void testQConicalGradientSetters();
+    void testQPathGradientSetters();
     void testQGradientCopyConstructor();
 
     void gradientStops();
@@ -118,6 +119,21 @@ void tst_QBrush::operator_eq_eq_data()
     b2.setTransform(QTransform().scale(2, 2));
     QTest::newRow("lg w/transform vs same lg w/same transform") << b1 << b2 << true;
 
+    //path gradient brush
+    QTest::newRow("null pg vs same null pg") << QBrush(QPathGradient()) << QBrush(QPathGradient()) << true;
+
+    QPainterPath path;
+    path.addRect(0, 0, 200, 200);
+    QPathGradient pg(path);
+    pg.setColorAt(0, Qt::red);
+    pg.setColorAt(0.5, Qt::blue);
+    pg.setColorAt(1, Qt::green);
+
+    QPathGradient pg2 = pg;
+    QTest::newRow("pg vs same pg") << QBrush(pg) << QBrush(pg2) << true;
+
+    pg2.setCenter(1, 1);
+    QTest::newRow("pg vs diff pg") << QBrush(pg) << QBrush(pg2) << false;
 }
 
 void tst_QBrush::operator_eq_eq()
@@ -137,12 +153,17 @@ void tst_QBrush::stream_data()
     lg.setColorAt(0.5, Qt::blue);
     lg.setColorAt(1, Qt::green);
 
+    QPainterPath path;
+    path.addRect(0, 0, 200, 200);
+    QPathGradient pg(path);
+
     QTest::newRow("black") << QBrush(Qt::black);
     QTest::newRow("red") << QBrush(Qt::red);
     QTest::newRow("no") << QBrush(Qt::NoBrush);
     QTest::newRow("lg") << QBrush(lg);
     QTest::newRow("rad") << QBrush(QRadialGradient(0, 0, 0, 0, 0));
     QTest::newRow("con") << QBrush(QConicalGradient(0, 0, 0));
+    QTest::newRow("pg") << QBrush(pg);
 }
 
 void tst_QBrush::stream()
@@ -228,6 +249,30 @@ void tst_QBrush::testQConicalGradientSetters()
     QCOMPARE(cg.center(), QPointF(202, 203));
 }
 
+void tst_QBrush::testQPathGradientSetters()
+{
+    QPathGradient pg;
+
+    QGradientStops stops;
+    stops << QPair<qreal, QColor>(0, Qt::black) << QPair<qreal, QColor>(1, Qt::white);
+
+    QCOMPARE(pg.stops(), stops);
+
+    QCOMPARE(pg.center(), QPointF(0, 0));
+    QCOMPARE(pg.path(), QPainterPath());
+
+    pg.setCenter(100, 200);
+    QCOMPARE(pg.center(), QPointF(100, 200));
+
+    pg.setCenter(QPointF(101, 102));
+    QCOMPARE(pg.center(), QPointF(101, 102));
+
+    QPainterPath path;
+    path.addRect(200, 200, 300, 101);
+    pg.setPath(path);
+    QCOMPARE(pg.path(), path);
+}
+
 void tst_QBrush::testQGradientCopyConstructor()
 {
     {
@@ -268,6 +313,20 @@ void tst_QBrush::testQGradientCopyConstructor()
         QCOMPARE(((QConicalGradient *) &g)->angle(), cg1.angle());
     }
 
+    {
+        QPainterPath path;
+        path.addEllipse(0, 0, 200, 200);
+        QPathGradient pg1(path);
+
+        QPathGradient pg2 = pg1;
+        QCOMPARE(pg1.center(), pg2.center());
+        QCOMPARE(pg1.path(), pg2.path());
+
+        QGradient g = pg1;
+        QCOMPARE(((QPathGradient*) &g)->center(), pg1.center());
+        QCOMPARE(((QPathGradient*) &g)->path(), pg1.path());
+    }
+
 }
 
 void tst_QBrush::badStyles()
@@ -276,18 +335,21 @@ void tst_QBrush::badStyles()
     QCOMPARE(QBrush(Qt::LinearGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(Qt::RadialGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(Qt::ConicalGradientPattern).style(), Qt::NoBrush);
+    QCOMPARE(QBrush(Qt::PathGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(Qt::TexturePattern).style(), Qt::NoBrush);
 
     // QBrush(QColor, Qt::BrushStyle) constructor
     QCOMPARE(QBrush(QColor(0, 0, 0), Qt::LinearGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(QColor(0, 0, 0), Qt::RadialGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(QColor(0, 0, 0), Qt::ConicalGradientPattern).style(), Qt::NoBrush);
+    QCOMPARE(QBrush(QColor(0, 0, 0), Qt::PathGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(QColor(0, 0, 0), Qt::TexturePattern).style(), Qt::NoBrush);
 
     // QBrush(Qt::GlobalColor, Qt::BrushStyle) constructor
     QCOMPARE(QBrush(Qt::black, Qt::LinearGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(Qt::black, Qt::RadialGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(Qt::black, Qt::ConicalGradientPattern).style(), Qt::NoBrush);
+    QCOMPARE(QBrush(Qt::black, Qt::PathGradientPattern).style(), Qt::NoBrush);
     QCOMPARE(QBrush(Qt::black, Qt::TexturePattern).style(), Qt::NoBrush);
 
     // Set style...
@@ -300,6 +362,9 @@ void tst_QBrush::badStyles()
     QCOMPARE(brush.style(), Qt::SolidPattern);
 
     brush.setStyle(Qt::ConicalGradientPattern);
+    QCOMPARE(brush.style(), Qt::SolidPattern);
+
+    brush.setStyle(Qt::PathGradientPattern);
     QCOMPARE(brush.style(), Qt::SolidPattern);
 
     brush.setStyle(Qt::TexturePattern);

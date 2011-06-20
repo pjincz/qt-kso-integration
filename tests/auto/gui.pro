@@ -121,6 +121,7 @@ SUBDIRS=\
     qpalette \
     qparallelanimationgroup \
     qpathclipper \
+    qpathgradientbrush \
     qpauseanimation \
     qpen \
     qpicture \
