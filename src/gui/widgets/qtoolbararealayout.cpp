@@ -740,6 +740,21 @@ int QToolBarAreaLayoutInfo::posAtRect(const QPoint& pos, const QRect& rect) cons
 	return area;
 }
 
+void QToolBarAreaLayoutInfo::getToolBars(QList<QList<QToolBar*>>& toolBars)
+{
+	toolBars.clear();
+	for (int lineIndex = 0; lineIndex < lines.count(); ++lineIndex) {
+		toolBars.append(QList<QToolBar*>());
+		QToolBarAreaLayoutLine &line = lines[lineIndex];
+		for (int itemIndex = 0; itemIndex < line.toolBarItems.count(); ++itemIndex) {
+			QToolBar *toolBar = qobject_cast<QToolBar*>(line.toolBarItems[itemIndex].widgetItem->widget());
+			Q_ASSERT(toolBar != NULL);
+			if (toolBar != NULL)
+				toolBars[lineIndex].append(toolBar);
+		}
+	}
+}
+
 /******************************************************************************
 ** QToolBarAreaLayout
 */
@@ -1507,6 +1522,11 @@ bool QToolBarAreaLayout::isEmpty() const
             return false;
     }
     return true;
+}
+
+void QToolBarAreaLayout::getToolBars(QInternal::DockPosition pos, QList<QList<QToolBar*>>& toolBars)
+{
+	docks[pos].getToolBars(toolBars);
 }
 
 QT_END_NAMESPACE

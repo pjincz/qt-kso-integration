@@ -161,6 +161,8 @@ public:
 
     Qt::ToolBarArea toolBarArea(QToolBar *toolbar) const;
     bool toolBarBreak(QToolBar *toolbar) const;
+	// added by kingsoft, 2011-6-16
+	void getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*>>& toolBars);
 #endif
 #ifndef QT_NO_DOCKWIDGET
     void addDockWidget(Qt::DockWidgetArea area, QDockWidget *dockwidget);

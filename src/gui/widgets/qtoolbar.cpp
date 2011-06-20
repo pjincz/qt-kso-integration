@@ -198,6 +198,10 @@ void QToolBarPrivate::setWindowState(bool floating, bool unplug, const QRect &re
 
 		q->setOrientation(bHorizontal ? Qt::Horizontal : Qt::Vertical);
 	}
+	else
+	{
+		q->setOrientation(Qt::Horizontal);
+	}
 
     if (!rect.isNull())
         q->setGeometry(rect);

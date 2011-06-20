@@ -183,6 +183,9 @@ public:
     int distance(const QPoint &pos, bool& inner) const;
 	int posAtRect(const QPoint& pos, const QRect& rect) const;
 
+	// Added by kingsoft, 2011-6-16
+	void getToolBars(QList<QList<QToolBar*>>& toolBars);
+
     QRect rect;
     Qt::Orientation o;
     QInternal::DockPosition dockPos;
@@ -246,6 +249,9 @@ public:
     void saveState(QDataStream &stream) const;
     bool restoreState(QDataStream &stream, const QList<QToolBar*> &toolBars, uchar tmarker, bool pre43, bool testing = false);
     bool isEmpty() const;
+
+	// Added by kingsoft, 2011-6-16
+	void getToolBars(QInternal::DockPosition pos, QList<QList<QToolBar*>>& toolBars);
 };
 
 

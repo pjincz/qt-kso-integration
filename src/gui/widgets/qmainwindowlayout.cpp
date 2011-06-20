@@ -1011,6 +1011,23 @@ void QMainWindowLayout::toggleToolBarsVisible()
     }
 }
 
+void QMainWindowLayout::getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*>>& toolBars)
+{
+	switch (area)
+	{
+	case Qt::LeftToolBarArea:
+	case Qt::RightToolBarArea:
+	case Qt::TopToolBarArea:
+	case Qt::BottomToolBarArea:
+		break;
+	default:
+		toolBars.clear();
+		return;
+	}
+
+	layoutState.toolBarAreaLayout.getToolBars(toDockPos(area), toolBars);
+}
+
 #endif // QT_NO_TOOLBAR
 
 /******************************************************************************
