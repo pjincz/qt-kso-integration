@@ -325,6 +325,7 @@ public:
     //modality
     static void enterModal(QWidget*);
     static void leaveModal(QWidget*);
+    static QWidgetList getModalStack();
     static void enterModal_sys(QWidget*);
     static void leaveModal_sys(QWidget*);
     static bool isBlockedByModal(QWidget *widget);
