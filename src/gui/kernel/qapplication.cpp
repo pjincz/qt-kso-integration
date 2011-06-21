@@ -3034,7 +3034,16 @@ void QApplicationPrivate::leaveModal(QWidget *widget)
     QCoreApplication::sendEvent(qApp, &me);
 }
 
-
+/*!\internal add by kingsoft 2011-6-21 11:38:43
+*/
+QWidgetList QApplicationPrivate::getModalStack()
+{
+    if (qt_modal_stack)
+    {
+        return *qt_modal_stack;
+    }
+    return QWidgetList();
+}
 
 /*!\internal
 
