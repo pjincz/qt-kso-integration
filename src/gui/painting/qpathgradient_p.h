@@ -3,6 +3,7 @@
 #define QPATHGRADIENT_P_H
 
 #include <algorithm>
+#include <private/qsimd_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -777,42 +778,124 @@ private:
 		}
 	}
 
+#ifdef QT_HAVE_SSE4_1
+    __m128i gradient_sse4(const __m128i &from, const __m128i &to, const __m128i &pos, const int &shift) const
+    {
+        Q_ASSERT(qDetectCPUFeatures() & SSE4_1);
+
+        __m128i result = _mm_sub_epi32(to, from);
+        result = _mm_mullo_epi32(result, pos);
+        result = _mm_srai_epi32(result, shift);
+        result = _mm_add_epi32(from, result);
+
+        Q_ASSERT(0 <= result.m128i_i32[0] && result.m128i_i32[0] <= 255);
+        Q_ASSERT(0 <= result.m128i_i32[1] && result.m128i_i32[1] <= 255);
+        Q_ASSERT(0 <= result.m128i_i32[2] && result.m128i_i32[2] <= 255);
+        Q_ASSERT(0 <= result.m128i_i32[3] && result.m128i_i32[3] <= 255);
+
+        return result;
+    }
+
+    void generate_gradient_sse4(argb8 *buffer, int length, 
+                                const argb8 &clrFrom, const argb8 &clrTo,
+                                const qreal &start, const qreal &dx) const
+    {
+        Q_ASSERT(sizeof(argb8) == sizeof(uint));
+        Q_ASSERT(qDetectCPUFeatures() & SSE4_1);
+
+        enum {
+            base_shift = 16,
+            base_scale = 1 << base_shift
+        };
+        const __m128i from[4] = {
+            _mm_set1_epi32(clrFrom.b),
+            _mm_set1_epi32(clrFrom.g),
+            _mm_set1_epi32(clrFrom.r),
+            _mm_set1_epi32(clrFrom.a)
+        };
+        const __m128i to[4] = {
+            _mm_set1_epi32(clrTo.b),
+            _mm_set1_epi32(clrTo.g),
+            _mm_set1_epi32(clrTo.r),
+            _mm_set1_epi32(clrTo.a)
+        };
+        __m128i *pSrc = (__m128i *)buffer;
+        __m128i *pEnd = pSrc + length / 4;
+        __m128i result[4];
+        for (int i = 0; pSrc < pEnd; pSrc++, i += 4) {
+            const int pos[4] = {
+                int((start + i * dx) * base_scale + 0.5),
+                int((start + (i + 1) * dx) * base_scale + 0.5),
+                int((start + (i + 2) * dx) * base_scale + 0.5),
+                int((start + (i + 3) * dx) * base_scale + 0.5)
+            };
+            const __m128i mpos = _mm_set_epi32(pos[3], pos[2], pos[1], pos[0]);
+            result[3] = gradient_sse4(from[3], to[3], mpos, base_shift); // alpha
+            result[2] = gradient_sse4(from[2], to[2], mpos, base_shift); // red
+            result[1] = gradient_sse4(from[1], to[1], mpos, base_shift); // green
+            result[0] = gradient_sse4(from[0], to[0], mpos, base_shift); // blue
+
+            result[3] = _mm_or_si128(_mm_slli_epi32(result[3], 24),  _mm_slli_epi32(result[2], 16));
+            result[1] = _mm_or_si128(_mm_slli_epi32(result[1], 8),  result[0]);
+            _mm_storeu_si128(pSrc,  _mm_or_si128(result[3], result[1]));
+        }
+        switch (length % 4) {
+                case 3: --length; buffer[length] = clrFrom.gradient(clrTo, start + length * dx);
+                case 2: --length; buffer[length] = clrFrom.gradient(clrTo, start + length * dx);
+                case 1: --length; buffer[length] = clrFrom.gradient(clrTo, start + length * dx);
+        }
+    }
+#endif // QT_HAVE_SSE4_1
+    void generate_gradient(argb8 *buffer, int length, 
+                            const argb8 &clrFrom, const argb8 &clrTo,
+                            const qreal &start, const qreal &dx) const 
+    {
+        if (clrFrom == clrTo) {
+            extern void (*qt_memfill32)(quint32 *dest, quint32 value, int count);
+            qt_memfill32((quint32 *)buffer, qRgba(clrFrom.r, clrFrom.g, clrFrom.b, clrFrom.a), length);
+            return;
+        }
+
+#ifdef QT_HAVE_SSE4_1
+    if (qDetectCPUFeatures() & SSE4_1)
+        return generate_gradient_sse4(buffer, length, clrFrom, clrTo, start, dx);        
+#endif // QT_HAVE_SSE4_1
+        for (int i = 0; i < length; i++) {
+            qreal pos = start;
+            buffer[i] = clrFrom.gradient(clrTo, pos);
+            pos += dx;
+        }
+    }
 	void generate_middle(const int& /*strt*/,
 		                 const int& end, 
 						 const int& strt_prev_index,
 		                 const int& end_next_index,
 						 int&  curx) const
-	{
-		int cur_prev_index = strt_prev_index;
-		int cur_next_index = strt_prev_index + 1;
-		while (cur_next_index <= end_next_index)
-		{
-			const color_type& cl1 = m_nodes[cur_prev_index].c;
-			const color_type& cl2 = m_nodes[cur_next_index].c;
-			const qreal& rcurx = static_cast<qreal>(curx);
-			const qreal& istr = m_nodes[cur_prev_index].p.x();
-			const qreal& iend = m_nodes[cur_next_index].p.x();	
-			if (!qFuzzyCompare(istr, iend))
-			{
-				qreal scale = (rcurx - istr) / (iend - istr);
-				Q_ASSERT(scale >= 0 && "current index is less than the start index");
-				const qreal& incr = 1.0f / (iend - istr);
-				const int& offset= curx - m_x1;
-				color_type *span = m_span + offset;
-				const int& lastx = qMin(end, static_cast<int>(iend));
-				while (curx <= lastx)
-				{
-					*span = cl1.gradient(cl2, scale);
-					scale = scale + incr;
-					span->demultiply();
-					++span;
-					++curx;
-				}
-			}	
-			++cur_prev_index;
-			++cur_next_index;
-		}
-	}
+    {
+        int cur_prev_index = strt_prev_index;
+        int cur_next_index = strt_prev_index + 1;
+        while (cur_next_index <= end_next_index)
+        {
+            const color_type& cl1 = m_nodes[cur_prev_index].c;
+            const color_type& cl2 = m_nodes[cur_next_index].c;
+            const qreal& rcurx = static_cast<qreal>(curx);
+            const qreal& istr = m_nodes[cur_prev_index].p.x();
+            const qreal& iend = m_nodes[cur_next_index].p.x();	
+            if (!qFuzzyCompare(istr, iend))
+            {
+                qreal scale = (rcurx - istr) / (iend - istr);
+                Q_ASSERT(scale >= 0 && "current index is less than the start index");
+                const qreal& incr = 1.0f / (iend - istr);
+                const int& offset= curx - m_x1;
+                color_type *span = m_span + offset;
+                const int& lastx = qMin(end, static_cast<int>(iend));
+                generate_gradient(span, lastx - curx + 1, cl1, cl2, scale, incr);
+                curx = lastx + 1;
+            }
+            ++cur_prev_index;
+            ++cur_next_index;
+        }
+    }
 
 	void generate_next(const int& end_next_index, 
 		               const int& strt, const int& end, int& curx) const
@@ -833,7 +916,7 @@ private:
 	color_type * const m_span;
 	const int m_x1;
 	const int m_x2;
-	QVector<ColorNode> m_nodes;//QVector is much faster than QVector
+	QVector<ColorNode> m_nodes;//QVector is much faster than std::vector
 };
 
 
