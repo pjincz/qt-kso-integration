@@ -2607,6 +2607,8 @@ static QPointF qt_get_path_center_point(const QPainterPath &path)
 
     QPointF pt(0, 0);
     int nCount = path.elementCount();
+    if ((QPointF)path.elementAt(0) == (QPointF)path.elementAt(nCount - 1))
+        nCount--;
     for (int i = 0; i < nCount ; i++)
     	pt += (QPointF)path.elementAt(i);
     
