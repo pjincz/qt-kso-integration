@@ -87,6 +87,7 @@ SUBDIRS=\
     qhelpprojectdata \
     qicoimageformat \
     qicon \
+    qimageeffects \
     qimageiohandler \
     qimagereader \
     qimagewriter \

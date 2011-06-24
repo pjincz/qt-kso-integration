@@ -43,7 +43,8 @@ HEADERS += \
         painting/qtransform.h \
         painting/qwindowsurface_p.h \
         painting/qwmatrix.h \
-        painting/qpaintbuffer_p.h
+        painting/qpaintbuffer_p.h \
+        painting/qpathgradient_p.h
 
 
 SOURCES += \

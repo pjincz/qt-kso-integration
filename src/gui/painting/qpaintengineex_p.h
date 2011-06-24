@@ -193,6 +193,9 @@ public:
 
     virtual void drawImage(const QRectF &r, const QImage &pm, const QRectF &sr,
                            Qt::ImageConversionFlags flags = Qt::AutoColor) = 0;
+    virtual void drawImage(const QRectF &, const QImage &, const QRectF &, 
+                           const QImageEffects *,
+                           Qt::ImageConversionFlags flags = Qt::AutoColor) {Q_UNUSED(flags);}
     virtual void drawImage(const QPointF &pos, const QImage &image);
 
     virtual void drawTiledPixmap(const QRectF &r, const QPixmap &pixmap, const QPointF &s);

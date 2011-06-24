@@ -3020,6 +3020,161 @@ void QRasterPaintEngine::drawImage(const QRectF &r, const QImage &img, const QRe
     }
 }
 
+extern inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length);
+/*!
+    \reimp
+*/
+void QRasterPaintEngine::drawImage(const QRectF &r, const QImage &img, const QRectF &sr, 
+                                   const QImageEffects *effects,
+                                   Qt::ImageConversionFlags flags/* = Qt::AutoColor*/)
+{
+#ifdef QT_DEBUG_DRAW
+    qDebug() << " - QRasterPaintEngine::drawImage(), r=" << r << " sr=" << sr << " image=" << img.size() << "depth=" << img.depth();
+#endif
+
+    if (!effects->hasEffects())
+        return drawImage(r, img, sr, flags);
+
+    if (r.isEmpty())
+        return;
+
+    Q_D(QRasterPaintEngine);
+    QRasterPaintEngineState *s = state();
+    int sr_l = qFloor(sr.left());
+    int sr_r = qCeil(sr.right()) - 1;
+    int sr_t = qFloor(sr.top());
+    int sr_b = qCeil(sr.bottom()) - 1;
+
+    QImageEffectsPrivate tmpEffects = *effects->data_ptr();
+    tmpEffects.prepare();
+
+    //d->solid_color_filler.effects = effects;
+    d->image_filler.effects =  &tmpEffects;
+    d->image_filler_xform.effects = &tmpEffects;
+
+    if (s->matrix.type() <= QTransform::TxScale && !s->flags.antialiased && sr_l == sr_r && sr_t == sr_b) {
+        // as fillRect will apply the aliased coordinate delta we need to
+        // subtract it here as we don't use it for image drawing
+        QTransform old = s->matrix;
+        s->matrix = s->matrix * QTransform::fromTranslate(-aliasedCoordinateDelta, -aliasedCoordinateDelta);
+
+        // Do whatever fillRect() does, but without premultiplying the color if it's already premultiplied.
+        QRgb color = img.pixel(sr_l, sr_t);
+        switch (img.format()) {
+        case QImage::Format_ARGB32_Premultiplied:
+        case QImage::Format_ARGB8565_Premultiplied:
+        case QImage::Format_ARGB6666_Premultiplied:
+        case QImage::Format_ARGB8555_Premultiplied:
+        case QImage::Format_ARGB4444_Premultiplied:
+            // Combine premultiplied color with the opacity set on the painter.
+            d->solid_color_filler.solid.color =
+                ((((color & 0x00ff00ff) * s->intOpacity) >> 8) & 0x00ff00ff)
+                | ((((color & 0xff00ff00) >> 8) * s->intOpacity) & 0xff00ff00);
+            break;
+        default:
+            d->solid_color_filler.solid.color = PREMUL(ARGB_COMBINE_ALPHA(color, s->intOpacity));
+            break;
+        }
+
+        if ((d->solid_color_filler.solid.color & 0xff000000) == 0
+            && s->composition_mode == QPainter::CompositionMode_SourceOver) {
+            goto Exit;
+        }
+
+        qt_makeEffects(&tmpEffects, &d->solid_color_filler.solid.color, 1);
+
+        d->solid_color_filler.clip = d->clip();
+        d->solid_color_filler.adjustSpanMethods();
+        fillRect(r, &d->solid_color_filler);
+
+        s->matrix = old;
+        goto Exit;
+    }
+
+    bool stretch_sr = r.width() != sr.width() || r.height() != sr.height();
+
+    const QClipData *clip = d->clip();
+
+    if (s->matrix.type() > QTransform::TxTranslate || stretch_sr) {
+        QTransform copy = s->matrix;
+        copy.translate(r.x(), r.y());
+        if (stretch_sr)
+            copy.scale(r.width() / sr.width(), r.height() / sr.height());
+        copy.translate(-sr.x(), -sr.y());
+        
+        d->image_filler_xform.clip = clip;
+        d->image_filler_xform.initTexture(&img, s->intOpacity, QTextureData::Plain, toAlignedRect_positive(sr));
+        if (!d->image_filler_xform.blend)
+            goto Exit;
+        d->image_filler_xform.setupMatrix(copy, s->flags.bilinear);        
+
+        if (!s->flags.antialiased && s->matrix.type() <= QTransform::TxScale) {
+            QRectF rr = s->matrix.mapRect(r);
+
+            const int x1 = qRound(rr.x());
+            const int y1 = qRound(rr.y());
+            const int x2 = qRound(rr.right());
+            const int y2 = qRound(rr.bottom());
+            
+            fillRect_normalized(QRect(x1, y1, x2-x1, y2-y1), &d->image_filler_xform, d);
+            goto Exit;
+        }
+
+#ifdef QT_FAST_SPANS
+        ensureState();
+        if (s->flags.tx_noshear || s->matrix.type() == QTransform::TxScale) {
+            d->initializeRasterizer(&d->image_filler_xform);
+            d->rasterizer->setAntialiased(s->flags.antialiased);
+
+            const QPointF offs = s->flags.antialiased ? QPointF() : QPointF(aliasedCoordinateDelta, aliasedCoordinateDelta);
+
+            const QRectF &rect = r.normalized();
+            const QPointF a = s->matrix.map((rect.topLeft() + rect.bottomLeft()) * 0.5f) - offs;
+            const QPointF b = s->matrix.map((rect.topRight() + rect.bottomRight()) * 0.5f) - offs;
+
+            if (s->flags.tx_noshear)
+                d->rasterizer->rasterizeLine(a, b, rect.height() / rect.width());
+            else
+                d->rasterizer->rasterizeLine(a, b, qAbs((s->matrix.m22() * rect.height()) / (s->matrix.m11() * rect.width())));
+            goto Exit;
+        }
+#endif
+        const qreal offs = s->flags.antialiased ? qreal(0) : aliasedCoordinateDelta;
+        QPainterPath path;
+        path.addRect(r);
+        QTransform m = s->matrix;
+        s->matrix = QTransform(m.m11(), m.m12(), m.m13(),
+                               m.m21(), m.m22(), m.m23(),
+                               m.m31() - offs, m.m32() - offs, m.m33());
+        fillPath(path, &d->image_filler_xform);
+        d->image_filler_xform.effects = NULL;
+        s->matrix = m;
+    } else {
+        d->image_filler.clip = clip;
+        d->image_filler.initTexture(&img, s->intOpacity, QTextureData::Plain, toAlignedRect_positive(sr));
+        if (!d->image_filler.blend)
+            goto Exit;
+        
+        d->image_filler.dx = -(r.x() + s->matrix.dx()) + sr.x();
+        d->image_filler.dy = -(r.y() + s->matrix.dy()) + sr.y();
+
+        QRectF rr = r;
+        rr.translate(s->matrix.dx(), s->matrix.dy());
+
+        const int x1 = qRound(rr.x());
+        const int y1 = qRound(rr.y());
+        const int x2 = qRound(rr.right());
+        const int y2 = qRound(rr.bottom());
+
+        fillRect_normalized(QRect(x1, y1, x2-x1, y2-y1), &d->image_filler, d);
+    }
+
+Exit:
+    //d->solid_color_filler.effects = NULL;
+    d->image_filler.effects = NULL;
+    d->image_filler_xform.effects = NULL;
+}
+
 /*!
     \reimp
 */
@@ -5487,35 +5642,35 @@ void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode 
             *tempImage = rasterBuffer->colorizeBitmap(brush.textureImage(), brush.color());
         else {
             const Qt::TextureWrapMode wrapMode = brush.textureWrapMode();
-            const QImage &textureImg = brush.textureImage();
+            const QImage &textureImg = brush.textureImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
 
             if (wrapMode == Qt::TextureTiling 
                 || wrapMode == Qt::TextureNoTiling
                 || wrapMode == Qt::TextureStretching) {
-                *tempImage = brush.textureImage();
+                *tempImage = textureImg;
             } else if (wrapMode == Qt::TextureFlippingX) {
-                QPixmap mirrored(textureImg.width() * 2, textureImg.height());
-                mirrored.fill(QColor(0, 0, 0, 0));
+                QImage mirrored(textureImg.width() * 2, textureImg.height(), QImage::Format_ARGB32_Premultiplied);
+                mirrored.fill(0);
 
                 QPainter painter(&mirrored);
                 painter.setCompositionMode(QPainter::CompositionMode_Source);
                 painter.drawImage(0, 0, textureImg);
                 painter.drawImage(textureImg.width(), 0, textureImg.mirrored(true, false));
                 painter.end();
-                *tempImage = mirrored.toImage();
+                *tempImage = mirrored;
             } else if (wrapMode == Qt::TextureFlippingY) {
-                QPixmap mirrored(textureImg.width(), textureImg.height() * 2);
-                mirrored.fill(QColor(0, 0, 0, 0));
+                QImage mirrored(textureImg.width(), textureImg.height() * 2, QImage::Format_ARGB32_Premultiplied);
+                mirrored.fill(0);
 
                 QPainter painter(&mirrored);
                 painter.setCompositionMode(QPainter::CompositionMode_Source);
                 painter.drawImage(0, 0, textureImg);
                 painter.drawImage(0, textureImg.height(), textureImg.mirrored(false, true));
                 painter.end();
-                *tempImage = mirrored.toImage();
+                *tempImage = mirrored;
             } else if (wrapMode == Qt::TextureFlippingXY) {
-                QPixmap mirrored(textureImg.width() * 2, textureImg.height() * 2);
-                mirrored.fill(QColor(0, 0, 0, 0));
+                QImage mirrored(textureImg.width() * 2, textureImg.height() * 2, QImage::Format_ARGB32_Premultiplied);
+                mirrored.fill(0);
 
                 QPainter painter(&mirrored);
                 painter.setCompositionMode(QPainter::CompositionMode_Source);
@@ -5524,7 +5679,7 @@ void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode 
                 painter.drawImage(0, textureImg.height(), textureImg.mirrored(false, true));
                 painter.drawImage(textureImg.width(), textureImg.height(), textureImg.mirrored(true, true));
                 painter.end();
-                *tempImage = mirrored.toImage();
+                *tempImage = mirrored;
             }
         }
 

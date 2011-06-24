@@ -5721,6 +5721,78 @@ void QPainter::drawImage(const QRectF &targetRect, const QImage &image, const QR
 }
 
 
+void QPainter::drawImage(const QRectF &targetRect, const QImage &image, const QRectF &sourceRect,
+                         const QImageEffects *userData,
+                         Qt::ImageConversionFlags flags/* = Qt::AutoColor*/)
+{
+    Q_D(QPainter);
+
+    if (image.isNull() || NULL == userData) {
+        qWarning("Invalid argument!");
+        return;
+    }
+    if (!d->engine || !d->extended) {
+        qWarning("QPainter::drawImage: Painter not active");
+        return;
+    }
+
+    qreal x = targetRect.x();
+    qreal y = targetRect.y();
+    qreal w = targetRect.width();
+    qreal h = targetRect.height();
+    qreal sx = sourceRect.x();
+    qreal sy = sourceRect.y();
+    qreal sw = sourceRect.width();
+    qreal sh = sourceRect.height();
+
+    // Sanity-check clipping
+    if (sw <= 0)
+        sw = image.width() - sx;
+
+    if (sh <= 0)
+        sh = image.height() - sy;
+
+    if (w < 0)
+        w = sw;
+    if (h < 0)
+        h = sh;
+
+    if (sx < 0) {
+        qreal w_ratio = sx * w/sw;
+        x -= w_ratio;
+        w += w_ratio;
+        sw += sx;
+        sx = 0;
+    }
+
+    if (sy < 0) {
+        qreal h_ratio = sy * h/sh;
+        y -= h_ratio;
+        h += h_ratio;
+        sh += sy;
+        sy = 0;
+    }
+
+    if (sw + sx > image.width()) {
+        qreal delta = sw - (image.width() - sx);
+        qreal w_ratio = delta * w/sw;
+        sw -= delta;
+        w -= w_ratio;
+    }
+
+    if (sh + sy > image.height()) {
+        qreal delta = sh - (image.height() - sy);
+        qreal h_ratio = delta * h/sh;
+        sh -= delta;
+        h -= h_ratio;
+    }
+
+    if (w == 0 || h == 0 || sw <= 0 || sh <= 0)
+        return;
+
+    d->extended->drawImage(QRectF(x, y, w, h), image, QRectF(sx, sy, sw, sh), userData, flags);
+}
+
 void qt_draw_glyphs(QPainter *painter, const quint32 *glyphArray, const QPointF *positionArray,
                     int glyphCount)
 {

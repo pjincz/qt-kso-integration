@@ -58,13 +58,14 @@
 #include <private/qmemrotate_p.h>
 #include <private/qpixmapdata_p.h>
 #include <private/qimagescale_p.h>
-#include <private/qsimd_p.h>
 
 #include <qhash.h>
 
 #include <private/qpaintengine_raster_p.h>
 
 #include <private/qimage_p.h>
+
+#include <QMatrix4x4>
 
 QT_BEGIN_NAMESPACE
 
@@ -6628,5 +6629,569 @@ bool QImageData::convertInPlace(QImage::Format newFormat, Qt::ImageConversionFla
     \fn DataPtr & QImage::data_ptr()
     \internal
 */
+
+QImageEffectsPrivate::QImageEffectsPrivate()
+    : hasColorMatirx(0)
+    , hasColorKey(0)
+    , hasDuotone(0)
+    , hasBilevel(0)
+    , checkBound(1)
+    , colorKey(0)
+    , bilevelThreshold(50)
+    , duotoneColor1(0)
+    , duotoneColor2(0)
+    , brightness(0)
+    , contrast(1)
+    , m_pTransformProc(&QImageEffectsPrivate::transform_cpp)
+{   
+    memset(colorMatrixInt[0], 0, sizeof(colorMatrixInt));
+
+    m_sr = m_sg = m_sb = 255;
+    m_dr = m_dg = m_db = 0;
+}
+
+QImageEffectsPrivate::~QImageEffectsPrivate()
+{
+}
+
+/*!
+    \internal
+    Update the color matrix according to the effect data.
+    Note that the color matrix mustn't have been set by setColorMatrix().
+    \sa setColorMatrix(), unsetColorMatrix()
+*/
+void QImageEffectsPrivate::updateColorMatrix()
+{
+    Q_ASSERT(!hasColorMatirx);
+
+    colorMatrix.setToIdentity();
+    qreal *p = colorMatrix.data();
+
+    if (brightness != 0 || contrast != 1){
+        qreal propContrast = contrast;
+        qreal propBright = brightness / 2;
+        qreal fOffset = 0.0f;
+
+        if (propContrast < 1.0f && propBright > 0.0f)
+            fOffset = 0.15f * (propContrast - 1.0f);
+        else
+            fOffset = 0.5f * (propContrast - 1.0f) - propBright * (propContrast - 1.0f);
+
+        qreal fOffsetVal = brightness - fOffset;
+        if (hasDuotone || hasBilevel) {
+            p[0] = p[1] = p[2] = 0.299 * propContrast;
+            p[4] = p[5] = p[6] = 0.587 * propContrast;
+            p[8] = p[9] = p[10] = 0.114 * propContrast;
+            p[12] = p[13] = p[14] = fOffsetVal;
+
+            colorMatrixInt[0][0] = colorMatrixInt[0][1] = colorMatrixInt[0][2] = qRound(p[0] * base_scale);
+            colorMatrixInt[1][0] = colorMatrixInt[1][1] = colorMatrixInt[1][2] = qRound(p[4] * base_scale);
+            colorMatrixInt[2][0] = colorMatrixInt[2][1] = colorMatrixInt[2][2] = qRound(p[8] * base_scale);
+            colorMatrixInt[3][0] = colorMatrixInt[3][1] = colorMatrixInt[3][2] = qRound(fOffsetVal * base_scale);
+        } else {
+            p[0] = p[5] = p[10] = propContrast;
+            p[12] = p[13] = p[14] = fOffsetVal;
+
+            colorMatrixInt[0][0] = colorMatrixInt[1][1] = colorMatrixInt[2][2] = qRound(propContrast * base_scale);
+            colorMatrixInt[3][0] = colorMatrixInt[3][1] = colorMatrixInt[3][2] = qRound(fOffsetVal * base_scale);
+        }
+    } else if (hasDuotone || hasBilevel) {
+        p[0] = p[1] = p[2] = 0.299;
+        p[4] = p[5] = p[6] = 0.587;
+        p[8] = p[9] = p[10] = 0.114;
+
+        colorMatrixInt[0][0] = colorMatrixInt[0][1] = colorMatrixInt[0][2] = qRound(p[0] * base_scale);
+        colorMatrixInt[1][0] = colorMatrixInt[1][1] = colorMatrixInt[1][2] = qRound(p[4] * base_scale);
+        colorMatrixInt[2][0] = colorMatrixInt[2][1] = colorMatrixInt[2][2] = qRound(p[8] * base_scale);
+    }
+}
+
+
+
+/*!
+    \fn inline void QImageEffectsData::transform(QRgb &rgb) const
+    Transform the rgb value use the color matrix.
+    Note: The alpha channel is unchanged.
+    sa\ transform_cpp(), transform_sse2(), transform_sse4()
+*/
+inline void QImageEffectsPrivate::transform(QRgb *buffer, int length) const
+{
+    Q_ASSERT(NULL != m_pTransformProc);
+
+    (this->*m_pTransformProc)(buffer, length);
+}
+
+/*!
+    \fn void QImageEffectsData::transform_sse2(QRgb &rgb) const
+    Transform the rgb value use the color matrix.
+    Note: The alpha channel is unchanged.
+    sa\ transform_cpp(), transform_sse4()
+*/
+#ifdef QT_HAVE_SSE2
+void QImageEffectsPrivate::transform_sse2(QRgb &rgb) const
+{
+    Q_ASSERT(qDetectCPUFeatures() & SSE2);
+
+    quint8 *pb = (quint8*)&rgb;
+    __m128i rg = _mm_set1_epi32((pb[2] << 16) | pb[1]);
+    __m128i ba = _mm_set1_epi32((pb[0] << 16) | pb[3]);
+
+    __m128i mrg = _mm_madd_epi16(rg, d.m_mmtxs[0]);
+    __m128i mba = _mm_madd_epi16(ba, d.m_mmtxs[1]);
+    __m128i mrgba = _mm_add_epi32(mrg, mba);
+    mrgba = _mm_srai_epi32(mrgba, 8);
+
+    if (checkBound) {
+        pb[2] = qBound<int>(0, mrgba.m128i_i32[3], pb[3]);
+        pb[1] = qBound<int>(0, mrgba.m128i_i32[2], pb[3]);
+        pb[0] = qBound<int>(0, mrgba.m128i_i32[1], pb[3]);
+    } else {
+        pb[2] = mrgba.m128i_i32[3];
+        pb[1] = mrgba.m128i_i32[2];
+        pb[0] = mrgba.m128i_i32[1];
+    }
+}
+
+/*!
+    \overload
+*/
+void QImageEffectsPrivate::transform_sse2(QRgb *buffer, int length) const
+{
+    Q_ASSERT(qDetectCPUFeatures() & SSE2);
+
+    const int *p = colorMatrixInt[0];
+    __m128i *pSrc = reinterpret_cast<__m128i*>(buffer);
+    __m128i *pEnd = pSrc + length / 4;
+    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    const __m128i colorMask = _mm_set1_epi32(0x00ff00ff);
+    __m128i mmtxr1 = _mm_set1_epi32((p[0] << 16) | p[8]);
+    __m128i mmtxr2 = _mm_set1_epi32((p[12] << 16) | p[4]);
+    __m128i mmtxg1 = _mm_set1_epi32((p[1] << 16) | p[9]);
+    __m128i mmtxg2 = _mm_set1_epi32((p[13] << 16) | p[5]);
+    __m128i mmtxb1 = _mm_set1_epi32((p[2] << 16) | p[10]);
+    __m128i mmtxb2 = _mm_set1_epi32((p[14] << 16) | p[6]);
+
+    for (; pSrc < pEnd; pSrc++) {
+        const __m128i msrc = _mm_loadu_si128(pSrc);
+        const __m128i mrb = _mm_and_si128(msrc, colorMask);
+        const __m128i mag = _mm_srli_epi16(msrc, 8);
+        const __m128i mas = _mm_and_si128(msrc, alphaMask);
+        const __m128i upperbound = _mm_srli_epi32(mas, 24);
+
+        //red channel
+        const __m128i mr1 = _mm_madd_epi16(mrb, mmtxr1);
+        const __m128i mr2 = _mm_madd_epi16(mag, mmtxr2);
+        __m128i mrs = _mm_add_epi32(mr1, mr2);
+        mrs = _mm_srli_epi32(mrs, 8);
+
+        //green channel
+        const __m128i mg1 = _mm_madd_epi16(mrb, mmtxg1);
+        const __m128i mg2 = _mm_madd_epi16(mag, mmtxg2);
+        __m128i mgs = _mm_add_epi32(mg1, mg2);
+        mgs = _mm_srli_epi32(mgs, 8);
+
+        //blue channel
+        const __m128i mb1 = _mm_madd_epi16(mrb, mmtxb1);
+        const __m128i mb2 = _mm_madd_epi16(mag, mmtxb2);
+        __m128i mbs = _mm_add_epi32(mb1, mb2);
+        mbs = _mm_srli_epi32(mbs, 8);
+
+        if (checkBound) {
+            mrs.m128i_i32[3] = qBound(0, mrs.m128i_i32[3], upperbound.m128i_i32[3]);
+            mrs.m128i_i32[2] = qBound(0, mrs.m128i_i32[2], upperbound.m128i_i32[2]);
+            mrs.m128i_i32[1] = qBound(0, mrs.m128i_i32[1], upperbound.m128i_i32[1]);
+            mrs.m128i_i32[0] = qBound(0, mrs.m128i_i32[0], upperbound.m128i_i32[0]);
+
+            mgs.m128i_i32[3] = qBound(0, mgs.m128i_i32[3], upperbound.m128i_i32[3]);
+            mgs.m128i_i32[2] = qBound(0, mgs.m128i_i32[2], upperbound.m128i_i32[2]);
+            mgs.m128i_i32[1] = qBound(0, mgs.m128i_i32[1], upperbound.m128i_i32[1]);
+            mgs.m128i_i32[0] = qBound(0, mgs.m128i_i32[0], upperbound.m128i_i32[0]);
+
+            mbs.m128i_i32[3] = qBound(0, mbs.m128i_i32[3], upperbound.m128i_i32[3]);
+            mbs.m128i_i32[2] = qBound(0, mbs.m128i_i32[2], upperbound.m128i_i32[2]);
+            mbs.m128i_i32[1] = qBound(0, mbs.m128i_i32[1], upperbound.m128i_i32[1]);
+            mbs.m128i_i32[0] = qBound(0, mbs.m128i_i32[0], upperbound.m128i_i32[0]);
+        }
+
+        mrs = _mm_slli_epi32(mrs, 16);
+        mgs = _mm_slli_epi32(mgs, 8);
+
+        _mm_storeu_si128(pSrc, _mm_or_si128(_mm_or_si128(mas, mrs), _mm_or_si128(mgs, mbs)));
+    }
+
+    switch (length % 4) {
+    case 3: transform_sse2(buffer[--length]);
+    case 2: transform_sse2(buffer[--length]);
+    case 1: transform_sse2(buffer[--length]);
+    }
+}
+#endif // QT_HAVE_SSE2
+
+/*!
+    \fn inline void QImageEffectsData::transform_sse4(QRgb &rgb) const
+    Transform the rgb value use the color matrix.
+    Note: The alpha channel is unchanged.
+    sa\ transform_cpp(), transform_sse2()
+*/
+#ifdef QT_HAVE_SSE4_1
+static const __m128i s_lowerbound = _mm_setzero_si128();
+void QImageEffectsPrivate::transform_sse4(QRgb &rgb) const
+{
+    Q_ASSERT(qDetectCPUFeatures() & SSE4_1);
+
+    quint8 *pb = (quint8*)&rgb;
+    __m128i rg = _mm_set1_epi32((pb[2] << 16) | pb[1]);
+    __m128i ba = _mm_set1_epi32((pb[0] << 16) | pb[3]);
+
+    __m128i mrg = _mm_madd_epi16(rg, d->m_mmtxs[0]);
+    __m128i mba = _mm_madd_epi16(ba, d->m_mmtxs[1]);
+    __m128i mrgba = _mm_add_epi32(mrg, mba);
+    mrgba = _mm_srai_epi32(mrgba, 8);
+
+    if (checkBound) {
+        __m128i upperbound = _mm_set1_epi32(pb[3]);
+        mrgba = _mm_max_epi32(s_lowerbound, mrgba);
+        mrgba = _mm_min_epi32(upperbound, mrgba);
+    }
+
+    pb[2] = mrgba.m128i_i32[3];
+    pb[1] = mrgba.m128i_i32[2];
+    pb[0] = mrgba.m128i_i32[1];
+}
+
+/*!
+    \overload
+*/
+void QImageEffectsPrivate::transform_sse4(QRgb *buffer, int length) const
+{
+    Q_ASSERT(qDetectCPUFeatures() & SSE4_1);
+
+    const int *p = colorMatrixInt[0];
+    __m128i *pSrc = reinterpret_cast<__m128i*>(buffer);
+    __m128i *pEnd = pSrc + length / 4;
+    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    const __m128i colorMask = _mm_set1_epi32(0x00ff00ff);
+    __m128i mmtxr1 = _mm_set1_epi32((p[0] << 16) | p[8]);
+    __m128i mmtxr2 = _mm_set1_epi32((p[12] << 16) | p[4]);
+    __m128i mmtxg1 = _mm_set1_epi32((p[1] << 16) | p[9]);
+    __m128i mmtxg2 = _mm_set1_epi32((p[13] << 16) | p[5]);
+    __m128i mmtxb1 = _mm_set1_epi32((p[2] << 16) | p[10]);
+    __m128i mmtxb2 = _mm_set1_epi32((p[14] << 16) | p[6]);
+
+    for (; pSrc < pEnd; pSrc++) {
+        const __m128i msrc = _mm_loadu_si128(pSrc);
+        const __m128i mrb = _mm_and_si128(msrc, colorMask);
+        const __m128i mag = _mm_srli_epi16(msrc, 8);
+        const __m128i mas = _mm_and_si128(msrc, alphaMask);
+        const __m128i upperbound = _mm_srli_epi32(mas, 24);
+
+        //red channel
+        const __m128i mr1 = _mm_madd_epi16(mrb, mmtxr1);
+        const __m128i mr2 = _mm_madd_epi16(mag, mmtxr2);
+        __m128i mrs = _mm_add_epi32(mr1, mr2);
+        mrs = _mm_srai_epi32(mrs, 8);
+        mrs = _mm_max_epi32(s_lowerbound, mrs);
+        mrs = _mm_min_epi32(upperbound, mrs);
+        mrs = _mm_slli_epi32(mrs, 16);
+
+        //green channel
+        const __m128i mg1 = _mm_madd_epi16(mrb, mmtxg1);
+        const __m128i mg2 = _mm_madd_epi16(mag, mmtxg2);
+        __m128i mgs = _mm_add_epi32(mg1, mg2);
+        mgs = _mm_srai_epi32(mgs, 8);
+        mgs = _mm_max_epi32(s_lowerbound, mgs);
+        mgs = _mm_min_epi32(upperbound, mgs);
+        mgs = _mm_slli_epi32(mgs, 8);
+
+        //blue channel
+        const __m128i mb1 = _mm_madd_epi16(mrb, mmtxb1);
+        const __m128i mb2 = _mm_madd_epi16(mag, mmtxb2);
+        __m128i mbs = _mm_add_epi32(mb1, mb2);
+        mbs = _mm_srai_epi32(mbs, 8);
+        mbs = _mm_max_epi32(s_lowerbound, mbs);
+        mbs = _mm_min_epi32(upperbound, mbs);
+
+        _mm_storeu_si128(pSrc, _mm_or_si128(_mm_or_si128(mas, mrs), _mm_or_si128(mgs, mbs)));
+    }
+
+    switch (length % 4) {
+    case 3: transform_sse4(buffer[--length]);
+    case 2: transform_sse4(buffer[--length]);
+    case 1: transform_sse4(buffer[--length]);
+    }
+}
+#endif // QT_HAVE_SSE4_1
+
+/*!
+    \fn void QImageEffectsData::transform_cpp(QRgb &rgb) const
+    Transform the rgb value use the color matrix.
+    Note: The alpha channel is unchanged
+    sa\ transform_sse2(), transform_sse4()
+*/
+void QImageEffectsPrivate::transform_cpp(QRgb &rgb) const
+{
+    quint8 *pb = (quint8*)&rgb;
+    int r, g, b;
+    if (hasColorMatirx) {
+        r =  (pb[2] * colorMatrixInt[0][0] 
+            + pb[1] * colorMatrixInt[1][0]
+            + pb[0] * colorMatrixInt[2][0] 
+            + pb[3] * colorMatrixInt[3][0]) >> base_shift;
+        g =  (pb[2] * colorMatrixInt[0][1] 
+            + pb[1] * colorMatrixInt[1][1]
+            + pb[0] * colorMatrixInt[2][1] 
+            + pb[3] * colorMatrixInt[3][1]) >> base_shift;
+        b =  (pb[2] * colorMatrixInt[0][2] 
+            + pb[1] * colorMatrixInt[1][2]
+            + pb[0] * colorMatrixInt[2][2] 
+            + pb[3] * colorMatrixInt[3][2]) >> base_shift;
+    } else {
+        if (hasDuotone || hasBilevel) {
+            r =  (pb[2] * colorMatrixInt[0][0] 
+                + pb[1] * colorMatrixInt[1][0]
+                + pb[0] * colorMatrixInt[2][0] 
+                + pb[3] * colorMatrixInt[3][0]) >> base_shift;
+            pb[2] = pb[1] = pb[0] = qBound<int>(0, r, pb[3]);
+            return;
+        } else {
+            r = (pb[2] * colorMatrixInt[0][0] + pb[3] * colorMatrixInt[3][0]) >> base_shift;
+            g = (pb[1] * colorMatrixInt[1][1] + pb[3] * colorMatrixInt[3][1]) >> base_shift;
+            b = (pb[0] * colorMatrixInt[2][2] + pb[3] * colorMatrixInt[3][2]) >> base_shift;
+        }
+    }
+
+    pb[2] = qBound<int>(0, r, pb[3]);
+    pb[1] = qBound<int>(0, g, pb[3]);
+    pb[0] = qBound<int>(0, b, pb[3]);
+}
+
+/*!
+    \overload
+*/
+void QImageEffectsPrivate::transform_cpp(QRgb *buffer, int length) const
+{
+    for (int i = 0; i < length; i++)
+    	transform_cpp(buffer[i]);
+}
+
+/*!
+    \internal
+    Choose the fastest transform function depending on the CPU's features and 
+    the other data member.
+    transform_sse4() is faster than transform_sse2(), and transform_sse2() is
+    faster than transform_cpp(). However, transform_cpp() is the common version.
+*/
+void QImageEffectsPrivate::setTransformFunc()
+{
+#ifdef QT_HAVE_SSE2
+    if (!hasColorMatirx && contrast <= 50) {
+        if (false) {
+#ifdef QT_HAVE_SSE4_1
+        }
+        else if (qDetectCPUFeatures() & SSE4_1) {
+            m_pTransformProc = &QImageEffectsPrivate::transform_sse4;
+#endif
+        } else if (qDetectCPUFeatures() & SSE2)
+            m_pTransformProc = &QImageEffectsPrivate::transform_sse2;
+        
+        const int *p = colorMatrixInt[0];
+        d.m_mmtxs[0] = _mm_set_epi16(p[0], p[4], p[1], p[5], p[2], p[6], p[3], p[7]);
+        d.m_mmtxs[1] = _mm_set_epi16(p[8], p[12], p[9], p[13], p[10], p[14], p[11], p[15]);        
+    }
+#endif // QT_HAVE_SSE2
+}
+
+/*!
+    \internal
+*/
+void QImageEffectsPrivate::prepare()
+{
+    if (brightness < -1 || brightness > 1) {
+        qWarning("the brightness's value is out of range!");
+        brightness = qBound<qreal>(-1, brightness, 1);
+    }
+    if (contrast < 0) {
+        qWarning("The contrast should not be less than 0!");
+        contrast = 0;
+    }
+
+    if (!hasColorMatirx) {
+        updateColorMatrix();
+        // gray scale is set by the color matrix
+        if (m_sr == 255 && m_sg == 255 && m_sb == 255
+            && m_dr == 0 && m_dg == 0 && m_db == 0)
+            hasDuotone = false;
+    } else {
+        const qreal *p = colorMatrix.constData();
+        for (int row = 0; row < 4; row++)
+            for (int col = 0; col < 4; col++)
+                colorMatrixInt[row][col] = qRound(p[row * 4 + col] * base_scale);
+    }
+    colorKey = PREMUL(colorKey);
+
+    if (hasColorMatirx || brightness != 0 || contrast != 1)
+        checkBound = true;
+    else
+        checkBound = false;
+
+    setTransformFunc();
+}
+
+QImageEffects::QImageEffects()
+: d(new QImageEffectsPrivate)
+{
+}
+
+QImageEffects::QImageEffects(const QImageEffects &rhs)
+{
+    d = rhs.d;
+    if (d)
+        d->ref.ref();
+}
+
+QImageEffects::~QImageEffects()
+{
+    if (d && !d->ref.deref())
+        delete d;
+}
+
+QImageEffects &QImageEffects::operator=(const QImageEffects &rhs)
+{
+    if (rhs.d)
+        rhs.d->ref.ref();
+    if (d && !d->ref.deref())
+        delete d;
+    d = rhs.d;
+    return *this;
+}
+
+/*!
+    \fn void QImageEffects::setBilevel()
+    Set the bilevel flag and the parameters.
+    The alpha channel is unchanged.
+    The function will clear the recolor flag.
+    \sa unsetBilevel()
+*/
+void QImageEffects::setBilevel(qreal threshold)
+{
+    if (threshold < 0 || 1.0 < threshold) {
+        qWarning("threshold must be between 0 and 1.0!");
+        return;
+    }
+
+    unsetDuotone();
+    d->hasBilevel = true;
+    d->bilevelThreshold = qRound(threshold * 100);
+}
+
+/*!
+    \fn void QImageEffects::unsetBilevel()
+    \sa setBilevel()
+*/
+void QImageEffects::unsetBilevel()
+{
+    d->hasBilevel = false;
+}
+
+/*!
+    \fn void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
+    Set the color matrix to \a mtx.
+    The red, green and blue channel of each pixel in the image will be transformed 
+    by \a mtx before drawing. The alpha channel is unchanged.
+    Note that once set the color matrix, the other effects such as gray and bilevel
+    are disable. Call unsetColorMatrix() to enable them.
+    sa\ unsetColorMatrix()
+*/
+inline void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
+{
+    d->hasColorMatirx = true;
+    d->colorMatrix = mtx;
+}
+
+/*!
+    \fn void QImageEffects::unsetColorMatrix()
+    Discard the color matrix set by setColorMatrix and enable the other effects.
+    \sa setColorMatrix()
+*/
+inline void QImageEffects::unsetColorMatrix()
+{
+    d->hasColorMatirx = false;
+}
+
+/*!
+    \fn void QImageEffects::setRecolor()
+    Set the recolor flag and the parameters.
+    r' = r * sr / 255 + dr;
+    g' = g * sg / 255 + dg;
+    b' = b * sb / 255 + db;
+    The alpha channel is unchanged.
+    The function will clear the bilevel flag.
+    \sa unsetRecolor()
+*/
+
+void QImageEffects::setDuotone( QRgb color1, QRgb color2 )
+{
+    // FIXME:
+/*
+    if (sr + dr > base_scale
+        || sg + dg > base_scale
+        || sb + db > base_scale) {
+            qWarning("Invalid arguments!");
+            return;
+    }
+
+    unsetBilevel();
+    d->hasDuotone = true;
+    d->m_sr = sr;
+    d->m_sg = sg;
+    d->m_sb = sb;
+    d->m_dr = dr;
+    d->m_dg = dg;
+    d->m_db = db;
+    */
+}
+
+void QImageEffects::unsetDuotone()
+{
+    d->hasDuotone = false;
+}
+
+
+void QImageEffects::setBrightness(qreal brightness)
+{
+    d->brightness = brightness;
+}
+
+void QImageEffects::setColorKey(QRgb key)
+{
+    d->hasColorKey = true;
+    d->colorKey = key;
+}
+
+void QImageEffects::unsetColorKey()
+{
+    d->hasColorKey = false;
+}
+
+void QImageEffects::setContrast(qreal contrast)
+{
+    d->contrast = contrast;
+}
+
+/*!
+    \fn bool QImageEffects::hasEffects() const
+    Returns whether the data has any effects.
+*/
+bool QImageEffects::hasEffects() const
+{
+    if (d->hasColorMatirx)
+        return !d->colorMatrix.isIdentity();
+    else
+        return (d->hasDuotone
+                || d->hasBilevel
+                || d->hasColorKey
+                || d->brightness != 0
+                || d->contrast != 1);
+}
 
 QT_END_NAMESPACE

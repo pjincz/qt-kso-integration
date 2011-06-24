@@ -61,6 +61,8 @@
 #include <QMap>
 #endif
 
+#include <private/qsimd_p.h>
+
 QT_BEGIN_NAMESPACE
 
 class QImageWriter;
@@ -108,6 +110,83 @@ struct Q_GUI_EXPORT QImageData {        // internal image data
     bool doImageIO(const QImage *image, QImageWriter* io, int quality) const;
 
     QPaintEngine *paintEngine;
+};
+
+#ifdef QT_HAVE_SSE2
+struct Q_GUI_EXPORT QM128Data {
+    __m128i m_mmtxs[2];
+
+    QM128Data()
+    {
+        m_mmtxs[0] = _mm_set1_epi16(0);
+        m_mmtxs[1] = _mm_set1_epi16(0);
+    }
+
+    void* operator new(size_t size)
+    {
+        return _aligned_malloc(size, 16);
+    }
+
+    void operator delete(void *p)
+    {
+        QM128Data *pc = static_cast<QM128Data*>(p);
+        _aligned_free(pc);
+    }
+};
+#endif
+
+struct Q_GUI_EXPORT QImageEffectsPrivate
+{
+public:
+    enum base_scale_e
+    {
+        base_shift = 8,
+        base_scale = 1 << base_shift,
+    };
+
+    QImageEffectsPrivate();
+    ~QImageEffectsPrivate();
+
+    void updateColorMatrix();
+    void prepare();
+    void transform(QRgb *buffer, int length) const;
+    void transform_cpp(QRgb &rgb) const;
+    void transform_cpp(QRgb *buffer, int length) const;
+    void setTransformFunc();
+
+    QAtomicInt ref;
+    bool hasColorMatirx;
+    bool hasColorKey;
+    bool hasDuotone;
+    bool hasBilevel;
+
+    bool checkBound;
+
+    QMatrix4x4 colorMatrix;
+    int colorMatrixInt[4][4];
+    QRgb colorKey;
+    quint8 bilevelThreshold;
+    QRgb duotoneColor1;
+    QRgb duotoneColor2;
+    quint8 m_sr, m_sg, m_sb, m_dr, m_dg, m_db; // TODO: should be removed.
+    qreal brightness;
+    qreal contrast;
+    typedef void (QImageEffectsPrivate::*TransformProc)(QRgb *buffer, int length) const;
+    TransformProc m_pTransformProc;
+
+#ifdef QT_HAVE_SSE2    
+    QM128Data d;
+    void transform_sse2(QRgb &rgb) const;
+    void transform_sse2(QRgb *buffer, int length) const;
+#endif
+
+#ifdef QT_HAVE_SSE4_1
+    void transform_sse4(QRgb &rgb) const;
+    void transform_sse4(QRgb *buffer, int length) const;
+#endif
+
+private:
+    friend class QRasterPaintEngine;
 };
 
 void qInitImageConversions();
