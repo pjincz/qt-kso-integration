@@ -186,6 +186,8 @@ public:
     void drawImage(const QPointF &p, const QImage &img);
     void drawImage(const QRectF &r, const QImage &pm, const QRectF &sr,
                    Qt::ImageConversionFlags falgs = Qt::AutoColor);
+    void drawImage(const QRectF &r, const QImage &pm, const QRectF &sr, const QImageEffects *userData,
+                   Qt::ImageConversionFlags flags = Qt::AutoColor); 
     void drawTiledPixmap(const QRectF &r, const QPixmap &pm, const QPointF &sr);
     void drawTextItem(const QPointF &p, const QTextItem &textItem);
 

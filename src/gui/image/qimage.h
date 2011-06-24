@@ -49,6 +49,8 @@
 #include <QtCore/qrect.h>
 #include <QtCore/qstring.h>
 
+#include <QMatrix4x4>
+
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE
@@ -356,6 +358,37 @@ Q_GUI_EXPORT QDataStream &operator>>(QDataStream &, QImage &);
 Q_GUI_EXPORT QT3_SUPPORT void bitBlt(QImage* dst, int dx, int dy, const QImage* src,
                                      int sx=0, int sy=0, int sw=-1, int sh=-1, Qt::ImageConversionFlags flags = Qt::AutoColor);
 #endif
+
+struct QImageEffectsPrivate;
+
+class Q_GUI_EXPORT QImageEffects
+{
+public:
+    QImageEffects();
+    QImageEffects(const QImageEffects &);
+    ~QImageEffects();
+    QImageEffects &operator=(const QImageEffects &);
+
+    void setBilevel(qreal threshold = 0.5);
+    void unsetBilevel();
+    void setBrightness(qreal brightness);
+    void setColorKey(QRgb key);
+    void unsetColorKey();
+    void setColorMatrix(const QMatrix4x4 &mtx);
+    void unsetColorMatrix();
+    void setContrast(qreal contrast);
+    void setDuotone(QRgb color1, QRgb color2);
+    void unsetDuotone();
+
+    bool hasEffects() const;    
+
+private:
+    QImageEffectsPrivate *d;
+
+public:
+    typedef QImageEffectsPrivate * DataPtr;
+    inline DataPtr data_ptr() const { return d; }
+};
 
 QT_END_NAMESPACE
 

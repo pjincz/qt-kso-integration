@@ -108,6 +108,7 @@ class QGradient;
 class QRasterBuffer;
 class QClipData;
 class QRasterPaintEngineState;
+class QImageEffects;
 
 typedef QT_FT_SpanFunc ProcessSpans;
 typedef void (*BitmapBlitFunc)(QRasterBuffer *rasterBuffer,
@@ -282,7 +283,7 @@ struct QTextureData
 
 struct QSpanData
 {
-    QSpanData() : tempImage(0) {}
+    QSpanData() : tempImage(0), effects(NULL) {}
     ~QSpanData();
 
     QRasterBuffer *rasterBuffer;
@@ -297,6 +298,7 @@ struct QSpanData
     RectFillFunc fillRect;
     qreal m11, m12, m13, m21, m22, m23, m33, dx, dy;   // inverse xform matrix
     const QClipData *clip;
+    QImageEffectsPrivate *effects; 
     enum Type {
         None,
         Solid,

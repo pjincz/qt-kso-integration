@@ -82,6 +82,7 @@ SUBDIRS=\
     qheaderview \
     qicoimageformat \
     qicon \
+    qimageeffects \
     qimageiohandler \
     qimagereader \
     qimagewriter \
