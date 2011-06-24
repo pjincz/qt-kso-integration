@@ -3206,7 +3206,8 @@ bool QApplicationPrivate::sendMouseEvent(QWidget *receiver, QMouseEvent *event,
     else
         result = QApplication::sendEvent(receiver, event);
 
-    if (!graphicsWidget && leaveAfterRelease && event->type() == QEvent::MouseButtonRelease
+    if (!graphicsWidget && leaveAfterRelease 
+        && (event->type() == QEvent::MouseButtonRelease || event->type() == QEvent::NonClientAreaMouseButtonRelease)    // modifyed by kingsoft  2011-6-24 21:29:41
         && !event->buttons() && QWidget::mouseGrabber() != leaveAfterRelease) {
         // Dispatch enter/leave if:
         // 1) the mouse grabber is an alien widget
