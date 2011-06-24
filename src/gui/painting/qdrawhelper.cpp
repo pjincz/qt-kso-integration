@@ -48,9 +48,12 @@
 #endif
 #include <private/qdrawhelper_neon_p.h>
 #include <private/qmath_p.h>
+#include <private/qimage_p.h>
 #include <qmath.h>
 
-#include "qpathgradient_p.h" //for path gradient span
+#include "qpathgradient_p.h" // for path gradient span
+#include <QMatrix4x4> // for image effect handling
+#include <private/qdrawingprimitive_sse2_p.h> // for BYTE_MUL_SSE2
 
 QT_BEGIN_NAMESPACE
 
@@ -542,24 +545,186 @@ enum TextureBlendType {
     NBlendTypes
 };
 
+inline void qt_recolor(uint &rgb, 
+                       quint8 sr, quint8 sg, quint8 sb,
+                       quint8 dr, quint8 dg, quint8 db)
+{
+    Q_ASSERT(qIsGray(rgb));
+
+    quint8 *p = (quint8*)&rgb;
+
+    p[0] = (p[0] * sb + p[3] * db) >> 8;
+    p[1] = (p[1] * sg + p[3] * dg) >> 8;
+    p[2] = (p[2] * sr + p[3] * dr) >> 8;
+}
+
+#if QT_HAVE_SSE2
+void qt_recolor_sse(uint *buffer, int length, 
+                    quint8 sr, quint8 sg, quint8 sb,
+                    quint8 dr, quint8 dg, quint8 db)
+{
+    __m128i *pSrc = reinterpret_cast<__m128i*>(buffer);
+    __m128i *pEnd = pSrc + length / 4;
+    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    const __m128i gMask = _mm_set1_epi32(0x0000ff00);
+    const __m128i rbMask = _mm_set1_epi32(0x00ff00ff);    
+    __m128i magScale = _mm_set1_epi32(0x00ff0000 | sg);
+    __m128i mrbScale = _mm_set1_epi32((sr << 16) | sb);
+    __m128i magOffest = _mm_set1_epi32(dg);
+    __m128i mrbOffest = _mm_set1_epi32((dr << 16) | db);
+
+    for (; pSrc < pEnd; pSrc++) {
+        const __m128i msrc = _mm_loadu_si128(pSrc);
+        const __m128i malpha = _mm_and_si128(msrc, alphaMask);
+        __m128i maa = _mm_or_si128(_mm_srli_epi32(malpha, 8), _mm_srli_epi32(malpha, 24));
+        __m128i mag = _mm_srli_epi16(msrc, 8);
+        __m128i mrb = _mm_and_si128(msrc, rbMask);
+
+        mag = _mm_mullo_epi16(mag, magScale);
+        mag = _mm_add_epi16(mag, _mm_mullo_epi16(maa, magOffest));
+        mrb = _mm_mullo_epi16(mrb, mrbScale);
+        mrb = _mm_add_epi16(mrb, _mm_mullo_epi16(maa, mrbOffest));
+
+        mag = _mm_and_si128(mag, gMask); // alpha is discarded
+        mrb = _mm_srli_epi16(mrb, 8);
+
+        _mm_storeu_si128(pSrc, _mm_or_si128(malpha, _mm_or_si128(mag, mrb)));
+    }
+
+    switch (length % 4) {
+    case 3: qt_recolor(buffer[--length], sr, sg, sb, dr, dg, db);
+    case 2: qt_recolor(buffer[--length], sr, sg, sb, dr, dg, db);
+    case 1: qt_recolor(buffer[--length], sr, sg, sb, dr, dg, db);
+    }
+}
+#endif // QT_HAVE_SSE2
+
+inline void qt_recolor(uint *buffer, int length, 
+                        quint8 sr, quint8 sg, quint8 sb,
+                        quint8 dr, quint8 dg, quint8 db)
+{
+#if QT_HAVE_SSE2
+    if (qDetectCPUFeatures() & SSE2)
+        return qt_recolor_sse(buffer, length, sr, sg, sb, dr, dg, db);
+#endif // QT_HAVE_SSE2
+    for (int i = 0; i < length; i++)
+        qt_recolor(buffer[i], sr, sg, sb, dr, dg, db);
+}
+
+inline void qt_setbilevel(uint &rgb, const quint8 percent)
+{
+    Q_ASSERT(qIsGray(rgb));
+
+    quint8 *p = (quint8*)&rgb;
+    if (p[0] * 100 > p[3] * percent || percent == 0)
+        p[0] = p[1] = p[2] = p[3];
+    else
+        p[0] = p[1] = p[2] = 0;
+}
+
+#if QT_HAVE_SSE2
+inline void qt_setbilevel_sse(uint *buffer, int length, const quint8 percent)
+{
+    __m128i *pSrc = reinterpret_cast<__m128i*>(buffer);
+    __m128i *pEnd = pSrc + length / 4;
+    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    const __m128i redMask = _mm_set1_epi32(0x000000ff);
+    const __m128i mpercent = _mm_set1_epi32(percent);
+
+    if (percent == 0) {
+        for (; pSrc < pEnd; pSrc ++) {
+            const __m128i msrc = _mm_loadu_si128(pSrc);
+            const __m128i malpha = _mm_and_si128(msrc, alphaMask);
+            __m128i mwhite = _mm_or_si128(malpha, _mm_srli_epi32(malpha, 8));
+            mwhite = _mm_or_si128(mwhite, _mm_srli_epi32(mwhite, 16));
+            _mm_storeu_si128(pSrc, mwhite);
+        }
+    } else {
+        for (; pSrc < pEnd; pSrc ++) {
+            const __m128i msrc = _mm_loadu_si128(pSrc);
+            const __m128i malpha = _mm_and_si128(msrc, alphaMask);
+            __m128i mlhs = _mm_and_si128(msrc, redMask);
+            mlhs = _mm_mullo_epi16(mlhs, _mm_set1_epi32(100));            
+            __m128i mrhs = _mm_srli_epi32(malpha, 24);
+            mrhs = _mm_mullo_epi16(mrhs, mpercent);
+            __m128i result = _mm_cmpgt_epi32(mlhs, mrhs);
+            result = _mm_and_si128(result, _mm_srli_epi32(malpha, 24));
+            result = _mm_or_si128(result, _mm_or_si128(_mm_slli_epi32(result, 8), _mm_slli_epi32(result, 16)));
+            _mm_storeu_si128(pSrc, _mm_or_si128(malpha, result));
+        }
+    }
+
+    switch (length % 4) {
+    case 3: qt_setbilevel(buffer[--length], percent);
+    case 2: qt_setbilevel(buffer[--length], percent);
+    case 1: qt_setbilevel(buffer[--length], percent);
+    }
+}
+#endif // QT_HAVE_SSE2
+
+inline void qt_setbilevel(uint *buffer, int length, const quint8 percent)
+{
+#if QT_HAVE_SSE2
+    if (qDetectCPUFeatures() & SSE2)
+        return qt_setbilevel_sse(buffer, length, percent);
+#endif // QT_HAVE_SSE2
+    for (int i = 0; i < length; i++)
+        qt_setbilevel(buffer[i], percent);
+}
+
+inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length)
+{
+    Q_ASSERT(NULL != effects && NULL != buffer);
+
+    if (effects->hasColorKey) {
+        for (int i = 0; i < length; i++) {
+            if (effects->colorKey == buffer[i])
+                buffer[i] = 0;
+        }
+    }
+    effects->transform(buffer, length);
+
+    if (effects->hasDuotone) {
+        qt_recolor(buffer, length, 
+                    effects->m_sr, effects->m_sg, effects->m_sb, 
+                    effects->m_dr, effects->m_dg, effects->m_db);
+    } else if (effects->hasBilevel) {
+        qt_setbilevel(buffer, length, effects->bilevelThreshold);
+    }
+}
+
 template <QImage::Format format>
 Q_STATIC_TEMPLATE_FUNCTION const uint * QT_FASTCALL qt_fetchUntransformed(uint *buffer, const Operator *, const QSpanData *data,
                                              int y, int x, int length)
 {
     const uchar *scanLine = data->texture.scanLine(y);
-    for (int i = 0; i < length; ++i)
+
+    for (int i = 0; i < length; ++i) {
         buffer[i] = qt_fetchPixel<format>(scanLine, x + i, data->texture.colorTable);
+    }
+    if (NULL != data->effects)
+        qt_makeEffects(data->effects, buffer, length);
+
     return buffer;
 }
 
 template <>
 Q_STATIC_TEMPLATE_SPECIALIZATION const uint * QT_FASTCALL
-qt_fetchUntransformed<QImage::Format_ARGB32_Premultiplied>(uint *, const Operator *,
+qt_fetchUntransformed<QImage::Format_ARGB32_Premultiplied>(uint *buffer, const Operator *,
                                                          const QSpanData *data,
-                                                         int y, int x, int)
+                                                         int y, int x, int length)
 {
     const uchar *scanLine = data->texture.scanLine(y);
-    return ((const uint *)scanLine) + x;
+
+    if (NULL == data->effects) {        
+        return ((const uint *)scanLine) + x;
+    } else {
+        const uint *s = ((const uint *)scanLine) + x;
+        memcpy(buffer, s, sizeof(uint) * length);
+
+        qt_makeEffects(data->effects, buffer, length);
+        return buffer;
+    }
 }
 
 struct QTextureExpander
@@ -716,6 +881,8 @@ const uint * QT_FASTCALL fetchTransformed(uint *buffer, const Operator *, const 
             ++b;
         }
     }
+    if (NULL != data->effects)
+        qt_makeEffects(data->effects, buffer, length);
 
     return buffer;
 }
@@ -1290,6 +1457,9 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
         }
     }
 
+    if (NULL != data->effects)
+        qt_makeEffects(data->effects, buffer, length);
+
     return buffer;
 }
 
@@ -1699,6 +1869,65 @@ static const uint * QT_FASTCALL fetchConicalGradient(uint *buffer, const Operato
     return b;
 }
 
+#ifdef QT_HAVE_SSE2
+void premul_sse(uint *buffer, int length)
+{
+    // extra pixels on each line
+    const int spare = length & 3;
+    // width in pixels of the pad at the end of each line
+    const int iter = length >> 2;
+
+    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    const __m128i nullVector = _mm_setzero_si128();
+    const __m128i half = _mm_set1_epi16(0x80);
+    const __m128i colorMask = _mm_set1_epi32(0x00ff00ff);
+
+    __m128i *d = reinterpret_cast<__m128i*>(buffer);
+
+    const __m128i *end = d + iter;
+
+    for (; d != end; ++d) {
+        const __m128i srcVector = _mm_loadu_si128(d);
+        const __m128i srcVectorAlpha = _mm_and_si128(srcVector, alphaMask);
+        if (_mm_movemask_epi8(_mm_cmpeq_epi32(srcVectorAlpha, alphaMask)) == 0xffff) {
+            // opaque, data is unchanged
+        } else if (_mm_movemask_epi8(_mm_cmpeq_epi32(srcVectorAlpha, nullVector)) == 0xffff) {
+            // fully transparent
+            _mm_storeu_si128(d, nullVector);
+        } else {
+            __m128i alphaChannel = _mm_srli_epi32(srcVector, 24);
+            alphaChannel = _mm_or_si128(alphaChannel, _mm_slli_epi32(alphaChannel, 16));
+
+            __m128i result;
+            BYTE_MUL_SSE2(result, srcVector, alphaChannel, colorMask, half);
+            result = _mm_or_si128(_mm_andnot_si128(alphaMask, result), srcVectorAlpha);
+            _mm_storeu_si128(d, result);
+        }
+    }
+
+    QRgb *p = reinterpret_cast<QRgb*>(d);
+    QRgb *pe = p + spare;
+    for (; p != pe; ++p) {
+        if (*p < 0x00ffffff)
+            *p = 0;
+        else if (*p < 0xff000000)
+            *p = PREMUL(*p);
+    }
+}
+#endif // QT_HAVE_SSE2
+
+void qt_premul(uint *buffer, int length)
+{
+#ifdef QT_HAVE_SSE2
+    if (qDetectCPUFeatures() & SSE2) {
+        premul_sse(buffer, length);
+        return;
+    }
+#endif
+    for (int i = 0; i < length; i++)
+        buffer[i] = PREMUL(buffer[i]);
+}
+
 static const uint * QT_FASTCALL fetchPathGradient(uint *buffer, const Operator *, const QSpanData *data,
                                                      int y, int x, int length)
 {
@@ -1707,6 +1936,8 @@ static const uint * QT_FASTCALL fetchPathGradient(uint *buffer, const Operator *
 
     path_gradient_span_gen *span_gen = data->gradient.path.pSpanGenerotor;
     span_gen->generate((path_gradient_span_gen::color_type *)buffer, x, y, length);
+
+    qt_premul(buffer, length);
 
     return buffer;
 }
@@ -3440,6 +3671,8 @@ static inline Operator getOperator(const QSpanData *data, const QSpan *spans, in
     case QSpanData::Texture:
         op.src_fetch = sourceFetch[getBlendType(data)][data->texture.format];
         solidSource = !data->texture.hasAlpha;
+        if (NULL != data->effects && data->effects->hasColorKey)
+            solidSource = false;
     default:
         break;
     }
@@ -3864,7 +4097,8 @@ Q_STATIC_TEMPLATE_FUNCTION void blend_untransformed_argb(int count, const QSpan 
 {
     QSpanData *data = reinterpret_cast<QSpanData *>(userData);
     if (data->texture.format != QImage::Format_ARGB32_Premultiplied
-        && data->texture.format != QImage::Format_RGB32) {
+        && data->texture.format != QImage::Format_RGB32
+        || NULL != data->effects) {
         blend_untransformed_generic<spanMethod>(count, spans, userData);
         return;
     }
@@ -5109,7 +5343,8 @@ void QT_FASTCALL blendUntransformed(int count, const QSpan *spans, void *userDat
     QPainter::CompositionMode mode = data->rasterBuffer->compositionMode;
 
     if (mode != QPainter::CompositionMode_SourceOver &&
-        mode != QPainter::CompositionMode_Source)
+        mode != QPainter::CompositionMode_Source
+        || NULL != data->effects)
     {
         blend_src_generic<RegularSpans>(count, spans, userData);
         return;
@@ -5410,7 +5645,8 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTiled(int count, const QSpan *spans, void *
     QPainter::CompositionMode mode = data->rasterBuffer->compositionMode;
 
     if (mode != QPainter::CompositionMode_SourceOver &&
-        mode != QPainter::CompositionMode_Source)
+        mode != QPainter::CompositionMode_Source
+        || NULL != data->effects)
     {
         blend_src_generic<RegularSpans>(count, spans, userData);
         return;
@@ -5639,7 +5875,7 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTransformedBilinear(int count, const QSpan 
     QPainter::CompositionMode mode = data->rasterBuffer->compositionMode;
 
 
-    if (mode != QPainter::CompositionMode_SourceOver) {
+    if (mode != QPainter::CompositionMode_SourceOver || NULL != data->effects) {
         blend_src_generic<RegularSpans>(count, spans, userData);
         return;
     }
@@ -6106,7 +6342,7 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTransformed(int count, const QSpan *spans, 
     QSpanData *data = reinterpret_cast<QSpanData*>(userData);
     QPainter::CompositionMode mode = data->rasterBuffer->compositionMode;
 
-    if (mode != QPainter::CompositionMode_SourceOver) {
+    if (mode != QPainter::CompositionMode_SourceOver || NULL != data->effects) {
         blend_src_generic<RegularSpans>(count, spans, userData);
         return;
     }
@@ -6537,7 +6773,7 @@ Q_STATIC_TEMPLATE_FUNCTION void blendTransformedTiled(int count, const QSpan *sp
     QSpanData *data = reinterpret_cast<QSpanData*>(userData);
     QPainter::CompositionMode mode = data->rasterBuffer->compositionMode;
 
-    if (mode != QPainter::CompositionMode_SourceOver) {
+    if (mode != QPainter::CompositionMode_SourceOver || NULL != data->effects) {
         blend_src_generic<RegularSpans>(count, spans, userData);
         return;
     }
