@@ -121,9 +121,9 @@ void tst_QImageEffects::data()
     QImage img(80, 80, QImage::Format_ARGB32);
     for (int y = 0; y < 80; y++) {
         QRgb *scanline = (QRgb*)img.scanLine(y);
-    	for (int x = 0; x < 80; x++) {
+        for (int x = 0; x < 80; x++) {
             scanline[x] = qRgba(255, 0, 0, y * 3);
-    	}
+        }
     }
     QTest::newRow("ARGB32(x, 255, 0, 0)") << img;
 
@@ -151,7 +151,7 @@ void tst_QImageEffects::gray()
     painter.setCompositionMode(QPainter::CompositionMode_Source);
 
     QImageEffects effects;
-    effects.setDuotone(255, 255, 255);
+    effects.setDuotone(0xff000000, 0xffffffff);
 
     painter.drawImage(cavas.rect(), image, image.rect(), &effects);
     for (int h = 0; h < cavas.height(); h++) {
@@ -164,20 +164,20 @@ void tst_QImageEffects::gray()
 
     painter.drawImage(cavas.rect(), image, QRectF(0, 0, 1, 1), &effects);
     for (int h = 0; h < cavas.height(); h++) {
-    	for (int w = 0; w < cavas.width(); w++) {
+        for (int w = 0; w < cavas.width(); w++) {
             QRgb rgb = cavas.pixel(w, h);
             QCOMPARE(qRed(rgb), qGreen(rgb));
             QCOMPARE(qGreen(rgb), qBlue(rgb));
-    	}
+        }
     }
 
     painter.drawImage(cavas.rect(), image, QRectF(0, 0, image.width() / 2, image.height() / 2), &effects);
     for (int h = 0; h < cavas.height(); h++) {
-    	for (int w = 0; w < cavas.width(); w++) {
+        for (int w = 0; w < cavas.width(); w++) {
             QRgb rgb = cavas.pixel(w, h);
             QCOMPARE(qRed(rgb), qGreen(rgb));
             QCOMPARE(qGreen(rgb), qBlue(rgb));
-    	}
+        }
     }
 }
 
@@ -209,7 +209,7 @@ void tst_QImageEffects::bilevel()
         }
     }    
 
-    effects.setBilevel(25);
+    effects.setBilevel(0.25);
     painter.drawImage(cavas.rect(), image, image.rect(), &effects);
     for (int h = 0; h < cavas.height(); h++) {
         for (int w = 0; w < cavas.width(); w++) {
@@ -222,7 +222,7 @@ void tst_QImageEffects::bilevel()
         }
     }
 
-    effects.setBilevel(50);
+    effects.setBilevel(0.50);
     painter.drawImage(cavas.rect(), image, QRectF(0, 0, 1, 1), &effects);
     for (int h = 0; h < cavas.height(); h++) {
         for (int w = 0; w < cavas.width(); w++) {
@@ -235,7 +235,7 @@ void tst_QImageEffects::bilevel()
         }
     }
 
-    effects.setBilevel(75);
+    effects.setBilevel(0.75);
     painter.drawImage(cavas.rect(), image, QRectF(0, 0, image.width() / 2, image.height() / 2), &effects);
     for (int h = 0; h < cavas.height(); h++) {
         for (int w = 0; w < cavas.width(); w++) {
@@ -248,7 +248,7 @@ void tst_QImageEffects::bilevel()
         }
     }
 
-    effects.setBilevel(100);
+    effects.setBilevel(1.00);
     painter.drawImage(cavas.rect(), image, image.rect(), &effects);
     for (int h = 0; h < cavas.height(); h++) {
         for (int w = 0; w < cavas.width(); w++) {
@@ -479,79 +479,84 @@ void tst_QImageEffects::recolor(QPainter &painter, QImage &image)
 {
     painter.save();
 
+    const QRgb black = 0xff000000;
+    const QRgb white = 0xffffffff;
     QImageEffects effect;
 
     //first row    
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(255, 255, 255);
+
+    effect.resetState();
+    effect.setDuotone(black, white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(245, 228, 208);
+    effect.setDuotone(black, QColor(245, 228, 208).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone();
+
+    effect.resetState();
     effect.setBrightness(0.7);
     effect.setContrast(0.3);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
-    effect.setBrightness(0.0);
-    effect.setContrast(1.0);
-    painter.translate(image.width() + 10, 0);    
-    effect.setBilevel(25);
+    painter.translate(image.width() + 10, 0);
+
+    effect.resetState();
+    effect.setBilevel(0.25);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setBilevel(50);
+    effect.setBilevel(0.50);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setBilevel(75);
+    effect.setBilevel(0.75);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
 
     //second row
     painter.resetMatrix();
     painter.translate(0, image.height() + 10);
-    effect.setDuotone(177, 192, 229);
+    effect.setDuotone(black, QColor(177, 192, 229).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(160, 198, 255);
+    effect.setDuotone(black, QColor(160, 198, 255).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(255, 160, 158);
+    effect.setDuotone(black, QColor(255, 160, 158).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(224, 255, 165);
+    effect.setDuotone(black, QColor(224, 255, 165).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(205, 182, 242);
+    effect.setDuotone(black, QColor(205, 182, 242).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(154, 242, 255);
+    effect.setDuotone(black, QColor(154, 242, 255).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(255, 187, 122);
+    effect.setDuotone(black, QColor(255, 187, 122).rgba());
     painter.drawImage(image.rect(), image, image.rect(), &effect);
 
     //third row
     painter.resetMatrix();
     painter.translate(0, (image.height() + 10) * 2);
-    effect.setDuotone(87, 89, 99, 168, 166, 156);
+    effect.setDuotone(QColor(168, 166, 156).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(217, 169, 110, 38, 86, 145);
+    effect.setDuotone(QColor(39, 87, 145).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(107, 216, 219, 148, 39, 36);
+    effect.setDuotone(QColor(148, 40, 37).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(145, 113, 208, 110, 142, 47);
+    effect.setDuotone(QColor(111, 142, 48).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(169, 196, 136, 86, 59, 119);
+    effect.setDuotone(QColor(87, 60, 120).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(222, 127, 102, 33, 128, 153);
+    effect.setDuotone(QColor(34, 128, 153).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
     painter.translate(image.width() + 10, 0);
-    effect.setDuotone(60, 155, 232, 195, 100, 23);
+    effect.setDuotone(QColor(195, 101, 24).rgba(), white);
     painter.drawImage(image.rect(), image, image.rect(), &effect);
 
     painter.restore();
@@ -573,7 +578,7 @@ void tst_QImageEffects::setColorMatrix()
             QPainter painter1(&cavas1);
             painter1.setCompositionMode(QPainter::CompositionMode_Source);
             QImageEffects effects1;
-            effects1.setDuotone(255, 255, 255);
+            effects1.setDuotone(0xff000000, 0xffffffff);
             painter1.drawImage(cavas1.rect(), image, cavas1.rect(), &effects1);
         }
 
@@ -583,9 +588,9 @@ void tst_QImageEffects::setColorMatrix()
             painter2.setCompositionMode(QPainter::CompositionMode_Source);
             //row-major order
             qreal values[16] = {
-                0.299, 0.587, 0.114, 0,
-                0.299, 0.587, 0.114, 0,
-                0.299, 0.587, 0.114, 0,
+                0.2118, 0.7137, 0.0745, 0,
+                0.2118, 0.7137, 0.0745, 0,
+                0.2118, 0.7137, 0.0745, 0,
                 0,     0,     0, 1
             };
             QImageEffects effects2;
@@ -636,7 +641,7 @@ void tst_QImageEffects::unsetColorMatrix()
     QFETCH(QImage, image);
 
     QImageEffects effects;
-    effects.setDuotone(255, 255, 255);
+    effects.setDuotone(0xff000000, 0xffffffff);
     effects.setBrightness(0.5);
     effects.setContrast(0.7);
     QImage cavas1(image.width(), image.height(), QImage::Format_ARGB32);

@@ -380,7 +380,8 @@ public:
     void setDuotone(QRgb color1, QRgb color2);
     void unsetDuotone();
 
-    bool hasEffects() const;    
+    bool hasEffects() const;
+	void resetState();
 
 private:
     QImageEffectsPrivate *d;
