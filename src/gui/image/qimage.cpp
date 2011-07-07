@@ -6668,13 +6668,73 @@ QImageEffectsPrivate::QImageEffectsPrivate()
     , m_pTransformProc(&QImageEffectsPrivate::transform_cpp)
 {   
     memset(colorMatrixInt[0], 0, sizeof(colorMatrixInt));
-
-    m_sr = m_sg = m_sb = 255;
-    m_dr = m_dg = m_db = 0;
+	colorMatrixInt[0][0] = colorMatrixInt[1][1] = colorMatrixInt[2][2] = colorMatrixInt[3][3] = base_scale;
 }
 
 QImageEffectsPrivate::~QImageEffectsPrivate()
 {
+}
+
+void QImageEffectsPrivate::resetState()
+{
+	hasColorMatirx = false;
+	hasColorKey = false;
+	hasDuotone = false;
+	hasBilevel = false;
+	checkBound = true;
+
+	brightness = 0;
+	contrast = 1;
+	m_pTransformProc = &QImageEffectsPrivate::transform_cpp;
+
+	memset(colorMatrixInt[0], 0, sizeof(colorMatrixInt));
+	colorMatrixInt[0][0] = colorMatrixInt[1][1] = colorMatrixInt[2][2] = colorMatrixInt[3][3] = base_scale;
+}
+
+QMatrix4x4 QImageEffectsPrivate::createDuotoneMatrix(const QRgb clr1, const QRgb clr2) const
+{
+	const qreal GR = 0.2118f;
+	const qreal GG = 0.7137f;
+	const qreal GB = 0.0745f;
+
+	QMatrix4x4 colorMatrix1(GR, GG, GB, 0.0,
+							GR, GG, GB, 0.0,
+							GR, GG, GB, 0.0,
+							0.0,0.0,0.0,1.0);
+
+	qreal R1 = qRed(clr1) / 255.0f;
+	qreal G1 = qGreen(clr1) / 255.0f;
+	qreal B1 = qBlue(clr1) / 255.0f;
+
+	qreal R2 = qRed(clr2) / 255.0f;
+	qreal G2 = qGreen(clr2) / 255.0f;
+	qreal B2 = qBlue(clr2) / 255.0f;
+
+	qreal DR = R2 - R1;
+	qreal DG = G2 - G1;
+	qreal DB = B2 - B1;
+
+	QMatrix4x4 colorMatrix2(
+		DR, 0, 0, R1,
+		0, DG, 0, G1,
+		0, 0, DB, B1,
+		0,  0,  0, 1.0f);
+
+	return colorMatrix2 * colorMatrix1;
+}
+
+/*!
+    \internal
+*/
+void QImageEffectsPrivate::updateColorMatrixInt()
+{
+	const QMatrix4x4 mtx = colorMatrix * base_scale;
+	const qreal *pReals = mtx.constData();
+	int *pInts = colorMatrixInt[0]; 
+	for (int i = 0; i < 16; i++)
+	{
+		pInts[i] = qRound(pReals[i]);
+	}
 }
 
 /*!
@@ -6690,6 +6750,10 @@ void QImageEffectsPrivate::updateColorMatrix()
     colorMatrix.setToIdentity();
     qreal *p = colorMatrix.data();
 
+	QMatrix4x4 duotoneMatrix;
+	if (hasDuotone)
+		duotoneMatrix = createDuotoneMatrix(duotoneColor1, duotoneColor2);
+
     if (brightness != 0 || contrast != 1){
         qreal propContrast = contrast;
         qreal propBright = brightness / 2;
@@ -6701,32 +6765,25 @@ void QImageEffectsPrivate::updateColorMatrix()
             fOffset = 0.5f * (propContrast - 1.0f) - propBright * (propContrast - 1.0f);
 
         qreal fOffsetVal = brightness - fOffset;
-        if (hasDuotone || hasBilevel) {
+        if (hasBilevel) {
             p[0] = p[1] = p[2] = 0.299 * propContrast;
             p[4] = p[5] = p[6] = 0.587 * propContrast;
             p[8] = p[9] = p[10] = 0.114 * propContrast;
             p[12] = p[13] = p[14] = fOffsetVal;
-
-            colorMatrixInt[0][0] = colorMatrixInt[0][1] = colorMatrixInt[0][2] = qRound(p[0] * base_scale);
-            colorMatrixInt[1][0] = colorMatrixInt[1][1] = colorMatrixInt[1][2] = qRound(p[4] * base_scale);
-            colorMatrixInt[2][0] = colorMatrixInt[2][1] = colorMatrixInt[2][2] = qRound(p[8] * base_scale);
-            colorMatrixInt[3][0] = colorMatrixInt[3][1] = colorMatrixInt[3][2] = qRound(fOffsetVal * base_scale);
         } else {
             p[0] = p[5] = p[10] = propContrast;
             p[12] = p[13] = p[14] = fOffsetVal;
-
-            colorMatrixInt[0][0] = colorMatrixInt[1][1] = colorMatrixInt[2][2] = qRound(propContrast * base_scale);
-            colorMatrixInt[3][0] = colorMatrixInt[3][1] = colorMatrixInt[3][2] = qRound(fOffsetVal * base_scale);
+			if (hasDuotone)
+				colorMatrix *= duotoneMatrix;
         }
-    } else if (hasDuotone || hasBilevel) {
+    } else if (hasBilevel) {
         p[0] = p[1] = p[2] = 0.299;
         p[4] = p[5] = p[6] = 0.587;
         p[8] = p[9] = p[10] = 0.114;
-
-        colorMatrixInt[0][0] = colorMatrixInt[0][1] = colorMatrixInt[0][2] = qRound(p[0] * base_scale);
-        colorMatrixInt[1][0] = colorMatrixInt[1][1] = colorMatrixInt[1][2] = qRound(p[4] * base_scale);
-        colorMatrixInt[2][0] = colorMatrixInt[2][1] = colorMatrixInt[2][2] = qRound(p[8] * base_scale);
-    }
+	} else if (hasDuotone) {
+		colorMatrix = duotoneMatrix;
+	}
+	updateColorMatrixInt();
 }
 
 
@@ -6866,8 +6923,8 @@ void QImageEffectsPrivate::transform_sse4(QRgb &rgb) const
     __m128i rg = _mm_set1_epi32((pb[2] << 16) | pb[1]);
     __m128i ba = _mm_set1_epi32((pb[0] << 16) | pb[3]);
 
-    __m128i mrg = _mm_madd_epi16(rg, d->m_mmtxs[0]);
-    __m128i mba = _mm_madd_epi16(ba, d->m_mmtxs[1]);
+    __m128i mrg = _mm_madd_epi16(rg, d.m_mmtxs[0]);
+    __m128i mba = _mm_madd_epi16(ba, d.m_mmtxs[1]);
     __m128i mrgba = _mm_add_epi32(mrg, mba);
     mrgba = _mm_srai_epi32(mrgba, 8);
 
@@ -7040,10 +7097,6 @@ void QImageEffectsPrivate::prepare()
 
     if (!hasColorMatirx) {
         updateColorMatrix();
-        // gray scale is set by the color matrix
-        if (m_sr == 255 && m_sg == 255 && m_sb == 255
-            && m_dr == 0 && m_dg == 0 && m_db == 0)
-            hasDuotone = false;
     } else {
         const qreal *p = colorMatrix.constData();
         for (int row = 0; row < 4; row++)
@@ -7052,7 +7105,7 @@ void QImageEffectsPrivate::prepare()
     }
     colorKey = PREMUL(colorKey);
 
-    if (hasColorMatirx || brightness != 0 || contrast != 1)
+    if (hasDuotone || hasColorMatirx || brightness != 0 || contrast != 1)
         checkBound = true;
     else
         checkBound = false;
@@ -7063,6 +7116,7 @@ void QImageEffectsPrivate::prepare()
 QImageEffects::QImageEffects()
 : d(new QImageEffectsPrivate)
 {
+	d->ref.ref();
 }
 
 QImageEffects::QImageEffects(const QImageEffects &rhs)
@@ -7142,36 +7196,14 @@ inline void QImageEffects::unsetColorMatrix()
 }
 
 /*!
-    \fn void QImageEffects::setRecolor()
-    Set the recolor flag and the parameters.
-    r' = r * sr / 255 + dr;
-    g' = g * sg / 255 + dg;
-    b' = b * sb / 255 + db;
-    The alpha channel is unchanged.
-    The function will clear the bilevel flag.
-    \sa unsetRecolor()
 */
 
 void QImageEffects::setDuotone( QRgb color1, QRgb color2 )
 {
-    // FIXME:
-/*
-    if (sr + dr > base_scale
-        || sg + dg > base_scale
-        || sb + db > base_scale) {
-            qWarning("Invalid arguments!");
-            return;
-    }
-
-    unsetBilevel();
-    d->hasDuotone = true;
-    d->m_sr = sr;
-    d->m_sg = sg;
-    d->m_sb = sb;
-    d->m_dr = dr;
-    d->m_dg = dg;
-    d->m_db = db;
-    */
+	unsetBilevel();
+	d->hasDuotone = true;
+	d->duotoneColor1 = color1;
+	d->duotoneColor2 = color2;
 }
 
 void QImageEffects::unsetDuotone()
@@ -7215,6 +7247,11 @@ bool QImageEffects::hasEffects() const
                 || d->hasColorKey
                 || d->brightness != 0
                 || d->contrast != 1);
+}
+
+void QImageEffects::resetState() 
+{
+	d->resetState();
 }
 
 QT_END_NAMESPACE
