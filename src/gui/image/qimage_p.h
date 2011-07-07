@@ -114,13 +114,36 @@ struct Q_GUI_EXPORT QImageData {        // internal image data
 
 #ifdef QT_HAVE_SSE2
 struct Q_GUI_EXPORT QM128Data {
-    __m128i m_mmtxs[2];
+    __m128i *m_mmtxs;
 
     QM128Data()
     {
+		m_mmtxs = (__m128i*)_aligned_malloc(sizeof(__m128i) * 2, 16);
+
         m_mmtxs[0] = _mm_set1_epi16(0);
         m_mmtxs[1] = _mm_set1_epi16(0);
     }
+
+	QM128Data(const QM128Data &rhs)
+	{
+		m_mmtxs = (__m128i*)_aligned_malloc(sizeof(__m128i) * 2, 16);
+
+		m_mmtxs[0] = rhs.m_mmtxs[0];
+		m_mmtxs[1] = rhs.m_mmtxs[1];
+	}
+
+	~QM128Data()
+	{
+		_aligned_free(m_mmtxs);
+	}
+
+	QM128Data& operator=(const QM128Data &rhs)
+	{
+		m_mmtxs[0] = rhs.m_mmtxs[0];
+		m_mmtxs[1] = rhs.m_mmtxs[1];
+
+		return *this;
+	}
 
     void* operator new(size_t size)
     {
@@ -147,12 +170,16 @@ public:
     QImageEffectsPrivate();
     ~QImageEffectsPrivate();
 
+	void updateColorMatrixInt();
     void updateColorMatrix();
     void prepare();
     void transform(QRgb *buffer, int length) const;
     void transform_cpp(QRgb &rgb) const;
     void transform_cpp(QRgb *buffer, int length) const;
     void setTransformFunc();
+
+	QMatrix4x4 createDuotoneMatrix(const QRgb clr1, const QRgb clr2) const;
+	void resetState();
 
     QAtomicInt ref;
     bool hasColorMatirx;
@@ -168,7 +195,6 @@ public:
     quint8 bilevelThreshold;
     QRgb duotoneColor1;
     QRgb duotoneColor2;
-    quint8 m_sr, m_sg, m_sb, m_dr, m_dg, m_db; // TODO: should be removed.
     qreal brightness;
     qreal contrast;
     typedef void (QImageEffectsPrivate::*TransformProc)(QRgb *buffer, int length) const;

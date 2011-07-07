@@ -543,72 +543,6 @@ enum TextureBlendType {
     NBlendTypes
 };
 
-inline void qt_recolor(uint &rgb, 
-                       quint8 sr, quint8 sg, quint8 sb,
-                       quint8 dr, quint8 dg, quint8 db)
-{
-    Q_ASSERT(qIsGray(rgb));
-
-    quint8 *p = (quint8*)&rgb;
-
-    p[0] = (p[0] * sb + p[3] * db) >> 8;
-    p[1] = (p[1] * sg + p[3] * dg) >> 8;
-    p[2] = (p[2] * sr + p[3] * dr) >> 8;
-}
-
-#if QT_HAVE_SSE2
-void qt_recolor_sse(uint *buffer, int length, 
-                    quint8 sr, quint8 sg, quint8 sb,
-                    quint8 dr, quint8 dg, quint8 db)
-{
-    __m128i *pSrc = reinterpret_cast<__m128i*>(buffer);
-    __m128i *pEnd = pSrc + length / 4;
-    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
-    const __m128i gMask = _mm_set1_epi32(0x0000ff00);
-    const __m128i rbMask = _mm_set1_epi32(0x00ff00ff);    
-    __m128i magScale = _mm_set1_epi32(0x00ff0000 | sg);
-    __m128i mrbScale = _mm_set1_epi32((sr << 16) | sb);
-    __m128i magOffest = _mm_set1_epi32(dg);
-    __m128i mrbOffest = _mm_set1_epi32((dr << 16) | db);
-
-    for (; pSrc < pEnd; pSrc++) {
-        const __m128i msrc = _mm_loadu_si128(pSrc);
-        const __m128i malpha = _mm_and_si128(msrc, alphaMask);
-        __m128i maa = _mm_or_si128(_mm_srli_epi32(malpha, 8), _mm_srli_epi32(malpha, 24));
-        __m128i mag = _mm_srli_epi16(msrc, 8);
-        __m128i mrb = _mm_and_si128(msrc, rbMask);
-
-        mag = _mm_mullo_epi16(mag, magScale);
-        mag = _mm_add_epi16(mag, _mm_mullo_epi16(maa, magOffest));
-        mrb = _mm_mullo_epi16(mrb, mrbScale);
-        mrb = _mm_add_epi16(mrb, _mm_mullo_epi16(maa, mrbOffest));
-
-        mag = _mm_and_si128(mag, gMask); // alpha is discarded
-        mrb = _mm_srli_epi16(mrb, 8);
-
-        _mm_storeu_si128(pSrc, _mm_or_si128(malpha, _mm_or_si128(mag, mrb)));
-    }
-
-    switch (length % 4) {
-    case 3: qt_recolor(buffer[--length], sr, sg, sb, dr, dg, db);
-    case 2: qt_recolor(buffer[--length], sr, sg, sb, dr, dg, db);
-    case 1: qt_recolor(buffer[--length], sr, sg, sb, dr, dg, db);
-    }
-}
-#endif // QT_HAVE_SSE2
-
-inline void qt_recolor(uint *buffer, int length, 
-                        quint8 sr, quint8 sg, quint8 sb,
-                        quint8 dr, quint8 dg, quint8 db)
-{
-#if QT_HAVE_SSE2
-    if (qDetectCPUFeatures() & SSE2)
-        return qt_recolor_sse(buffer, length, sr, sg, sb, dr, dg, db);
-#endif // QT_HAVE_SSE2
-    for (int i = 0; i < length; i++)
-        qt_recolor(buffer[i], sr, sg, sb, dr, dg, db);
-}
-
 inline void qt_setbilevel(uint &rgb, const quint8 percent)
 {
     Q_ASSERT(qIsGray(rgb));
@@ -680,13 +614,10 @@ inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, in
                 buffer[i] = 0;
         }
     }
-    effects->transform(buffer, length);
+    if (!effects->colorMatrix.isIdentity())
+		effects->transform(buffer, length);
 
-    if (effects->hasDuotone) {
-        qt_recolor(buffer, length, 
-                    effects->m_sr, effects->m_sg, effects->m_sb, 
-                    effects->m_dr, effects->m_dg, effects->m_db);
-    } else if (effects->hasBilevel) {
+	if (effects->hasBilevel) {
         qt_setbilevel(buffer, length, effects->bilevelThreshold);
     }
 }
