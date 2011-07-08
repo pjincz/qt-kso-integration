@@ -143,6 +143,7 @@ public:
     inline void addRoundRect(qreal x, qreal y, qreal w, qreal h,
                              int roundness);
 
+    void connectPolygon(const QPolygonF &polygon);
     void connectPath(const QPainterPath &path);
 
     bool contains(const QPointF &pt) const;
