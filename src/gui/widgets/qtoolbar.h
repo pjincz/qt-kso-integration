@@ -75,8 +75,9 @@ class Q_GUI_EXPORT QToolBar : public QWidget
     Q_PROPERTY(QSize iconSize READ iconSize WRITE setIconSize NOTIFY iconSizeChanged)
     Q_PROPERTY(Qt::ToolButtonStyle toolButtonStyle READ toolButtonStyle WRITE setToolButtonStyle
                NOTIFY toolButtonStyleChanged)
-    Q_PROPERTY(bool floating READ isFloating)
+    Q_PROPERTY(bool floating READ isFloating WRITE setFloating)
     Q_PROPERTY(bool floatable READ isFloatable WRITE setFloatable)
+    Q_PROPERTY(bool closable READ isClosable WRITE setClosable)
 
 public:
     explicit QToolBar(const QString &title, QWidget *parent = 0);
@@ -129,7 +130,14 @@ public:
 
     bool isFloatable() const;
     void setFloatable(bool floatable);
+
     bool isFloating() const;
+    void setFloating(bool floating);
+
+	bool isFullSize() const;
+
+	bool isClosable() const;
+	void setClosable(bool closable);
 
 public Q_SLOTS:
     void setIconSize(const QSize &iconSize);
@@ -144,6 +152,10 @@ Q_SIGNALS:
     void toolButtonStyleChanged(Qt::ToolButtonStyle toolButtonStyle);
     void topLevelChanged(bool topLevel);
     void visibilityChanged(bool visible);
+	void dragFinished();
+
+protected:
+	void setFullSize(bool fullSize);
 
 protected:
     void actionEvent(QActionEvent *event);
@@ -151,8 +163,16 @@ protected:
     void childEvent(QChildEvent *event);
     void paintEvent(QPaintEvent *event);
     void resizeEvent(QResizeEvent *event);
+#ifndef QT_NO_CONTEXTMENU
+	void contextMenuEvent(QContextMenuEvent *event);
+#endif
     bool event(QEvent *event);
     void initStyleOption(QStyleOptionToolBar *option) const;
+
+	QSize getMargins(Qt::Orientation o, bool bFloating) const;
+	virtual QSize dockSizeHint(Qt::Orientation o, int size) const;
+	virtual QSize dockMinimumSizeHint(Qt::Orientation o) const;
+	virtual QSize dockMaximumSize(Qt::Orientation o) const;
 
 #ifdef QT3_SUPPORT
 public:
@@ -174,6 +194,7 @@ private:
     friend class QMainWindowLayout;
     friend class QToolBarLayout;
     friend class QToolBarAreaLayout;
+	friend class QToolBarAreaLayoutItem;
 };
 
 inline QAction *QToolBar::actionAt(int ax, int ay) const

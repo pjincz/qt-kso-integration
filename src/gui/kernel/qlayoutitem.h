@@ -138,6 +138,9 @@ public:
     int heightForWidth(int) const;
 
 protected:
+	QSize layoutItemSize(const QSize& size) const;
+
+protected:
     QWidget *wid;
 };
 

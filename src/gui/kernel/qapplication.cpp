@@ -2037,6 +2037,52 @@ void QApplication::setFont(const QFont &font, const char *className)
     }
 }
 
+/*
+    Use this to replace application without reset other settings.
+        --by kingsoft
+*/
+void QApplication::setFont(const QFont &font, bool bReset)
+{
+    FontHash *hash = app_fonts();
+    {
+        QMutexLocker locker(applicationFontMutex());
+        if (!QApplicationPrivate::app_font)
+            QApplicationPrivate::app_font = new QFont(font);
+        else
+            *QApplicationPrivate::app_font = font;
+        if (bReset && hash && hash->size()) {
+            hash->clear();
+        }
+    }
+    if (QApplicationPrivate::is_app_running && !QApplicationPrivate::is_app_closing) {
+        // Send ApplicationFontChange to qApp itself, and to the widgets.
+        QEvent e(QEvent::ApplicationFontChange);
+        QApplication::sendEvent(QApplication::instance(), &e);
+
+        QWidgetList wids = QApplication::allWidgets();
+        for (QWidgetList::ConstIterator it = wids.constBegin(); it != wids.constEnd(); ++it) {
+            register QWidget *w = *it;
+            sendEvent(w, &e);
+        }
+
+#ifndef QT_NO_GRAPHICSVIEW
+        // Send to all scenes as well.
+        QList<QGraphicsScene *> &scenes = qApp->d_func()->scene_list;
+        for (QList<QGraphicsScene *>::ConstIterator it = scenes.constBegin();
+             it != scenes.constEnd(); ++it) {
+            QApplication::sendEvent(*it, &e);
+        }
+#endif //QT_NO_GRAPHICSVIEW
+    }
+    if (!QApplicationPrivate::sys_font || !font.isCopyOf(*QApplicationPrivate::sys_font)) {
+        if (!QApplicationPrivate::set_font)
+            QApplicationPrivate::set_font = new QFont(font);
+        else
+            *QApplicationPrivate::set_font = font;
+    }
+}
+
+
 /*! \internal
 */
 void QApplicationPrivate::setSystemFont(const QFont &font)
@@ -2852,6 +2898,8 @@ bool QApplicationPrivate::isBlockedByModal(QWidget *widget)
 
     for (int i = 0; i < qt_modal_stack->size(); ++i) {
         QWidget *modalWidget = qt_modal_stack->at(i);
+        if (!modalWidget)
+            return true;
 
         {
             // check if the active modal widget is our widget or a parent of our widget
@@ -2935,6 +2983,9 @@ bool QApplicationPrivate::isBlockedByModal(QWidget *widget)
  */
 void QApplicationPrivate::enterModal(QWidget *widget)
 {
+    QModalEvent me(QEvent::EnterModal, widget);
+    QCoreApplication::sendEvent(qApp, &me);
+
     QSet<QWidget*> blocked;
     QList<QWidget*> windows = QApplication::topLevelWidgets();
     for (int i = 0; i < windows.count(); ++i) {
@@ -2958,6 +3009,9 @@ void QApplicationPrivate::enterModal(QWidget *widget)
  */
 void QApplicationPrivate::leaveModal(QWidget *widget)
 {
+    if (!qt_modal_stack || !qt_modal_stack->contains(widget))
+        return;
+ 
     QSet<QWidget*> blocked;
     QList<QWidget*> windows = QApplication::topLevelWidgets();
     for (int i = 0; i < windows.count(); ++i) {
@@ -2975,9 +3029,21 @@ void QApplicationPrivate::leaveModal(QWidget *widget)
         if(blocked.contains(window) && window->windowType() != Qt::Tool && !isBlockedByModal(window))
             QApplication::sendEvent(window, &e);
     }
+
+    QModalEvent me(QEvent::LeaveModal, widget);
+    QCoreApplication::sendEvent(qApp, &me);
 }
 
-
+/*!\internal add by kingsoft 2011-6-21 11:38:43
+*/
+QWidgetList QApplicationPrivate::getModalStack()
+{
+    if (qt_modal_stack)
+    {
+        return *qt_modal_stack;
+    }
+    return QWidgetList();
+}
 
 /*!\internal
 
@@ -3104,7 +3170,8 @@ bool QApplicationPrivate::sendMouseEvent(QWidget *receiver, QMouseEvent *event,
     else
         result = QApplication::sendEvent(receiver, event);
 
-    if (!graphicsWidget && leaveAfterRelease && event->type() == QEvent::MouseButtonRelease
+    if (!graphicsWidget && leaveAfterRelease 
+        && (event->type() == QEvent::MouseButtonRelease || event->type() == QEvent::NonClientAreaMouseButtonRelease)    // modifyed by kingsoft  2011-6-24 21:29:41
         && !event->buttons() && QWidget::mouseGrabber() != leaveAfterRelease) {
         // Dispatch enter/leave if:
         // 1) the mouse grabber is an alien widget
