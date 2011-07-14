@@ -101,6 +101,7 @@ protected:
     void initCompilerTool();
     void initLinkerTool();
     void initLibrarianTool();
+    void initManifestTool();
     void initResourceTool();
     void initIDLTool();
     void initCustomBuildTool();
