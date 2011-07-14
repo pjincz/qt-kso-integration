@@ -66,6 +66,7 @@ const char _AdditionalDependencies[]            = "AdditionalDependencies";
 const char _AdditionalFiles[]                   = "AdditionalFiles";
 const char _AdditionalIncludeDirectories[]      = "AdditionalIncludeDirectories";
 const char _AdditionalLibraryDirectories[]      = "AdditionalLibraryDirectories";
+const char _AdditionalManifestFiles[]           = "AdditionalManifestFiles";
 const char _AdditionalOptions[]                 = "AdditionalOptions";
 const char _AdditionalUsingDirectories[]        = "AdditionalUsingDirectories";
 const char _AssemblerListingLocation[]          = "AssemblerListingLocation";
@@ -122,6 +123,7 @@ const char _ForcedUsingFiles[]                  = "ForcedUsingFiles";
 const char _FullIncludePath[]                   = "FullIncludePath";
 const char _FunctionOrder[]                     = "FunctionOrder";
 const char _GenerateDebugInformation[]          = "GenerateDebugInformation";
+const char _GenerateManifest[]                  = "GenerateManifest";
 const char _GenerateMapFile[]                   = "GenerateMapFile";
 const char _GeneratePreprocessedFile[]          = "GeneratePreprocessedFile";
 const char _GenerateStublessProxies[]           = "GenerateStublessProxies";
@@ -222,6 +224,7 @@ const char _ValidateParameters[]                = "ValidateParameters";
 const char _VCCLCompilerTool[]                  = "VCCLCompilerTool";
 const char _VCLibrarianTool[]                   = "VCLibrarianTool";
 const char _VCLinkerTool[]                      = "VCLinkerTool";
+const char _VCManifestTool[]                    = "VCManifestTool";
 const char _VCCustomBuildTool[]                 = "VCCustomBuildTool";
 const char _VCResourceCompilerTool[]            = "VCResourceCompilerTool";
 const char _VCMIDLTool[]                        = "VCMIDLTool";
@@ -1135,6 +1138,7 @@ bool VCCLCompilerTool::parseOption(const char* option)
 VCLinkerTool::VCLinkerTool()
     :        EnableCOMDATFolding(optFoldingDefault),
         GenerateDebugInformation(unset),
+        GenerateManifest(unset),
         GenerateMapFile(unset),
         HeapCommitSize(-1),
         HeapReserveSize(-1),
@@ -1183,6 +1187,7 @@ XmlOutput &operator<<(XmlOutput &xml, const VCLinkerTool &tool)
             << attrX(_ForceSymbolReferences, tool.ForceSymbolReferences)
             << attrS(_FunctionOrder, tool.FunctionOrder)
             << attrT(_GenerateDebugInformation, tool.GenerateDebugInformation)
+            << attrT(_GenerateManifest, tool.GenerateManifest)
             << attrT(_GenerateMapFile, tool.GenerateMapFile)
             << attrL(_HeapCommitSize, tool.HeapCommitSize, /*ifNot*/ -1)
             << attrL(_HeapReserveSize, tool.HeapReserveSize, /*ifNot*/ -1)
@@ -1445,6 +1450,12 @@ bool VCLinkerTool::parseOption(const char* option)
             AdditionalOptions += option;
             break;
         }
+        break;
+    case 0x62d9e94: // /MANIFEST[:NO]
+        if ((*(option+9) == ':' && (*(option+10) == 'N' || *(option+10) == 'n')))
+            GenerateManifest = _False;
+        else
+            GenerateManifest = _True;
         break;
     case 0x0034160: // /MAP[:filename]
         GenerateMapFile = _True;
@@ -1923,6 +1934,21 @@ XmlOutput &operator<<(XmlOutput &xml, const VCLibrarianTool &tool)
         << closetag(_Tool);
 }
 
+// VCManifestTool ---------------------------------------------------
+VCManifestTool::VCManifestTool()
+: AdditionalManifestFiles()
+{
+}
+
+XmlOutput &operator<<(XmlOutput &xml, const VCManifestTool &tool)
+{
+    return xml
+        << tag(_Tool)
+            << attrS(_Name, _VCManifestTool)
+            << attrX(_AdditionalManifestFiles, tool.AdditionalManifestFiles, "; ")
+        << closetag(_Tool);
+}
+
 // VCCustomBuildTool ------------------------------------------------
 VCCustomBuildTool::VCCustomBuildTool()
 {
@@ -2061,6 +2087,7 @@ XmlOutput &operator<<(XmlOutput &xml, const VCConfiguration &tool)
     else
         xml << tool.linker;
     xml     << tool.idl
+            << tool.manifest
             << tool.postBuild
             << tool.preBuild
             << tool.preLink
