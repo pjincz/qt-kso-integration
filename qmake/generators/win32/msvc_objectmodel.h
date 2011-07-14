@@ -577,6 +577,7 @@ public:
     QStringList             ForceSymbolReferences;
     QString                 FunctionOrder;
     triState                GenerateDebugInformation;
+    triState                GenerateManifest;
     triState                GenerateMapFile;
     qlonglong               HeapCommitSize;
     qlonglong               HeapReserveSize;
@@ -683,6 +684,16 @@ public:
     QString                 ModuleDefinitionFile;
     QString                 OutputFile;
     triState                SuppressStartupBanner;
+};
+
+class VCManifestTool : public VCToolBase
+{
+public:
+    VCManifestTool();
+    virtual ~VCManifestTool() {}
+    bool parseOption(const char*){ return false; };
+
+    QStringList AdditionalManifestFiles;
 };
 
 class VCCustomBuildTool : public VCToolBase
@@ -804,6 +815,7 @@ public:
     VCCLCompilerTool        compiler;
     VCLinkerTool            linker;
     VCLibrarianTool         librarian;
+    VCManifestTool          manifest;
     VCCustomBuildTool       custom;
     VCMIDLTool              idl;
     VCPostBuildEventTool    postBuild;
