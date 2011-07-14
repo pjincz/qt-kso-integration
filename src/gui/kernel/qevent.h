@@ -882,6 +882,17 @@ private:
 
 QT_END_NAMESPACE
 
+class Q_GUI_EXPORT QModalEvent : public QEvent
+{
+public:
+    QModalEvent(Type type, QWidget * w);
+
+    QWidget * widget();
+
+private:
+    QWidget * w;
+};
+
 QT_END_HEADER
 
 #endif // QEVENT_H

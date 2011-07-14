@@ -197,6 +197,8 @@ public:
     void removeToolBar(QToolBar *toolbar);
     void toggleToolBarsVisible();
     void moveToolBar(QToolBar *toolbar, int pos);
+	// added by kingsoft, 2011-6-16
+	void getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*>>& toolBars);
 #endif
 
     // dock widgets

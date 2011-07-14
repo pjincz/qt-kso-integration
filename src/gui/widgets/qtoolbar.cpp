@@ -181,6 +181,28 @@ void QToolBarPrivate::setWindowState(bool floating, bool unplug, const QRect &re
     if (floating != wasFloating)
         layout->checkUsePopupMenu();
 
+	if (!floating)
+	{
+		bool bHorizontal = true;
+
+		QMainWindow *win = qobject_cast<QMainWindow*>(parent);
+		if (win)
+		{
+			QMainWindowLayout *layout = qt_mainwindow_layout(win);
+			if (layout)
+			{
+				Qt::ToolBarArea area = layout->toolBarArea(q);
+				bHorizontal = (area == Qt::TopToolBarArea) || (area == Qt::BottomToolBarArea);
+			}
+		}
+
+		q->setOrientation(bHorizontal ? Qt::Horizontal : Qt::Vertical);
+	}
+	else
+	{
+		q->setOrientation(Qt::Horizontal);
+	}
+
     if (!rect.isNull())
         q->setGeometry(rect);
 
@@ -188,7 +210,16 @@ void QToolBarPrivate::setWindowState(bool floating, bool unplug, const QRect &re
         q->show();
 
     if (floating != wasFloating)
+	{
         emit q->topLevelChanged(floating);
+
+		if (floating && state)
+		{
+			QRect dragRect = this->dragRect();
+			state->pressPos.rx() = qMin(qMax(state->pressPos.x(), dragRect.left()), dragRect.right());
+			state->pressPos.ry() = qMin(qMax(state->pressPos.y(), dragRect.top()), dragRect.bottom());
+		}
+	}
 }
 
 void QToolBarPrivate::initDrag(const QPoint &pos)
@@ -224,12 +255,13 @@ void QToolBarPrivate::startDrag(bool moving)
     if ((moving && state->moving) || state->dragging)
         return;
 
+    if (!moving)
+	{
     QMainWindow *win = qobject_cast<QMainWindow*>(parent);
     Q_ASSERT(win != 0);
     QMainWindowLayout *layout = qt_mainwindow_layout(win);
     Q_ASSERT(layout != 0);
 
-    if (!moving) {
         state->widgetItem = layout->unplug(q);
 #if defined(Q_WS_MAC) && !defined(QT_MAC_USE_COCOA)
         if (q->isWindow()) {
@@ -242,7 +274,7 @@ void QToolBarPrivate::startDrag(bool moving)
     state->moving = moving;
 }
 
-void QToolBarPrivate::endDrag()
+void QToolBarPrivate::endDrag(bool abort)
 {
     Q_Q(QToolBar);
     Q_ASSERT(state != 0);
@@ -253,7 +285,7 @@ void QToolBarPrivate::endDrag()
         QMainWindowLayout *layout = qt_mainwindow_layout(qobject_cast<QMainWindow *>(q->parentWidget()));
         Q_ASSERT(layout != 0);
 
-        if (!layout->plug(state->widgetItem)) {
+        if (abort || !layout->plug(state->widgetItem)) {
             if (q->isFloatable()) {
                 layout->restore();
 #if defined(Q_WS_X11) || defined(Q_WS_MAC)
@@ -261,6 +293,7 @@ void QToolBarPrivate::endDrag()
                                       // and activates the resizer
 #endif
                 q->activateWindow();
+			   emit q->dragFinished();
             } else {
                 layout->revert(state->widgetItem);
             }
@@ -273,10 +306,7 @@ void QToolBarPrivate::endDrag()
 
 bool QToolBarPrivate::mousePressEvent(QMouseEvent *event)
 {
-    Q_Q(QToolBar);
-    QStyleOptionToolBar opt;
-    q->initStyleOption(&opt);
-    if (q->style()->subElementRect(QStyle::SE_ToolBarHandle, &opt, q).contains(event->pos()) == false) {
+    if (dragRect().contains(event->pos()) == false) {
 #ifdef Q_WS_MAC
         // When using the unified toolbar on Mac OS X the user can can click and
         // drag between toolbar contents to move the window. Make this work by
@@ -354,6 +384,9 @@ bool QToolBarPrivate::mouseMoveEvent(QMouseEvent *event)
 
             startDrag(moving);
             if (!moving && !wasDragging) {
+#ifndef QT_NO_CURSOR
+				q->setCursor(Qt::SizeAllCursor);
+#endif
 #ifdef Q_OS_WIN
                 grabMouseWhileInWindow();
 #else
@@ -395,6 +428,18 @@ bool QToolBarPrivate::mouseMoveEvent(QMouseEvent *event)
     return true;
 }
 
+bool QToolBarPrivate::mouseDblClickEvent(QMouseEvent* event)
+{
+    Q_Q(QToolBar);
+	bool bRet = dragRect().contains(event->pos());
+    if (bRet)
+	{
+		q->setFloating(false);
+	}
+
+	return bRet;
+}
+
 void QToolBarPrivate::unplug(const QRect &_r)
 {
     Q_Q(QToolBar);
@@ -407,6 +452,28 @@ void QToolBarPrivate::unplug(const QRect &_r)
 void QToolBarPrivate::plug(const QRect &r)
 {
     setWindowState(false, false, r);
+}
+
+void QToolBarPrivate::initStyleOption(QStyleOptionDockWidget *option) const
+{
+    Q_Q(const QToolBar);
+
+	const int margin = q->style()->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0,	q);
+	QRect r = q->rect();
+	r.adjust(margin, margin, -margin, -margin);
+	r.setHeight(layout->titleHeight());
+
+	option->initFrom(q);
+    option->rect = r;
+    option->title = q->windowTitle();
+	option->closable = closable;
+    option->movable = movable;
+    option->floatable = floatable;
+}
+
+QRect QToolBarPrivate::dragRect() const
+{
+	return layout->dragRect();
 }
 
 /******************************************************************************
@@ -655,6 +722,39 @@ void QToolBar::setFloatable(bool floatable)
 bool QToolBar::isFloating() const
 {
     return isWindow();
+}
+
+void QToolBar::setFloating(bool floating)
+{
+    Q_D(QToolBar);
+
+    // the initial click of a double-click may have started a drag...
+    if (d->state != 0)
+        d->endDrag(true);
+
+	QRect r;
+    d->setWindowState(floating, false, r);
+
+    if (floating && r.isNull()) {
+        if (x() < 0 || y() < 0) //may happen if we have been hidden
+            move(QPoint());
+        setAttribute(Qt::WA_Moved, false); //we want it at the default position
+    }
+}
+
+bool QToolBar::isFullSize() const
+{
+	return d_func()->fullSize;
+}
+
+bool QToolBar::isClosable() const
+{
+	return d_func()->closable;
+}
+
+void QToolBar::setClosable(bool closable)
+{
+	d_func()->closable = closable;
 }
 
 /*!
@@ -1054,19 +1154,35 @@ void QToolBar::paintEvent(QPaintEvent *)
     QStyleOptionToolBar opt;
     initStyleOption(&opt);
 
-    if (d->layout->expanded || d->layout->animating || isWindow()) {
+	if (d->layout->expanded || d->layout->animating)
+	{
         //if the toolbar is expended, we need to fill the background with the window color
         //because some styles may expects that.
         p.fillRect(opt.rect, palette().background());
         style->drawControl(QStyle::CE_ToolBar, &opt, &p, this);
         style->drawPrimitive(QStyle::PE_FrameMenu, &opt, &p, this);
-    } else {
+	}
+	else
+	{
         style->drawControl(QStyle::CE_ToolBar, &opt, &p, this);
     }
 
+    if (isFloating())
+	{
+		QStyleOptionFrame framOpt;
+		framOpt.init(this);
+		style->drawPrimitive(QStyle::PE_FrameDockWidget, &framOpt, &p, this);
+
+		QStyleOptionDockWidgetV2 titleOpt;
+		d->initStyleOption(&titleOpt);
+		style->drawControl(QStyle::CE_DockWidgetTitle, &titleOpt, &p, this);
+	}
+	else
+	{
     opt.rect = style->subElementRect(QStyle::SE_ToolBarHandle, &opt, this);
     if (opt.rect.isValid())
         style->drawPrimitive(QStyle::PE_IndicatorToolBarHandle, &opt, &p, this);
+	}
 }
 
 /*
@@ -1190,6 +1306,10 @@ bool QToolBar::event(QEvent *event)
         if (d->mouseReleaseEvent(static_cast<QMouseEvent*>(event)))
             return true;
         break;
+	case QEvent::MouseButtonDblClick:
+		if (d->mouseDblClickEvent(static_cast<QMouseEvent*>(event)))
+			return true;
+		break;
     case QEvent::HoverEnter:
     case QEvent::HoverLeave:
         // there's nothing special to do here and we don't want to update the whole widget
@@ -1197,9 +1317,7 @@ bool QToolBar::event(QEvent *event)
     case QEvent::HoverMove: {
 #ifndef QT_NO_CURSOR
         QHoverEvent *e = static_cast<QHoverEvent*>(event);
-        QStyleOptionToolBar opt;
-        initStyleOption(&opt);
-        if (style()->subElementRect(QStyle::SE_ToolBarHandle, &opt, this).contains(e->pos()))
+		if (d->dragRect().contains(e->pos()))
             setCursor(Qt::SizeAllCursor);
         else
             unsetCursor();
@@ -1234,14 +1352,19 @@ bool QToolBar::event(QEvent *event)
             if (!d->layout->expanded)
                 break;
 
+			QPoint pos = mapFromGlobal(QCursor::pos());
+			if (!rect().contains(pos))
+			{
             QWidget *w = QApplication::activePopupWidget();
-            if (waitForPopup(this, w)) {
+				if (waitForPopup(this, w))
+				{
                 d->waitForPopupTimer.start(POPUP_TIMER_INTERVAL, this);
                 break;
             }
 
             d->waitForPopupTimer.stop();
             d->layout->setExpanded(false);
+			}
             break;
         }
     default:
@@ -1340,6 +1463,79 @@ void QToolBar::childEvent(QChildEvent *event) // ### remove me in 5.0
 void QToolBar::resizeEvent(QResizeEvent *event) // ### remove me in 5.0
 {
     QWidget::resizeEvent(event);
+}
+
+#ifndef QT_NO_CONTEXTMENU
+/*!
+    \reimp
+*/
+void QToolBar::contextMenuEvent(QContextMenuEvent *event)
+{
+	Q_D(QToolBar);
+
+    event->ignore();
+	if (isFloating() && d->dragRect().contains(event->pos()))
+	{
+		QMainWindow* window = qobject_cast<QMainWindow*>(d->parent);
+		if (window)
+		{
+			QMenu *popup = window->createPopupMenu();
+			if (popup)
+			{
+				if (!popup->isEmpty())
+				{
+					popup->setAttribute(Qt::WA_DeleteOnClose);
+					popup->popup(event->globalPos());
+					event->accept();
+				}
+				else
+				{
+					delete popup;
+				}
+			}
+		}
+	}
+}
+#endif
+
+/*!
+    \internal
+*/
+QSize QToolBar::dockSizeHint(Qt::Orientation o, int) const
+{
+	return d_func()->layout->dockSizeHint(o);
+}
+
+/*!
+    \internal
+*/
+QSize QToolBar::dockMinimumSizeHint(Qt::Orientation o) const
+{
+	return d_func()->layout->dockMinimumSize(o);
+}
+
+/*!
+    \internal
+*/
+QSize QToolBar::dockMaximumSize(Qt::Orientation o) const
+{
+	QSize sz = maximumSize();
+	if (o != d_func()->orientation)
+		sz.transpose();
+	return sz;
+}
+
+/*!
+    \internal
+*/
+QSize QToolBar::getMargins(Qt::Orientation o, bool bFloating) const
+{
+	return d_func()->layout->getMargins(o, bFloating);
+}
+
+void QToolBar::setFullSize(bool fullSize)
+{
+	d_func()->fullSize = fullSize;
 }
 
 QT_END_NAMESPACE

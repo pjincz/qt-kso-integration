@@ -2357,27 +2357,28 @@ extern "C" LRESULT QT_WIN_CALLBACK QtWndProc(HWND hwnd, UINT message, WPARAM wPa
             }
             result = false;
             break;
-        case WM_GETTEXT:
-            if (!widget->isWindow()) {
-                int ret = 0;
-                QAccessibleInterface *acc = QAccessible::queryAccessibleInterface(widget);
-                if (acc) {
-                    QString text = acc->text(QAccessible::Name, 0);
-                    if (text.isEmpty())
-                        text = widget->objectName();
-                    ret = qMin<int>(wParam - 1, text.size());
-                    text.resize(ret);
-                    memcpy((void *)lParam, text.utf16(), (text.size() + 1) * sizeof(ushort));
-                    delete acc;
-                }
-                if (!ret) {
-                    result = false;
-                    break;
-                }
-                RETURN(ret);
-            }
-            result = false;
-            break;
+        // 
+        //case WM_GETTEXT:
+            //if (!widget->isWindow()) {
+            //    int ret = 0;
+            //    QAccessibleInterface *acc = QAccessible::queryAccessibleInterface(widget);
+            //    if (acc) {
+            //        QString text = acc->text(QAccessible::Name, 0);
+            //        if (text.isEmpty())
+            //            text = widget->objectName();
+            //        ret = qMin<int>(wParam - 1, text.size());
+            //        text.resize(ret);
+            //        memcpy((void *)lParam, text.utf16(), (text.size() + 1) * sizeof(ushort));
+            //        delete acc;
+            //    }
+            //    if (!ret) {
+            //        result = false;
+            //        break;
+            //    }
+            //    RETURN(ret);
+            //}
+            //result = false;
+            //break;
 #endif
         case WT_PACKET:
             if (ptrWTPacketsGet) {
@@ -2679,7 +2680,7 @@ void QApplicationPrivate::enterModal_sys(QWidget *widget)
 
 void QApplicationPrivate::leaveModal_sys(QWidget *widget)
 {
-    if (qt_modal_stack && qt_modal_stack->removeAll(widget)) {
+    if (qt_modal_stack && qt_modal_stack->removeOne(widget)) {
         if (qt_modal_stack->isEmpty()) {
             delete qt_modal_stack;
             qt_modal_stack = 0;
@@ -2923,9 +2924,32 @@ static const ushort mouseTbl[] = {
 
 static int translateButtonState(int s, int type, int button)
 {
-    Q_UNUSED(type);
+    // modifyed by kingsoft
+    // Windows nc message's wParam is hit test result instead of flags
     Q_UNUSED(button);
     int bst = 0;
+
+    if (type == QEvent::NonClientAreaMouseMove || type == QEvent::NonClientAreaMouseButtonPress
+        || type == QEvent::NonClientAreaMouseButtonRelease || type == QEvent::NonClientAreaMouseButtonDblClick)
+    {
+        if (GetKeyState(VK_LBUTTON) < 0)
+            bst |= Qt::LeftButton;
+        if (GetKeyState(VK_MBUTTON) < 0)
+            bst |= Qt::MidButton;
+        if (GetKeyState(VK_RBUTTON) < 0)
+            bst |= Qt::RightButton;
+        if (GetKeyState(VK_SHIFT) < 0)
+            bst |= Qt::ShiftModifier;
+        if (GetKeyState(VK_CONTROL))
+            bst |= Qt::ControlModifier;
+
+        if (GetKeyState(VK_XBUTTON1))
+            bst |= Qt::XButton1;
+        if (GetKeyState(VK_XBUTTON2))
+            bst |= Qt::XButton2;
+    }
+    else
+    {
     if (s & MK_LBUTTON)
         bst |= Qt::LeftButton;
     if (s & MK_MBUTTON)
@@ -2941,7 +2965,7 @@ static int translateButtonState(int s, int type, int button)
         bst |= Qt::XButton1;
     if (s & MK_XBUTTON2)
         bst |= Qt::XButton2;
-
+    }
     if (GetKeyState(VK_MENU) < 0)
         bst |= Qt::AltModifier;
 

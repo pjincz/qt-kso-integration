@@ -81,7 +81,8 @@ HEADERS += \
         widgets/qtoolbararealayout_p.h \
         widgets/qplaintextedit.h \
         widgets/qplaintextedit_p.h \
-        widgets/qprintpreviewwidget.h
+        widgets/qprintpreviewwidget.h \
+        widgets/qtoolbaritemwidget.h
 SOURCES += \
         widgets/qabstractbutton.cpp \
         widgets/qabstractslider.cpp \
