@@ -828,6 +828,7 @@ void VcprojGenerator::initConfiguration()
         conf.linker.GenerateDebugInformation = isDebug ? _True : _False;
         initLinkerTool();
     }
+    initManifestTool();
     initResourceTool();
     initIDLTool();
 
@@ -998,6 +999,16 @@ void VcprojGenerator::initLinkerTool()
     if(project->isActiveConfig("dll")){
         conf.linker.parseOptions(project->values("QMAKE_LFLAGS_QT_DLL"));
     }
+}
+
+void VcprojGenerator::initManifestTool()
+{
+    QStringList manifestFiles = project->values("MSVCPROJ_ADDITIONAL_MANIFEST_FILES");
+    if (manifestFiles.isEmpty())
+        return;
+
+    VCConfiguration &conf = vcProject.Configuration;
+    conf.manifest.AdditionalManifestFiles = manifestFiles;
 }
 
 void VcprojGenerator::initResourceTool()
