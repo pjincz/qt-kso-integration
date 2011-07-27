@@ -860,8 +860,8 @@ private:
     if (qDetectCPUFeatures() & SSE4_1)
         return generate_gradient_sse4(buffer, length, clrFrom, clrTo, start, dx);        
 #endif // QT_HAVE_SSE4_1
+        qreal pos = start;
         for (int i = 0; i < length; i++) {
-            qreal pos = start;
             buffer[i] = clrFrom.gradient(clrTo, pos);
             pos += dx;
         }
