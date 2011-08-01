@@ -1930,7 +1930,7 @@ bool QCustomLineAnchorState::CalcCrossYPts(const QPainterPath& path, std::vector
             else if (x < 0) flags[i] = -1;
             else flags[i] = 0;
         }
-        for (int i = 0; i < poly.count(); ++i)
+        for (int i = 0; i < poly.count() - 1; ++i)
             CalcCrossYPt(poly[i], poly[i+1], flags[i], flags[i+1], dists);
     }
     std::sort(dists.begin(), dists.end());
