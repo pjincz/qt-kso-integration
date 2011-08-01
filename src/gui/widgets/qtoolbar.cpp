@@ -192,7 +192,7 @@ void QToolBarPrivate::setWindowState(bool floating, bool unplug, const QRect &re
 			if (layout)
 			{
 				Qt::ToolBarArea area = layout->toolBarArea(q);
-				bHorizontal = (area == Qt::TopToolBarArea) || (area == Qt::BottomToolBarArea);
+				bHorizontal = (area != Qt::LeftToolBarArea) && (area != Qt::RightToolBarArea);
 			}
 		}
 
