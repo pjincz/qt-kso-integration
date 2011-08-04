@@ -742,7 +742,7 @@ void tst_QTextureBrush::drawRects()
 {
     QVector<QRect> rcs;
     rcs << QRect(0, 0, m_canvas.width(), m_canvas.height());
-    rcs << QRect(rcs[0].bottomRight(), rcs[0].size());
+    rcs << QRect(rcs[0].bottomRight() + QPoint(1, 1), rcs[0].size());
 
     QBrush brush(m_texture);
     brush.setTextureAlignment(Qt::TextureAlignmentBottomRight);

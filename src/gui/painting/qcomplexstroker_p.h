@@ -202,6 +202,8 @@ private:
     Q_DISABLE_COPY(QCustomLineAnchorState)
 
 public:
+    enum AnchorType {AnchorTypeFill, AnchorTypeStroke};
+
     QCustomLineAnchorState();
     virtual ~QCustomLineAnchorState();
 
@@ -210,6 +212,8 @@ public:
     virtual void GenerateCap(qreal width, const QPointF& fromPt, const QPointF& toPt,
         const QPointF& centerPt, QPainterPath& capPath) const = 0;
     virtual qreal GetMaxDistance(qreal width) const = 0;
+    virtual QPainterPath GetCapPath() const = 0;
+    virtual AnchorType GetAnchorType() const = 0;
 
     qreal baseInset() const;
     qreal widthScale() const;
@@ -252,6 +256,8 @@ public:
     virtual void GenerateCap(qreal width, const QPointF& fromPt, const QPointF& toPt,
         const QPointF& centerPt, QPainterPath& capPath) const;
     virtual qreal GetMaxDistance(qreal width) const;
+    virtual QPainterPath GetCapPath() const {return m_capPath;}
+    virtual AnchorType GetAnchorType() const {return AnchorTypeFill;}
 
 private:
     QPainterPath m_capPath;
@@ -268,6 +274,8 @@ public:
     virtual void GenerateCap(qreal width, const QPointF& fromPt, const QPointF& toPt,
         const QPointF& centerPt, QPainterPath& capPath) const;
     virtual qreal GetMaxDistance(qreal width) const;
+    virtual QPainterPath GetCapPath() const {return m_capPath;}
+    virtual AnchorType GetAnchorType() const {return AnchorTypeStroke;}
 
 private:
     QPainterPath m_capPath;

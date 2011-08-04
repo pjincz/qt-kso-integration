@@ -231,7 +231,13 @@ typedef QPenPrivate QPenData;
 inline QPenPrivate::QPenPrivate(const QBrush &_brush, qreal _width, Qt::PenStyle penStyle,
                                 Qt::PenCapStyle _capStyle, Qt::PenJoinStyle _joinStyle)
     : dashOffset(0), miterLimit(2),
-      cosmetic(false)
+      cosmetic(false),
+      alignment(Qt::PenAlignmentCenter),
+      startAnchorStyle(Qt::SquareAnchor),
+      endAnchorStyle(Qt::SquareAnchor),
+      startCap(Qt::FlatCap),
+      endCap(Qt::FlatCap),
+      dashCap(Qt::FlatCap)
 {
     ref = 1;
     width = _width;
@@ -682,10 +688,16 @@ Qt::PenCapStyle QPen::capStyle() const
 
 void QPen::setCapStyle(Qt::PenCapStyle c)
 {
-    if (d->capStyle == c)
+    if (d->capStyle == c 
+        && c == d->startCap 
+        && c == d->endCap 
+        && c == d->dashCap)
         return;
     detach();
     d->capStyle = c;
+    d->startCap = c;
+    d->endCap = c;
+    d->dashCap = c;
 }
 
 /*!
@@ -845,7 +857,16 @@ bool QPen::operator==(const QPen &p) const
                 || (qFuzzyCompare(pdd->dashOffset, dd->dashOffset) &&
                     pdd->dashPattern == dd->dashPattern))
             && p.d->brush == d->brush
-            && pdd->cosmetic == dd->cosmetic);
+            && pdd->cosmetic == dd->cosmetic
+            && pdd->compoundArray == dd->compoundArray
+            && pdd->startAnchorStyle == dd->startAnchorStyle
+            && (pdd->startAnchorStyle != Qt::CustomAnchor || pdd->startAnchor == dd->startAnchor)
+            && pdd->endAnchorStyle == dd->endAnchorStyle
+            && (pdd->endAnchorStyle != Qt::CustomAnchor || pdd->endAnchor == dd->endAnchor)
+            && pdd->alignment == dd->alignment
+            && pdd->startCap == dd->startCap
+            && pdd->endCap == dd->endCap
+            && pdd->dashCap == dd->dashCap);
 }
 
 
@@ -860,6 +881,123 @@ bool QPen::isDetached()
     return d->ref == 1;
 }
 
+//////////////////////////////////////////////////////////////////////////
+QVector<qreal> QPen::compoundArray() const
+{
+    return d->compoundArray;
+}
+
+void QPen::setCompoundArray(const QVector<qreal> &pattern)
+{
+    if (pattern.isEmpty() || d->compoundArray == pattern)
+        return;
+    detach();
+    d->compoundArray = pattern;
+}
+
+Qt::PenAnchorStyle QPen::startAnchorStyle() const
+{
+    return d->startAnchorStyle;
+}
+
+void QPen::setStartAnchorStyle(Qt::PenAnchorStyle anchor)
+{
+    if (d->startAnchorStyle == anchor)
+        return;
+    detach();
+    d->startAnchorStyle = anchor;
+    d->startAnchor = QCustomLineAnchor(anchor);
+}
+
+const QCustomLineAnchor &QPen::startAnchor() const
+{
+    return d->startAnchor;
+}
+
+void QPen::setStartAnchor(const QCustomLineAnchor &anchor)
+{
+    detach();
+    d->startAnchorStyle = Qt::CustomAnchor;
+    d->startAnchor = anchor;
+}
+
+Qt::PenAnchorStyle QPen::endAnchorStyle() const
+{
+    return d->endAnchorStyle;
+}
+
+void QPen::setEndAnchorStyle(Qt::PenAnchorStyle anchor)
+{
+    if (d->endAnchorStyle == anchor)
+        return;
+    detach();
+    d->endAnchorStyle = anchor;
+    d->endAnchor = QCustomLineAnchor(anchor);
+}
+
+const QCustomLineAnchor &QPen::endAnchor() const
+{
+    return d->endAnchor;
+}
+
+void QPen::setEndAnchor(const QCustomLineAnchor &anchor)
+{
+    detach();
+    d->endAnchorStyle = Qt::CustomAnchor;
+    d->endAnchor = anchor;
+}
+
+Qt::PenAlignment QPen::alignment() const
+{
+    return d->alignment;
+}
+
+void QPen::setAlignment(Qt::PenAlignment alignment)
+{
+    if (d->alignment == alignment)
+        return;
+    detach();
+    d->alignment = alignment;
+}
+
+Qt::PenCapStyle QPen::startCapStyle() const
+{
+    return d->startCap;
+}
+
+void QPen::setStartCapStyle(Qt::PenCapStyle s)
+{
+    if (d->startCap == s)
+        return;
+    detach();
+    d->startCap = s;
+}
+
+Qt::PenCapStyle QPen::endCapStyle() const
+{
+    return d->endCap;
+}
+
+void QPen::setEndCapStyle(Qt::PenCapStyle s)
+{
+    if (d->endCap == s)
+        return;
+    detach();
+    d->endCap = s;
+}
+
+Qt::PenCapStyle QPen::dashCapStyle() const
+{
+    return d->dashCap;
+}
+
+void QPen::setDashCapStyle(Qt::PenCapStyle s)
+{
+    if (d->dashCap == s)
+        return;
+    detach();
+    d->dashCap = s;
+}
 
 /*****************************************************************************
   QPen stream functions
@@ -908,6 +1046,22 @@ QDataStream &operator<<(QDataStream &s, const QPen &p)
         if (s.version() >= 9)
             s << double(p.dashOffset());
     }
+    if (sizeof(qreal) == sizeof(double)) {
+        s << p.compoundArray();
+    } else {
+        QVector<qreal> compound = p.compoundArray();
+        s << quint32(compound.size());
+        for (int i = 0; i < compound.size(); ++i)
+            s << double(compound.at(i));
+    }
+    s << quint8(dd->startAnchorStyle);
+    s << dd->startAnchor;
+    s << quint8(dd->endAnchorStyle);
+    s << dd->endAnchor;
+    s << quint8(dd->alignment);
+    s << quint8(dd->startCap);
+    s << quint8(dd->endCap);
+    s << quint8(dd->dashCap);
     return s;
 }
 
@@ -932,6 +1086,15 @@ QDataStream &operator>>(QDataStream &s, QPen &p)
     QVector<qreal> dashPattern;
     double dashOffset = 0;
     bool cosmetic = false;
+    QVector<qreal> compoundArray;
+    quint8 startAnchorStyle;
+    QCustomLineAnchor startAnchor;
+    quint8 endAnchorStyle;
+    QCustomLineAnchor endAnchor;
+    quint8 alignment;
+    quint8 startCap;
+    quint8 endCap;
+    quint8 dashCap;
     if (s.version() < QDataStream::Qt_4_3) {
         quint8 style8;
         s >> style8;
@@ -964,6 +1127,27 @@ QDataStream &operator>>(QDataStream &s, QPen &p)
             s >> dashOffset;
     }
 
+    if (sizeof(qreal) == sizeof(double)) {
+        s >> compoundArray;
+    } else {
+        quint32 num;
+        s >> num;
+        double comp;
+        for (quint32 i = 0; i < num ; i++)
+        {
+            s >> comp;
+            compoundArray << compoundArray;
+        }
+    }
+    s >> startAnchorStyle;
+    s >> startAnchor;
+    s >> endAnchorStyle;
+    s >> endAnchor;
+    s >> alignment;
+    s >> startCap;
+    s >> endCap;
+    s >> dashCap;
+
     p.detach();
     QPenData *dd = static_cast<QPenData *>(p.d);
     dd->width = width;
@@ -975,6 +1159,15 @@ QDataStream &operator>>(QDataStream &s, QPen &p)
     dd->miterLimit = miterLimit;
     dd->dashOffset = dashOffset;
     dd->cosmetic = cosmetic;
+    dd->compoundArray = compoundArray;
+    dd->startAnchorStyle = (Qt::PenAnchorStyle)startAnchorStyle;
+    dd->startAnchor = startAnchor;
+    dd->endAnchorStyle = (Qt::PenAnchorStyle)endAnchorStyle;
+    dd->endAnchor = endAnchor;
+    dd->alignment = (Qt::PenAlignment)alignment;
+    dd->startCap = (Qt::PenCapStyle)startCap;
+    dd->endCap = (Qt::PenCapStyle)endCap;
+    dd->dashCap = (Qt::PenCapStyle)dashCap;
 
     return s;
 }

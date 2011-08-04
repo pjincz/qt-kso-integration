@@ -2149,6 +2149,10 @@ case Qt::SquareAnchor: {
     capPath.closeSubpath();
     break;
                        }
+case Qt::CustomAnchor:
+    break;
+default:
+    Q_ASSERT(!"unknow style!");
     }
 
     if (!capPath.isEmpty())
@@ -2312,6 +2316,21 @@ bool QCustomLineAnchor::isValid() const
     }
 }
 
+bool QCustomLineAnchor::operator==(const QCustomLineAnchor &p) const
+{
+    DataPtr lhs = m_cap;
+    DataPtr rhs = p.m_cap;
+    return (lhs == rhs)
+        || (lhs != NULL && rhs != NULL
+            && lhs->GetAnchorType() == rhs->GetAnchorType()
+            && lhs->baseInset() == rhs->baseInset()
+            && lhs->widthScale() == rhs->widthScale()
+            && lhs->strokeStartCap() == rhs->strokeStartCap()
+            && lhs->strokeEndCap() == rhs->strokeEndCap()
+            && lhs->strokeJoin() == rhs->strokeJoin()
+            && lhs->baseCap() == rhs->baseCap()
+            && lhs->GetCapPath() == rhs->GetCapPath());
+}
 
 // ------------------------------------------------------------------------p
 // static 
@@ -2343,6 +2362,8 @@ miterLimit(4.0),
 //      compoundArray,
 //customStartCap(),
 //customEndCap(),
+startAnchorStyle(Qt::SquareAnchor),
+endAnchorStyle(Qt::SquareAnchor),
 alignment(Qt::PenAlignmentCenter),
 startCap(Qt::FlatCap),
 endCap(Qt::FlatCap),
@@ -2594,7 +2615,7 @@ Qt::PenAlignment QComplexStroker::alignment() const
 
 void QComplexStroker::setAlignment(Qt::PenAlignment alignment)
 {
-    if (d_ptr->alignment = alignment)
+    if (d_ptr->alignment == alignment)
         return;
     detach();
     d_ptr->alignment = alignment;
@@ -2642,6 +2663,7 @@ void QComplexStroker::setDashCapStyle(Qt::PenCapStyle s)
 QPainterPath QComplexStroker::createStroke(const QPainterPath &path) const
 {
     QPainterPath result;
+    result.setFillRule(Qt::WindingFill);
     QPainterPath pathAfterGenerateCap;
     QAnchorGenerator capGenerator(d_ptr->startAnchor, d_ptr->endAnchor, d_ptr->width);
     capGenerator.Generate(path, pathAfterGenerateCap, result);
@@ -2682,3 +2704,60 @@ QPainterPath QComplexStroker::createStroke(const QPainterPath &path) const
 
     return result;
 }
+
+/*****************************************************************************
+  QCustomLineAnchor stream functions
+ *****************************************************************************/
+#ifndef QT_NO_DATASTREAM
+QDataStream &operator<<(QDataStream &s, const QCustomLineAnchor &anchor)
+{
+    QCustomLineAnchorState *d = anchor.m_cap;
+
+    s << bool(NULL != d);
+    if (NULL != d) {
+        s << quint8(d->GetAnchorType());
+        s << d->GetCapPath();
+        s << double(d->baseInset()) << double(d->widthScale());
+        s << quint16(d->strokeStartCap()) << quint16(d->strokeEndCap()) 
+            << quint16(d->strokeJoin()) << quint16(d->baseCap());        
+    }
+    return s;
+}
+
+QDataStream &operator>>(QDataStream &s, QCustomLineAnchor &anchor)
+{
+    bool bNotNull = false;
+    s >> bNotNull;
+    if (bNotNull) {
+        QCustomLineAnchorState *d = NULL;
+        quint8 i8;
+        QPainterPath capPath;
+        double r;
+        quint16 i;
+        s >> i8;
+        s >> capPath;
+        if (QCustomLineAnchorState::AnchorTypeFill == i8)
+            d = new QCustomFillAnchor(capPath);
+        else if (QCustomLineAnchorState::AnchorTypeStroke == i8)
+            d = new QCustomStrokeAnchor(capPath);
+        else
+            Q_ASSERT(false);
+        s >> r;
+        d->setBaseInset(r);
+        s >> r;
+        d->setWidthScale(r);
+        s >> i;
+        d->setStrokeStartCap((Qt::PenCapStyle)i);
+        s >> i;
+        d->setStrokeEndCap((Qt::PenCapStyle)i);
+        s >> i;
+        d->setStrokeJoin((Qt::PenJoinStyle)i);
+        s >> i;
+        d->setBaseCap((Qt::PenCapStyle)i);
+        anchor = QCustomLineAnchor(d);
+    } else {
+        anchor = QCustomLineAnchor();
+    }
+    return s;
+}
+#endif
