@@ -55,6 +55,7 @@ class QVariant;
 class QPenPrivate;
 class QBrush;
 class QPen;
+class QCustomLineAnchor;
 
 #ifndef QT_NO_DATASTREAM
 Q_GUI_EXPORT QDataStream &operator<<(QDataStream &, const QPen &);
@@ -106,6 +107,31 @@ public:
 
     Qt::PenJoinStyle joinStyle() const;
     void setJoinStyle(Qt::PenJoinStyle pcs);
+
+    QVector<qreal> compoundArray() const;
+    void setCompoundArray(const QVector<qreal> &pattern);
+
+    Qt::PenAnchorStyle startAnchorStyle() const;
+    void setStartAnchorStyle(Qt::PenAnchorStyle);
+    const QCustomLineAnchor &startAnchor() const;
+    void setStartAnchor(const QCustomLineAnchor &);
+
+    Qt::PenAnchorStyle endAnchorStyle() const;
+    void setEndAnchorStyle(Qt::PenAnchorStyle);
+    const QCustomLineAnchor &endAnchor() const;
+    void setEndAnchor(const QCustomLineAnchor &);
+
+    Qt::PenAlignment alignment() const;
+    void setAlignment(Qt::PenAlignment alignment);
+
+    Qt::PenCapStyle startCapStyle() const;
+    void setStartCapStyle(Qt::PenCapStyle s);
+
+    Qt::PenCapStyle endCapStyle() const;
+    void setEndCapStyle(Qt::PenCapStyle s);
+
+    Qt::PenCapStyle dashCapStyle() const;
+    void setDashCapStyle(Qt::PenCapStyle s);
 
     bool isCosmetic() const;
     void setCosmetic(bool cosmetic);

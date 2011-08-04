@@ -610,17 +610,18 @@ inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, in
 {
     Q_ASSERT(NULL != effects && NULL != buffer);
 
+    if (!effects->colorMatrix.isIdentity())
+        effects->transform(buffer, length);
+
+    if (effects->hasBilevel) {
+        qt_setbilevel(buffer, length, effects->bilevelThreshold);
+    }
+
     if (effects->hasColorKey) {
         for (int i = 0; i < length; i++) {
             if (effects->colorKey == buffer[i])
                 buffer[i] = 0;
         }
-    }
-    if (!effects->colorMatrix.isIdentity())
-		effects->transform(buffer, length);
-
-	if (effects->hasBilevel) {
-        qt_setbilevel(buffer, length, effects->bilevelThreshold);
     }
 }
 

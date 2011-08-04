@@ -44,6 +44,7 @@
 
 #include "qpen.h"
 #include "qbrush.h"
+#include "qcomplexstroker.h"
 
 #include <qdebug.h>
 
@@ -67,6 +68,9 @@ private slots:
 
     void constructor();
     void constructor_data();
+    
+private:
+    QPen getPen();
 };
 
 // Testing get/set functions
@@ -93,6 +97,39 @@ void tst_QPen::getSetCheck()
         obj1.setWidth(i);
         QCOMPARE(i, obj1.width());
     }
+
+    QVector<qreal> compounds;
+    compounds << 0 << 0.2 << 0.5 << 0.7 << 0.9 << 1.0;
+    obj1.setCompoundArray(compounds);
+    QCOMPARE(obj1.compoundArray(), compounds);
+    obj1.setStartAnchorStyle(Qt::DiamondAnchor);
+    obj1.setStartAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+
+    obj1.setStartAnchorStyle(Qt::DiamondAnchor);
+    QCOMPARE(obj1.startAnchorStyle(), Qt::DiamondAnchor);
+    obj1.setStartAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    QCOMPARE(obj1.startAnchor(), QCustomLineAnchor(Qt::DiamondAnchor));
+
+    obj1.setEndAnchorStyle(Qt::DiamondAnchor);
+    QCOMPARE(obj1.endAnchorStyle(), Qt::DiamondAnchor);
+    obj1.setEndAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    QCOMPARE(obj1.endAnchor(), QCustomLineAnchor(Qt::DiamondAnchor));
+
+    obj1.setAlignment(Qt::PenAlignmentInset);
+    QCOMPARE(obj1.alignment(), Qt::PenAlignmentInset);
+
+    obj1.setStartCapStyle(Qt::RoundCap);
+    QCOMPARE(obj1.startCapStyle(), Qt::RoundCap);
+    obj1.setEndCapStyle(Qt::SquareCap);
+    QCOMPARE(obj1.endCapStyle(), Qt::SquareCap);
+    obj1.setDashCapStyle(Qt::TriangleCap);
+    QCOMPARE(obj1.dashCapStyle(), Qt::TriangleCap);
+
+    obj1.setCapStyle(Qt::RoundCap);
+    QCOMPARE(obj1.capStyle(), Qt::RoundCap);
+    QCOMPARE(obj1.startCapStyle(), Qt::RoundCap);
+    QCOMPARE(obj1.endCapStyle(), Qt::RoundCap);
+    QCOMPARE(obj1.dashCapStyle(), Qt::RoundCap);
 }
 
 Q_DECLARE_METATYPE(QPen)
@@ -127,7 +164,32 @@ void tst_QPen::operator_eq_eq_data()
     QTest::newRow("same") << QPen(Qt::red, 2, Qt::DashLine, Qt::RoundCap, Qt::BevelJoin)
 		       << QPen(Qt::red, 2, Qt::DashLine, Qt::RoundCap, Qt::BevelJoin)
 		       << bool(TRUE);
+    QPen pen1 = getPen();
+    pen1.setStartAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    QPen pen2 = getPen();
+    pen2.setStartAnchor(QCustomLineAnchor(Qt::SquareAnchor));
+    QTest::newRow("differentStartAnchor") << pen1 << pen2 << false;
 
+    pen2.setStartAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    QTest::newRow("same pen") << pen1 << pen2 << true;
+
+    pen2 = pen1;
+    pen1.setAlignment(Qt::PenAlignmentInset);
+    pen2.setAlignment(Qt::PenAlignmentOutset);
+    QTest::newRow("differentAlignment") << pen1 << pen2 << false;
+
+    pen2 = pen1;
+    pen1.setDashCapStyle(Qt::SquareCap);
+    pen2.setDashCapStyle(Qt::RoundCap);
+    QTest::newRow("differentDashCap") << pen1 << pen2 << false;
+
+    pen2 = pen1;
+    QVector<qreal> comps;
+    comps << 0 << 0.2 << 0.5 << 1.0;
+    pen1.setCompoundArray(comps);
+    comps[2] = 0.6;
+    pen2.setCompoundArray(comps);
+    QTest::newRow("differentCompundArray") << pen1 << pen2 << false;
 }
 
 void tst_QPen::operator_eq_eq()
@@ -211,6 +273,26 @@ void tst_QPen::stream()
     QCOMPARE(pen.brush(), cmp.brush());
 
     QCOMPARE(pen, cmp);
+}
+
+QPen tst_QPen::getPen()
+{
+    QPen pen;
+    QVector<qreal> compounds;
+    compounds << 0 << 0.2 << 0.5 << 0.7 << 0.9 << 1.0;
+    pen.setCompoundArray(compounds);
+    pen.setStartAnchorStyle(Qt::DiamondAnchor);
+    pen.setStartAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    pen.setEndAnchorStyle(Qt::DiamondAnchor);
+    pen.setStartAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    pen.setEndAnchorStyle(Qt::DiamondAnchor);
+    pen.setEndAnchor(QCustomLineAnchor(Qt::DiamondAnchor));
+    pen.setAlignment(Qt::PenAlignmentInset);
+    pen.setStartCapStyle(Qt::RoundCap);
+    pen.setEndCapStyle(Qt::SquareCap);
+    pen.setDashCapStyle(Qt::TriangleCap);
+
+    return pen;
 }
 
 QTEST_APPLESS_MAIN(tst_QPen)

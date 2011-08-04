@@ -8,6 +8,12 @@ QT_BEGIN_NAMESPACE
 QT_MODULE(Gui)
 
 class QCustomLineAnchorState;
+class QCustomLineAnchor;
+
+#ifndef QT_NO_DATASTREAM
+Q_GUI_EXPORT QDataStream &operator<<(QDataStream &, const QCustomLineAnchor &);
+Q_GUI_EXPORT QDataStream &operator>>(QDataStream &, QCustomLineAnchor &);
+#endif
 
 class Q_GUI_EXPORT QCustomLineAnchor 
 {
@@ -41,6 +47,9 @@ public:
 
     bool isValid() const;
 
+    bool operator==(const QCustomLineAnchor &p) const;
+    inline bool operator!=(const QCustomLineAnchor &p) const {return !(operator==(p));};
+
 private:
     QCustomLineAnchor(QCustomLineAnchorState *capState);
     void reset(QCustomLineAnchorState *capState);
@@ -49,6 +58,9 @@ private:
 
 private:
     QCustomLineAnchorState *m_cap;
+
+    friend Q_GUI_EXPORT QDataStream &operator>>(QDataStream &, QCustomLineAnchor &);
+    friend Q_GUI_EXPORT QDataStream &operator<<(QDataStream &, const QCustomLineAnchor &);
 
 public:
     typedef const QCustomLineAnchorState *DataPtr;
