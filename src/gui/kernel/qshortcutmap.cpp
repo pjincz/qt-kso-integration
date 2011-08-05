@@ -579,8 +579,7 @@ void QShortcutMap::createNewSequences(QKeyEvent *e, QVector<QKeySequence> &ksl)
                 curKsl.setKey(0, 2);
                 curKsl.setKey(0, 3);
             }
-            // Filtering keycode here with 0xdfffffff to ignore the Keypad modifier
-            curKsl.setKey(possibleKeys.at(pkNum) & 0xdfffffff, index);
+            curKsl.setKey(possibleKeys.at(pkNum), index);
         }
     }
 }
