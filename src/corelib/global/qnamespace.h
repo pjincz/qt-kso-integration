@@ -1130,19 +1130,41 @@ public:
 #endif
     };
 
+    enum PenAlignment {
+        PenAlignmentCenter       = 0,
+        PenAlignmentInset        = 1,
+        PenAlignmentOutset       = 2
+    };
+
+    enum DashCap
+    {
+        DashCapFlat             = 0x00,
+        DashCapRound            = 0x20,
+        DashCapTriangle         = 0x03
+    };
+
     enum PenCapStyle { // line endcap style
         FlatCap = 0x00,
         SquareCap = 0x10,
         RoundCap = 0x20,
-        MPenCapStyle = 0x30
+        TriangleCap = 0x40,
+        MPenCapStyle = 0x70,
+    };
+
+    enum PenAnchorStyle {
+        SquareAnchor,
+        RoundAnchor,
+        DiamondAnchor,
+        ArrowAnchor,
+        CustomAnchor
     };
 
     enum PenJoinStyle { // line join style
         MiterJoin = 0x00,
-        BevelJoin = 0x40,
-        RoundJoin = 0x80,
-        SvgMiterJoin = 0x100,
-        MPenJoinStyle = 0x1c0
+        BevelJoin = 0x80,
+        RoundJoin = 0x100,
+        SvgMiterJoin = 0x200,
+        MPenJoinStyle = 0x380
     };
 
     enum BrushStyle { // brush style

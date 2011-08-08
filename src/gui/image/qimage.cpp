@@ -6839,19 +6839,19 @@ void QImageEffectsPrivate::transform_sse2(QRgb *buffer, int length) const
         const __m128i mr1 = _mm_madd_epi16(mrb, mmtxr1);
         const __m128i mr2 = _mm_madd_epi16(mag, mmtxr2);
         __m128i mrs = _mm_add_epi32(mr1, mr2);
-        mrs = _mm_srli_epi32(mrs, 8);
+        mrs = _mm_srai_epi32(mrs, 8);
 
         //green channel
         const __m128i mg1 = _mm_madd_epi16(mrb, mmtxg1);
         const __m128i mg2 = _mm_madd_epi16(mag, mmtxg2);
         __m128i mgs = _mm_add_epi32(mg1, mg2);
-        mgs = _mm_srli_epi32(mgs, 8);
+        mgs = _mm_srai_epi32(mgs, 8);
 
         //blue channel
         const __m128i mb1 = _mm_madd_epi16(mrb, mmtxb1);
         const __m128i mb2 = _mm_madd_epi16(mag, mmtxb2);
         __m128i mbs = _mm_add_epi32(mb1, mb2);
-        mbs = _mm_srli_epi32(mbs, 8);
+        mbs = _mm_srai_epi32(mbs, 8);
 
         if (checkBound) {
             mrs.m128i_i32[3] = qBound(0, mrs.m128i_i32[3], upperbound.m128i_i32[3]);

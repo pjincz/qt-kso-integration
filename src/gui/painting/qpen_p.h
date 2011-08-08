@@ -54,6 +54,7 @@
 //
 
 #include <QtCore/qglobal.h>
+#include "qcomplexstroker.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -71,6 +72,15 @@ public:
     qreal dashOffset;
     qreal miterLimit;
     uint cosmetic : 1;
+    QVector<qreal> compoundArray;
+    Qt::PenAnchorStyle startAnchorStyle;
+    QCustomLineAnchor startAnchor;
+    Qt::PenAnchorStyle endAnchorStyle;
+    QCustomLineAnchor endAnchor;
+    Qt::PenAlignment alignment;
+    Qt::PenCapStyle startCap;
+    Qt::PenCapStyle endCap;
+    Qt::PenCapStyle dashCap;
 };
 
 QT_END_NAMESPACE

@@ -60,8 +60,9 @@
 #include <private/qpathclipper_p.h>
 #include <private/qstroker_p.h>
 #include <private/qtextengine_p.h>
-
+#include <QtCore/QVector>
 #include <limits.h>
+
 
 #if 0
 #include <performance.h>
@@ -1008,6 +1009,23 @@ void QPainterPath::addPolygon(const QPolygonF &polygon)
     for (int i=1; i<polygon.size(); ++i) {
         Element elm = { polygon.at(i).x(), polygon.at(i).y(), LineToElement };
         d_func()->elements << elm;
+    }
+}
+
+void QPainterPath::connectPolygon(const QPolygonF &polygon)
+{
+    if (polygon.isEmpty())
+        return;
+
+    ensureData();
+    detach();
+
+    QPainterPathData *d = reinterpret_cast<QPainterPathData *>(d_func());
+    d->elements.reserve(d->elements.size() + polygon.size());
+
+    for (int i=0; i<polygon.size(); ++i) {
+        Element elm = { polygon.at(i).x(), polygon.at(i).y(), LineToElement };
+        d->elements << elm;
     }
 }
 

@@ -1,5 +1,4 @@
 # Qt gui library, paint module
-
 HEADERS += \
         painting/qbezier_p.h \
         painting/qbrush.h \
@@ -44,8 +43,9 @@ HEADERS += \
         painting/qwindowsurface_p.h \
         painting/qwmatrix.h \
         painting/qpaintbuffer_p.h \
-        painting/qpathgradient_p.h
-
+        painting/qpathgradient_p.h \
+        painting/qcomplexstroker.h \
+        painting/qcomplexstroker_p.h
 
 SOURCES += \
         painting/qbezier.cpp \
@@ -82,7 +82,8 @@ SOURCES += \
         painting/qtextureglyphcache.cpp \
         painting/qtransform.cpp \
         painting/qwindowsurface.cpp \
-        painting/qpaintbuffer.cpp
+        painting/qpaintbuffer.cpp	\
+        painting/qcomplexstroker.cpp
 
         SOURCES +=                                      \
                 painting/qpaintengine_raster.cpp        \
