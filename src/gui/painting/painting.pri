@@ -46,7 +46,9 @@ HEADERS += \
         painting/qpaintbuffer_p.h \
         painting/qpathgradient_p.h \
         painting/qcomplexstroker.h \
-        painting/qcomplexstroker_p.h
+        painting/qcomplexstroker_p.h \
+        painting/qcustomlineanchor.h \
+        painting/qcustomlineanchor_p.h
 
 SOURCES += \
         painting/qbezier.cpp \
@@ -84,7 +86,8 @@ SOURCES += \
         painting/qtransform.cpp \
         painting/qwindowsurface.cpp \
         painting/qpaintbuffer.cpp	\
-        painting/qcomplexstroker.cpp
+        painting/qcomplexstroker.cpp \
+        painting/qcustomlineanchor.cpp
 
         SOURCES +=                                      \
                 painting/qpaintengine_raster.cpp        \
