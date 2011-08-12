@@ -54,7 +54,7 @@
 //
 
 #include <QtCore/qglobal.h>
-#include "qcomplexstroker.h"
+#include "qcustomlineanchor.h"
 
 QT_BEGIN_NAMESPACE
 

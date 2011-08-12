@@ -61,7 +61,6 @@
 #include "qstyle.h"
 #include "qthread.h"
 #include "qvarlengtharray.h"
-#include "qcomplexstroker.h"
 
 #include <private/qfontengine_p.h>
 #include <private/qpaintengine_p.h>
@@ -173,40 +172,6 @@ static bool qt_painter_thread_test(int devType, const char *what, bool extraCond
     return true;
 }
 #endif
-
-static QComplexStroker createStrokerFromPen(const QPen &pen)
-{
-    QComplexStroker stroker;
-    stroker.setDashPattern(pen.dashPattern());
-    stroker.setDashOffset(pen.dashOffset());
-    stroker.setMiterLimit(pen.miterLimit());
-    stroker.setWidth(pen.widthF());
-    stroker.setJoinStyle(pen.joinStyle());
-    stroker.setCompoundArray(pen.compoundArray());
-    stroker.setStartAnchorStyle(pen.startAnchorStyle());
-    stroker.setStartAnchor(pen.startAnchor());
-    stroker.setEndAnchorStyle(pen.endAnchorStyle());
-    stroker.setEndAnchor(pen.endAnchor());
-    stroker.setAlignment(pen.alignment());
-    stroker.setStartCapStyle(pen.startCapStyle());
-    stroker.setEndCapStyle(pen.endCapStyle());
-    stroker.setDashCapStyle(pen.dashCapStyle());
-
-    return stroker;
-}
-static void drawPathExt(QPainter &painter, 
-                        const QPainterPath &path, 
-                        const QPen &pen)
-{
-    if (painter.brush().style() != Qt::NoBrush)
-        painter.fillPath(path, painter.brush());
-    if (pen.style() != Qt::NoPen)
-    {
-        QComplexStroker stroker = createStrokerFromPen(pen);
-        QPainterPath pathtofill = stroker.createStroke(path);
-        painter.fillPath(pathtofill, pen.brush());
-    }
-}
 
 void QPainterPrivate::checkEmulation()
 {
@@ -3320,14 +3285,6 @@ void QPainter::strokePath(const QPainterPath &path, const QPen &pen)
     if (path.isEmpty())
         return;
 
-    {
-        QBrush oldBrush = brush();
-        setBrush(Qt::NoBrush);
-        drawPathExt(*this, path, pen);
-        setBrush(oldBrush);
-        return;
-    }
-
     if (d->extended) {
         const QGradient *g = qpen_brush(pen).gradient();
         if (!g || g->coordinateMode() == QGradient::LogicalMode) {
@@ -3420,20 +3377,6 @@ void QPainter::drawPath(const QPainterPath &path)
 
     if (!d->engine) {
         qWarning("QPainter::drawPath: Painter not active");
-        return;
-    }
-
-    if (pen().style() != Qt::NoPen)
-    {
-        //drawPathExt(*this, path, pen()); // leads to dead loop
-        QComplexStroker stroker = createStrokerFromPen(pen());
-        QPainterPath apath = stroker.createStroke(path);
-        QPen oldPen = pen();
-        setPen(Qt::NoPen);
-        fillPath(path, brush());
-        fillPath(apath, oldPen.brush());
-        setPen(oldPen);
-        
         return;
     }
 
@@ -3553,14 +3496,6 @@ void QPainter::drawRects(const QRectF *rects, int rectCount)
     if (rectCount <= 0)
         return;
 
-    {
-        QPainterPath path;
-        for (int i = 0; i < rectCount ; i++)
-        	path.addRect(rects[i]);
-        drawPathExt(*this, path, pen());
-        return;
-    }
-
     if (d->extended) {
         d->extended->drawRects(rects, rectCount);
         return;
@@ -3620,14 +3555,6 @@ void QPainter::drawRects(const QRect *rects, int rectCount)
 
     if (rectCount <= 0)
         return;
-
-    {
-        QPainterPath path;
-        for (int i = 0; i < rectCount ; i++)
-            path.addRect(rects[i]);
-        drawPathExt(*this, path, pen());
-        return;
-    }
 
     if (d->extended) {
         d->extended->drawRects(rects, rectCount);
@@ -4230,13 +4157,6 @@ void QPainter::drawRoundedRect(const QRectF &rect, qreal xRadius, qreal yRadius,
     if (!d->engine)
         return;
 
-    {
-        QPainterPath path;
-        path.addRoundedRect(rect, xRadius, yRadius, mode);
-        drawPathExt(*this, path, pen());
-        return;
-    }
-
     if (xRadius <= 0 || yRadius <= 0) {             // draw normal rectangle
         drawRect(rect);
         return;
@@ -4339,13 +4259,6 @@ void QPainter::drawEllipse(const QRectF &r)
 
     QRectF rect(r.normalized());
 
-    {
-        QPainterPath path;
-        path.addEllipse(rect);
-        drawPathExt(*this, path, pen());
-        return;
-    }
-
     if (d->extended) {
         d->extended->drawEllipse(rect);
         return;
@@ -4386,13 +4299,6 @@ void QPainter::drawEllipse(const QRect &r)
         return;
 
     QRect rect(r.normalized());
-
-    {
-        QPainterPath path;
-        path.addEllipse(rect);
-        drawPathExt(*this, path, pen());
-        return;
-    }
 
     if (d->extended) {
         d->extended->drawEllipse(rect);
@@ -4680,14 +4586,6 @@ void QPainter::drawLineSegments(const QPolygon &a, int index, int nlines)
     if (nlines < 1 || index < 0)
         return;
 
-    {
-        QVector<QLineF> lines;
-        for (int i=index; i<index + nlines*2; i+=2)
-            lines << QLineF(a.at(i), a.at(i+1));
-        drawLines(lines.constData(), lines.count());
-        return;
-    }
-
     if (d->extended) {
         // FALCON: Use QVectorPath
         QVector<QLineF> lines;
@@ -4742,16 +4640,6 @@ void QPainter::drawLines(const QLineF *lines, int lineCount)
     if (!d->engine || lineCount < 1)
         return;
 
-    {
-        QPainterPath linePath;
-        for (int i = 0; i < lineCount; ++i) {
-            linePath.moveTo(lines[i].p1());
-            linePath.lineTo(lines[i].p2());
-        }
-        strokePath(linePath, pen());
-        return;
-    }
-
     if (d->extended) {
         d->extended->drawLines(lines, lineCount);
         return;
@@ -4800,16 +4688,6 @@ void QPainter::drawLines(const QLine *lines, int lineCount)
 
     if (!d->engine || lineCount < 1)
         return;
-
-    {
-        QPainterPath linePath;
-        for (int i = 0; i < lineCount; ++i) {
-            linePath.moveTo(lines[i].p1());
-            linePath.lineTo(lines[i].p2());
-        }
-        strokePath(linePath, pen());
-        return;
-    }
 
     if (d->extended) {
         d->extended->drawLines(lines, lineCount);
@@ -4929,14 +4807,6 @@ void QPainter::drawPolyline(const QPointF *points, int pointCount)
     if (!d->engine || pointCount < 2)
         return;
 
-    {
-        QPainterPath polylinePath(points[0]);
-        for (int i = 1; i < pointCount; ++i)
-            polylinePath.lineTo(points[i]);
-        strokePath(polylinePath, pen());
-        return;
-    }
-
     if (d->extended) {
         d->extended->drawPolygon(points, pointCount, QPaintEngine::PolylineMode);
         return;
@@ -4977,14 +4847,6 @@ void QPainter::drawPolyline(const QPoint *points, int pointCount)
 
     if (!d->engine || pointCount < 2)
         return;
-
-    {
-        QPainterPath polylinePath(points[0]);
-        for (int i = 1; i < pointCount; ++i)
-            polylinePath.lineTo(points[i]);
-        strokePath(polylinePath, pen());
-        return;
-    }
 
     if (d->extended) {
         d->extended->drawPolygon(points, pointCount, QPaintEngine::PolylineMode);
@@ -5085,16 +4947,6 @@ void QPainter::drawPolygon(const QPointF *points, int pointCount, Qt::FillRule f
     if (!d->engine || pointCount < 2)
         return;
 
-    {
-        QPainterPath polygonPath(points[0]);
-        for (int i=1; i<pointCount; ++i)
-            polygonPath.lineTo(points[i]);
-        polygonPath.closeSubpath();
-        polygonPath.setFillRule(fillRule);
-        drawPathExt(*this, polygonPath, pen());
-        return;
-    }
-
     if (d->extended) {
         d->extended->drawPolygon(points, pointCount, QPaintEngine::PolygonDrawMode(fillRule));
         return;
@@ -5133,16 +4985,6 @@ void QPainter::drawPolygon(const QPoint *points, int pointCount, Qt::FillRule fi
 
     if (!d->engine || pointCount < 2)
         return;
-
-    {
-        QPainterPath polygonPath(points[0]);
-        for (int i=1; i<pointCount; ++i)
-            polygonPath.lineTo(points[i]);
-        polygonPath.closeSubpath();
-        polygonPath.setFillRule(fillRule);
-        drawPathExt(*this, polygonPath, pen());
-        return;
-    }
 
     if (d->extended) {
         d->extended->drawPolygon(points, pointCount, QPaintEngine::PolygonDrawMode(fillRule));
@@ -5324,16 +5166,6 @@ void QPainter::drawConvexPolygon(const QPoint *points, int pointCount)
     if (!d->engine || pointCount < 2)
         return;
 
-    {
-        QPainterPath polygonPath(points[0]);
-        for (int i=1; i<pointCount; ++i)
-            polygonPath.lineTo(points[i]);
-        polygonPath.closeSubpath();
-        polygonPath.setFillRule(Qt::WindingFill);
-        drawPathExt(*this, polygonPath, pen());
-        return;
-    }
-
     if (d->extended) {
         d->extended->drawPolygon(points, pointCount, QPaintEngine::ConvexMode);
         return;
@@ -5367,16 +5199,6 @@ void QPainter::drawConvexPolygon(const QPointF *points, int pointCount)
 
     if (!d->engine || pointCount < 2)
         return;
-
-    {
-        QPainterPath polygonPath(points[0]);
-        for (int i=1; i<pointCount; ++i)
-            polygonPath.lineTo(points[i]);
-        polygonPath.closeSubpath();
-        polygonPath.setFillRule(Qt::WindingFill);
-        drawPathExt(*this, polygonPath, pen());
-        return;
-    }
 
     if (d->extended) {
         d->extended->drawPolygon(points, pointCount, QPaintEngine::ConvexMode);
