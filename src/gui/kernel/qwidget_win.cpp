@@ -1303,7 +1303,6 @@ void QWidgetPrivate::setWSGeometry(bool dontShow, const QRect &)
     if (outsideRange)
         return;
 
-    bool jump = (data.wrect != wrect);
     data.wrect = wrect;
 
     // and now recursively for all children...
@@ -1322,7 +1321,7 @@ void QWidgetPrivate::setWSGeometry(bool dontShow, const QRect &)
     if (q->internalWinId()) {
         if (!parent->internalWinId())
             xrect.translate(parent->mapTo(q->nativeParentWidget(), QPoint(0, 0)));
-        MoveWindow(q->internalWinId(), xrect.x(), xrect.y(), xrect.width(), xrect.height(), !jump);
+        MoveWindow(q->internalWinId(), xrect.x(), xrect.y(), xrect.width(), xrect.height(), FALSE);
     }
     if (mapWindow && !dontShow) {
         q->setAttribute(Qt::WA_Mapped);
@@ -1330,7 +1329,7 @@ void QWidgetPrivate::setWSGeometry(bool dontShow, const QRect &)
             ShowWindow(q->internalWinId(), SW_SHOWNOACTIVATE);
     }
 
-    if (jump && q->internalWinId())
+    if (q->internalWinId())
         InvalidateRect(q->internalWinId(), 0, false);
 
 }
