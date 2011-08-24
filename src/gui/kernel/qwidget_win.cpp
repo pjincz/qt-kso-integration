@@ -454,6 +454,23 @@ void QWidgetPrivate::create_sys(WId window, bool initializeWindow, bool destroyO
             qErrnoWarning("QWidget::create: Failed to create window");
         SetWindowPos(id, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         setWinId(id);
+
+        // when a widget have WA_DontCreateNativeAncestors Attribute
+		// and one of his ancestor become a native window
+		// we must move there window(s) into ancestor's window
+        if (parentw) {
+            WId hSibling = GetWindow(parentw, GW_CHILD);
+            while (hSibling) {
+                QWidget * wSibling = QWidget::find(hSibling);
+                if (wSibling && wSibling != q && q->isAncestorOf(wSibling)) {
+                    WId tmp = GetWindow(hSibling, GW_HWNDNEXT);
+                    SetParent(hSibling, id);
+                    hSibling = tmp;
+                } else {
+                    hSibling = GetWindow(hSibling, GW_HWNDNEXT);
+                }
+            }
+        }
     }
 
     if (desktop) {
