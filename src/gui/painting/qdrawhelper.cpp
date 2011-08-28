@@ -6040,7 +6040,8 @@ Q_STATIC_TEMPLATE_FUNCTION void blend_transformed_argb(int count, const QSpan *s
 {
     QSpanData *data = reinterpret_cast<QSpanData *>(userData);
     if (data->texture.format != QImage::Format_ARGB32_Premultiplied
-        && data->texture.format != QImage::Format_RGB32) {
+        && data->texture.format != QImage::Format_RGB32
+        || data->effects != NULL) {
         blend_src_generic<spanMethod>(count, spans, userData);
         return;
     }
