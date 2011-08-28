@@ -235,9 +235,9 @@ inline QPenPrivate::QPenPrivate(const QBrush &_brush, qreal _width, Qt::PenStyle
       alignment(Qt::PenAlignmentCenter),
       startAnchorStyle(Qt::SquareAnchor),
       endAnchorStyle(Qt::SquareAnchor),
-      startCap(Qt::FlatCap),
-      endCap(Qt::FlatCap),
-      dashCap(Qt::FlatCap)
+      startCap(_capStyle),
+      endCap(_capStyle),
+      dashCap(_capStyle)
 {
     ref = 1;
     width = _width;

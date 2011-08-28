@@ -48,6 +48,7 @@
 #include <qvarlengtharray.h>
 #include <qdebug.h>
 
+#include <QComplexStroker>
 
 QT_BEGIN_NAMESPACE
 
@@ -382,6 +383,26 @@ QPainterState *QPaintEngineEx::createState(QPainterState *orig) const
 }
 
 Q_GUI_EXPORT extern bool qt_scaleForTransform(const QTransform &transform, qreal *scale); // qtransform.cpp
+static QComplexStroker createStrokerFromPen(const QPen &pen)
+{
+    QComplexStroker stroker;
+    stroker.setDashPattern(pen.dashPattern());
+    stroker.setDashOffset(pen.dashOffset());
+    stroker.setMiterLimit(pen.miterLimit());
+    stroker.setWidth(pen.widthF());
+    stroker.setJoinStyle(pen.joinStyle());
+    stroker.setCompoundArray(pen.compoundArray());
+    stroker.setStartAnchorStyle(pen.startAnchorStyle());
+    stroker.setStartAnchor(pen.startAnchor());
+    stroker.setEndAnchorStyle(pen.endAnchorStyle());
+    stroker.setEndAnchor(pen.endAnchor());
+    stroker.setAlignment(pen.alignment());
+    stroker.setStartCapStyle(pen.startCapStyle());
+    stroker.setEndCapStyle(pen.endCapStyle());
+    stroker.setDashCapStyle(pen.dashCapStyle());
+
+    return stroker;
+}
 
 void QPaintEngineEx::stroke(const QVectorPath &path, const QPen &pen)
 {
@@ -393,6 +414,18 @@ void QPaintEngineEx::stroke(const QVectorPath &path, const QPen &pen)
 
     if (path.isEmpty())
         return;
+
+    Q_ASSERT(pen.style() != Qt::NoPen);
+    if (qpen_is_complex(pen))
+    {
+        QComplexStroker stroker = createStrokerFromPen(pen);
+        QPainterPath path2stroke = path.convertToPainterPath();
+        if (path.hasImplicitClose())
+            path2stroke.closeSubpath();
+        QPainterPath path2fill = stroker.createStroke(path2stroke);
+        fill(qtVectorPathForPath(path2fill), pen.brush());
+        return;
+    }
 
     if (!d->strokeHandler) {
         d->strokeHandler = new StrokeHandler(path.elementCount()+4);
@@ -831,6 +864,8 @@ void QPaintEngineEx::drawEllipse(const QRectF &r)
 
     int point_count = 0;
     x.points[0] = qt_curves_for_arc(r, 0, -360, x.points + 1, &point_count);
+    point_count++;
+    Q_ASSERT(point_count == 13);
     QVectorPath vp((qreal *) pts, point_count, qpaintengineex_ellipse_types, QVectorPath::EllipseHint);
     draw(vp);
 }
