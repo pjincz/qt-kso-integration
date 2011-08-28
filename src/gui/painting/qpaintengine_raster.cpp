@@ -807,7 +807,8 @@ void QRasterPaintEngine::updatePen(const QPen &pen)
                                             || pen.isCosmetic())));
 
     ensureState(); // needed because of tx_noshear...
-    s->flags.non_complex_pen = qpen_capStyle(s->lastPen) <= Qt::SquareCap && s->flags.tx_noshear;
+    s->flags.non_complex_pen = qpen_capStyle(s->lastPen) <= Qt::SquareCap && s->flags.tx_noshear
+                                && !qpen_is_complex(s->lastPen);
 
     s->strokeFlags = 0;
 }
