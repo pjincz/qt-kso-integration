@@ -1351,7 +1351,7 @@ void QWidgetPrivate::setWSGeometry(bool dontShow, const QRect &)
     }
 
     if (q->internalWinId())
-        InvalidateRect(q->internalWinId(), 0, false);
+		RedrawWindow(q->internalWinId(), NULL, NULL, RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 
 }
 
