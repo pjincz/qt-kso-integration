@@ -464,7 +464,11 @@ void QWidgetPrivate::create_sys(WId window, bool initializeWindow, bool destroyO
                 QWidget * wSibling = QWidget::find(hSibling);
                 if (wSibling && wSibling != q && q->isAncestorOf(wSibling)) {
                     WId tmp = GetWindow(hSibling, GW_HWNDNEXT);
+                    RECT rc;
+                    GetWindowRect(hSibling, &rc);
                     SetParent(hSibling, id);
+                    MapWindowPoints(NULL, id, (LPPOINT)&rc, 2);
+                    MoveWindow(hSibling, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, FALSE);
                     hSibling = tmp;
                 } else {
                     hSibling = GetWindow(hSibling, GW_HWNDNEXT);
