@@ -573,6 +573,8 @@ bool QWinInputContext::composition(LPARAM lParam)
             int selStart, selLength;
             *imeComposition = getString(imc, GCS_COMPSTR, &selStart, &selLength);
             imePosition = getCursorPosition(imc);
+			if (imePosition > imeComposition->length())
+				imePosition = imeComposition->length();
             if (lParam & CS_INSERTCHAR  && lParam & CS_NOMOVECARET) {
                 // make korean work correctly. Hope this is correct for all IMEs
                 selStart = 0;
