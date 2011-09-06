@@ -1321,7 +1321,7 @@ bool QMdiAreaPrivate::lastWindowAboutToBeDestroyed() const
 void QMdiAreaPrivate::setChildActivationEnabled(bool enable, bool onlyNextActivationEvent) const
 {
     foreach (QMdiSubWindow *subWindow, childWindows) {
-        if (!subWindow || !subWindow->isVisible())
+        if (!subWindow)
             continue;
         if (onlyNextActivationEvent)
             subWindow->d_func()->ignoreNextActivationEvent = !enable;
