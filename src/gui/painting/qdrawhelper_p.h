@@ -225,8 +225,9 @@ struct QConicalGradientData
 class path_gradient_span_gen;
 
 struct QPathGradientData
-{    
-   path_gradient_span_gen *pSpanGenerotor;
+{
+    path_gradient_span_gen *pSpanGenerotor;
+    bool ownGenerator;
 };
 
 struct QGradientData

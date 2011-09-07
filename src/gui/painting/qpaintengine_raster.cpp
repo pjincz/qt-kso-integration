@@ -670,10 +670,14 @@ QRasterPaintEngineState::QRasterPaintEngineState(QRasterPaintEngineState &s)
     lastBrush = s.lastBrush;
     brushData = s.brushData;
     brushData.tempImage = 0;
+    if (brushData.type == QSpanData::PathGradient)
+        brushData.gradient.path.ownGenerator = false;
 
     lastPen = s.lastPen;
     penData = s.penData;
     penData.tempImage = 0;
+    if (penData.type == QSpanData::PathGradient)
+        penData.gradient.path.ownGenerator = false;
 
     fillFlags = s.fillFlags;
     strokeFlags = s.strokeFlags;
@@ -5534,7 +5538,8 @@ QSpanData::~QSpanData()
     if (type == PathGradient)
     {
         Q_ASSERT(NULL != gradient.path.pSpanGenerotor);
-        delete gradient.path.pSpanGenerotor;//allocated in setup()
+        if (gradient.path.ownGenerator)
+            delete gradient.path.pSpanGenerotor;//allocated in setup()
     }
 }
 
@@ -5575,6 +5580,11 @@ static path_gradient_span_gen* qt_createPGSpanGenerator(const QSpanData *data
 
 void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode compositionMode)
 {
+    if (type == PathGradient && gradient.path.ownGenerator) {
+        delete gradient.path.pSpanGenerotor;
+        gradient.path.ownGenerator = false;
+    }
+
     Qt::BrushStyle brushStyle = qbrush_style(brush);
     switch (brushStyle) {
     case Qt::SolidPattern: {
@@ -5650,8 +5660,9 @@ void QSpanData::setup(const QBrush &brush, int alpha, QPainter::CompositionMode 
             gradient.colorTable = NULL; //we use span generator
             gradient.spread = g->spread();
 
-            //will be deleted in deconstructor
+            //will be deleted in deconstructor or this function
             gradient.path.pSpanGenerotor = qt_createPGSpanGenerator(this, g);
+            gradient.path.ownGenerator = true;
         }
         break;
 
