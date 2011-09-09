@@ -2453,8 +2453,11 @@ bool QMdiArea::eventFilter(QObject *object, QEvent *event)
         return QAbstractScrollArea::eventFilter(object, event);
 
     Q_D(QMdiArea);
+
+    QMdiSubWindow *subWindow = qobject_cast<QMdiSubWindow *>(object);
+
     // Global key events with Ctrl modifier.
-    if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) {
+    if (subWindow && subWindow->parent() == this && (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)) {
 
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
         // Ingore key events without a Ctrl modifier (except for press/release on the modifier itself).
@@ -2502,8 +2505,6 @@ bool QMdiArea::eventFilter(QObject *object, QEvent *event)
         }
         return QAbstractScrollArea::eventFilter(object, event);
     }
-
-    QMdiSubWindow *subWindow = qobject_cast<QMdiSubWindow *>(object);
 
     if (!subWindow) {
         // QApplication events:
