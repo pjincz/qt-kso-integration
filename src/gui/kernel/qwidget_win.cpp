@@ -446,9 +446,15 @@ void QWidgetPrivate::create_sys(WId window, bool initializeWindow, bool destroyO
             SetWindowPos(id, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
         winUpdateIsOpaque();
     } else if (q->testAttribute(Qt::WA_NativeWindow) || paintOnScreen()) { // create child widget
+        QWidget * nativeParent = q->parentWidget();
+        QPoint nativePosition = data.crect.topLeft();
+        while (nativeParent && !nativeParent->internalWinId()) {
+            nativePosition = nativeParent->mapToParent(nativePosition);
+            nativeParent = nativeParent->parentWidget();
+        }
         id = CreateWindowEx(exsty, reinterpret_cast<const wchar_t *>(windowClassName.utf16()),
                             reinterpret_cast<const wchar_t *>(title.utf16()), style,
-                            data.crect.left(), data.crect.top(), data.crect.width(), data.crect.height(),
+                            nativePosition.x(), nativePosition.y(), data.crect.width(), data.crect.height(),
                             parentw, NULL, appinst, NULL);
         if (!id)
             qErrnoWarning("QWidget::create: Failed to create window");
