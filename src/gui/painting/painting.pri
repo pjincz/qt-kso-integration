@@ -207,7 +207,7 @@ x11|embedded {
         DEFINES += QT_NO_CUPS QT_NO_LPR
 }
 
-if(mmx|3dnow|sse|sse2|iwmmxt) {
+if(mmx|3dnow|sse|sse2|sse4|iwmmxt) {
     HEADERS += painting/qdrawhelper_x86_p.h \
                painting/qdrawhelper_mmx_p.h \
                painting/qdrawhelper_sse_p.h \
@@ -218,6 +218,7 @@ if(mmx|3dnow|sse|sse2|iwmmxt) {
     SSE_SOURCES += painting/qdrawhelper_sse.cpp
     SSE2_SOURCES += painting/qdrawhelper_sse2.cpp
     SSSE3_SOURCES += painting/qdrawhelper_ssse3.cpp
+    SSE4_SOURCES += painting/qpathgradient_p_sse4.cpp
     IWMMXT_SOURCES += painting/qdrawhelper_iwmmxt.cpp
 }
 

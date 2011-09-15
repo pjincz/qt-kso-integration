@@ -1011,7 +1011,7 @@ void QMainWindowLayout::toggleToolBarsVisible()
     }
 }
 
-void QMainWindowLayout::getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*>>& toolBars)
+void QMainWindowLayout::getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*> >& toolBars)
 {
 	switch (area)
 	{

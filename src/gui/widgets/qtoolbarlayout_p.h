@@ -122,7 +122,7 @@ public:
     bool hasExpandFlag() const;
 	int titleHeight() const;
 	QSize getMargins(Qt::Orientation o, bool bFloating) const;
-	QRect QToolBarLayout::dragRect() const;
+        QRect dragRect() const;
 
 public Q_SLOTS:
     void setExpanded(bool b);

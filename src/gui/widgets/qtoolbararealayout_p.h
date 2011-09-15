@@ -184,7 +184,7 @@ public:
 	int posAtRect(const QPoint& pos, const QRect& rect) const;
 
 	// Added by kingsoft, 2011-6-16
-	void getToolBars(QList<QList<QToolBar*>>& toolBars);
+        void getToolBars(QList<QList<QToolBar*> >& toolBars);
 
     QRect rect;
     Qt::Orientation o;
@@ -251,7 +251,7 @@ public:
     bool isEmpty() const;
 
 	// Added by kingsoft, 2011-6-16
-	void getToolBars(QInternal::DockPosition pos, QList<QList<QToolBar*>>& toolBars);
+        void getToolBars(QInternal::DockPosition pos, QList<QList<QToolBar*> >& toolBars);
 };
 
 

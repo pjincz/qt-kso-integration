@@ -851,7 +851,7 @@ bool QMainWindow::toolBarBreak(QToolBar *toolbar) const
     return d_func()->layout->toolBarBreak(toolbar);
 }
 
-void QMainWindow::getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*>>& toolBars)
+void QMainWindow::getToolBars(Qt::ToolBarArea area, QList<QList<QToolBar*> >& toolBars)
 {
 	d_func()->layout->getToolBars(area, toolBars);
 }

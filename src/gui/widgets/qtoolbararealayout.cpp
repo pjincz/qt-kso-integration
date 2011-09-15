@@ -740,7 +740,7 @@ int QToolBarAreaLayoutInfo::posAtRect(const QPoint& pos, const QRect& rect) cons
 	return area;
 }
 
-void QToolBarAreaLayoutInfo::getToolBars(QList<QList<QToolBar*>>& toolBars)
+void QToolBarAreaLayoutInfo::getToolBars(QList<QList<QToolBar*> >& toolBars)
 {
 	toolBars.clear();
 	for (int lineIndex = 0; lineIndex < lines.count(); ++lineIndex) {
@@ -1524,7 +1524,7 @@ bool QToolBarAreaLayout::isEmpty() const
     return true;
 }
 
-void QToolBarAreaLayout::getToolBars(QInternal::DockPosition pos, QList<QList<QToolBar*>>& toolBars)
+void QToolBarAreaLayout::getToolBars(QInternal::DockPosition pos, QList<QList<QToolBar*> >& toolBars)
 {
 	docks[pos].getToolBars(toolBars);
 }
