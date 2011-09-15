@@ -1313,6 +1313,9 @@ bool QFontEngineMulti::stringToCMap(const QChar *str, int len,
                                     QTextEngine::ShaperFlags flags) const
 {
     int ng = *nglyphs;
+    
+    engine(0)->fontDef.verticalMetrics=this->fontDef.verticalMetrics;
+    
     if (!engine(0)->stringToCMap(str, len, glyphs, &ng, flags))
         return false;
 
@@ -1329,6 +1332,9 @@ bool QFontEngineMulti::stringToCMap(const QChar *str, int len,
                     const_cast<QFontEngineMulti *>(this)->loadEngine(x);
                     engine = engines.at(x);
                 }
+                
+                engine->fontDef.verticalMetrics=this->fontDef.verticalMetrics;
+                
                 Q_ASSERT(engine != 0);
                 if (engine->type() == Box)
                     continue;

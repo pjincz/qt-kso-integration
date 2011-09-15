@@ -56,6 +56,9 @@
 
 #include "qfontengine_ft_p.h"
 #include <ft2build.h>
+
+#include "qfont.h"
+
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
 #include FT_SYNTHESIS_H
@@ -930,6 +933,26 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyph(QGlyphSet *set, uint glyph, Glyph
         load_flags |= FT_LOAD_NO_BITMAP;
 
     FT_Face face = freetype->face;
+    
+    
+    if(fontDef.verticalMetrics)
+    {
+    	FT_Matrix     matrix1;   
+        double        angle;
+        angle  = ( 90.0 / 360 ) * 3.14159 * 2;      
+        matrix1.xx = (FT_Fixed)( cos( angle ) * 0x10000L );
+        matrix1.xy = (FT_Fixed)(-sin( angle ) * 0x10000L );
+        matrix1.yx = (FT_Fixed)( sin( angle ) * 0x10000L );
+        matrix1.yy = (FT_Fixed)( cos( angle ) * 0x10000L ); 
+        matrix=matrix1;
+    	
+    } 
+
+    FT_Set_Transform( face, &matrix ,0); 
+    
+    
+    
+    
     FT_Error err = FT_Load_Glyph(face, glyph, load_flags);
     if (err && (load_flags & FT_LOAD_NO_BITMAP)) {
         load_flags &= ~FT_LOAD_NO_BITMAP;
@@ -965,6 +988,34 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyph(QGlyphSet *set, uint glyph, Glyph
 
     if (useFreetypeRenderGlyph) {
         err = FT_Render_Glyph(slot, hsubpixel ? FT_RENDER_MODE_LCD : FT_RENDER_MODE_LCD_V);
+        
+        
+        if(fontDef.verticalMetrics)
+        {
+            signed long    width=face->glyph->metrics.width;
+            signed long    height=face->glyph->metrics.height;
+            signed long    horiBearingX=face->glyph->metrics.horiBearingX;
+            signed long    horiBearingY=face->glyph->metrics.horiBearingY;
+            signed long    horiAdvance=face->glyph->metrics.horiAdvance;
+            signed long    vertBearingX=face->glyph->metrics.vertBearingX;
+            signed long    vertBearingY=face->glyph->metrics.vertBearingY;
+            signed long    vertAdvance=face->glyph->metrics.vertAdvance; 
+        
+            face->glyph->metrics.width=height;
+            face->glyph->metrics.height=width;
+            face->glyph->metrics.horiBearingX= horiBearingX+ horiBearingY;
+            face->glyph->metrics.horiBearingY=width;
+   
+            face->glyph->metrics.horiAdvance=vertAdvance;
+            face->glyph->metrics.vertAdvance=horiAdvance;     
+    
+            face->glyph->bitmap_top=TRUNC(ROUND(width+horiBearingX));
+            face->glyph->bitmap_left=TRUNC(ROUND(horiBearingX));
+    
+        } 
+        
+        
+        
 
         if (err != FT_Err_Ok)
             qWarning("render glyph failed err=%x face=%p, glyph=%d", err, face, glyph);
@@ -1167,6 +1218,10 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyph(QGlyphSet *set, uint glyph, Glyph
     g->format = format;
     delete [] g->data;
     g->data = glyph_buffer;
+
+	info.xOff=TRUNC(ROUND(face->glyph->metrics.horiAdvance));
+    g->advance = info.xOff;
+
 
     if (uploadToServer) {
         uploadGlyphToServer(set, glyph, g, &info, glyph_buffer_size);
@@ -1662,14 +1717,12 @@ void QFontEngineFT::recalcAdvances(QGlyphLayout *glyphs, QTextEngine::ShaperFlag
     } else {
         for (int i = 0; i < glyphs->numGlyphs; i++) {
             Glyph *g = defaultGlyphSet.getGlyph(glyphs->glyphs[i]);
-            if (g) {
-                glyphs->advances_x[i] = QFixed(g->advance);
-            } else {
-                if (!face)
-                    face = lockFace();
-                g = loadGlyph(glyphs->glyphs[i], Format_None, true);
-                glyphs->advances_x[i] = QFixed::fromFixed(face->glyph->metrics.horiAdvance).round();
-            }
+  
+            if (!face)
+                face = lockFace();
+            g = loadGlyph(glyphs->glyphs[i], Format_None, true);
+            glyphs->advances_x[i] = QFixed::fromFixed(face->glyph->metrics.horiAdvance).round();
+           
             glyphs->advances_y[i] = 0;
         }
     }
