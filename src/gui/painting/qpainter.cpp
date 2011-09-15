@@ -6051,6 +6051,8 @@ void QPainter::drawText(const QPointF &p, const QVector<quint32> &glyphIndices, 
     QVarLengthGlyphLayoutArray glyphs(len);
     QFontEngine *fontEngine = d->state->font.d->engineForScript(QUnicodeTables::Common);
 
+    fontEngine->fontDef.verticalMetrics=this->font().verticalMetrics();
+
     QFixed width = QFixed::fromReal(0.0);
     for (int i = 0; i < len; ++i) {
         glyphs.glyphs[i] = glyphIndices[i];
@@ -6091,6 +6093,12 @@ void QPainter::drawText(const QPointF &p, const QString &str,unsigned int flags,
     int numGlyphs = len;
     QVarLengthGlyphLayoutArray glyphs(len);
     QFontEngine *fontEngine = d->state->font.d->engineForScript(QUnicodeTables::Common);
+
+
+
+    fontEngine->fontDef.verticalMetrics=this->font().verticalMetrics();
+
+
     if (!fontEngine->stringToCMap(str.data(), len, &glyphs, &numGlyphs, 0)) {
         glyphs.resize(numGlyphs);
         if (!fontEngine->stringToCMap(str.data(), len, &glyphs, &numGlyphs, 0))
