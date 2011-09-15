@@ -1277,6 +1277,7 @@ QMainWindowTabBar::QMainWindowTabBar(QWidget *parent)
     : QTabBar(parent)
 {
     setExpanding(false);
+	setObjectName(QLatin1String("QMainWindowTabBar"));
 }
 
 bool QMainWindowTabBar::event(QEvent *e)
