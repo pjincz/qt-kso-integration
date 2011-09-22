@@ -165,6 +165,9 @@ public:
     QMatrix4x4 colorMatrix;
     int colorMatrixInt[4][4];
     QRgb colorKey;
+    quint8 tolerance;
+    quint8 colorKeyLow[3];
+    quint8 colorKeyHight[3];
     quint8 bilevelThreshold;
     QRgb duotoneColor1;
     QRgb duotoneColor2;

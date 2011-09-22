@@ -580,6 +580,15 @@ inline void qt_setbilevel(uint *buffer, int length, const quint8 percent)
         qt_setbilevel(buffer[i], percent);
 }
 
+inline bool qt_inTolerance(const QRgb &clr, const quint8 low[3], const quint8 hight[3])
+{
+    const quint8 *p = (const quint8*)&clr;
+
+    return (low[0] <= p[0] && p[0] <= hight[0])
+        && (low[1] <= p[1] && p[1] <= hight[1])
+        && (low[2] <= p[2] && p[2] <= hight[2]);
+}
+
 inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length)
 {
     Q_ASSERT(NULL != effects && NULL != buffer);
@@ -592,9 +601,16 @@ inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, in
     }
 
     if (effects->hasColorKey) {
-        for (int i = 0; i < length; i++) {
-            if (effects->colorKey == buffer[i])
-                buffer[i] = 0;
+        if (effects->tolerance == 0) {
+            for (int i = 0; i < length; i++) {
+                if (effects->colorKey == buffer[i])
+                    buffer[i] = 0;
+            }
+        } else {
+            for (int i = 0; i < length; i++) {
+                if (qt_inTolerance(buffer[i], effects->colorKeyLow, effects->colorKeyHight))
+                    buffer[i] = 0;
+            }
         }
     }
 }
