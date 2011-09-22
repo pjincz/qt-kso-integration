@@ -1135,6 +1135,8 @@ void QTextEngine::shapeTextWithHarfbuzz(int item) const
     QFontEngine *font = fontEngine(si, &si.ascent, &si.descent, &si.leading);
 
     bool kerningEnabled = this->font(si).d->kerning;
+    
+    font->fontDef.verticalMetrics=this->font().verticalMetrics();
 
     HB_ShaperItem entire_shaper_item;
     qMemSet(&entire_shaper_item, 0, sizeof(entire_shaper_item));
