@@ -6637,6 +6637,7 @@ QImageEffectsPrivate::QImageEffectsPrivate()
     , hasBilevel(0)
     , checkBound(1)
     , colorKey(0)
+    , tolerance(0)
     , bilevelThreshold(50)
     , duotoneColor1(0)
     , duotoneColor2(0)
@@ -6852,7 +6853,18 @@ void QImageEffectsPrivate::prepare()
             for (int col = 0; col < 4; col++)
                 colorMatrixInt[row][col] = qRound(p[row * 4 + col] * base_scale);
     }
-    colorKey = PREMUL(colorKey);
+    if (hasColorKey) {
+        colorKey = PREMUL(colorKey);
+        if (tolerance != 0){
+            const int tol = BYTE_MUL(tolerance, qAlpha(colorKey));
+            colorKeyLow[0] = qMax(0, qBlue(colorKey) - tol);
+            colorKeyLow[1] = qMax(0, qGreen(colorKey) - tol);
+            colorKeyLow[2] = qMax(0, qRed(colorKey) - tol);
+            colorKeyHight[0] = qMin(255, qBlue(colorKey) + tol);
+            colorKeyHight[1] = qMin(255, qGreen(colorKey) + tol);
+            colorKeyHight[2] = qMin(255, qRed(colorKey) + tol);
+        }
+    }
 
     if (hasDuotone || hasColorMatirx || brightness != 0 || contrast != 1)
         checkBound = true;
@@ -6966,10 +6978,11 @@ void QImageEffects::setBrightness(qreal brightness)
     d->brightness = brightness;
 }
 
-void QImageEffects::setColorKey(QRgb key)
+void QImageEffects::setColorKey(QRgb key, quint8 tolerance/* = 0*/)
 {
     d->hasColorKey = true;
     d->colorKey = key;
+    d->tolerance = tolerance;
 }
 
 void QImageEffects::unsetColorKey()

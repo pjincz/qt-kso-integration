@@ -372,7 +372,7 @@ public:
     void setBilevel(qreal threshold = 0.5);
     void unsetBilevel();
     void setBrightness(qreal brightness);
-    void setColorKey(QRgb key);
+    void setColorKey(QRgb key, quint8 tolerance = 0);
     void unsetColorKey();
     void setColorMatrix(const QMatrix4x4 &mtx);
     void unsetColorMatrix();
