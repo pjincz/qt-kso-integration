@@ -1591,6 +1591,7 @@ void QFont::setVerticalMetrics(bool enable)
             return;
     }
 
+    detach();
     d->request.verticalMetrics = enable;
     resolve_mask |= VerticalMetricsResolved;
 }
@@ -1606,6 +1607,8 @@ void QFont::setEscapementAngle(qreal degree)
         qFuzzyCompare(escapementAngle(), degree)) {
             return;
     } 
+
+    detach();
     d->request.escapementAngle = degree;
     resolve_mask |= EscapementAngleResolved;
 }
