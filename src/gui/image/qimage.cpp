@@ -6963,7 +6963,7 @@ void QImageEffects::unsetBilevel()
     are disable. Call unsetColorMatrix() to enable them.
     sa\ unsetColorMatrix()
 */
-inline void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
+void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
 {
     d->hasColorMatirx = true;
     d->colorMatrix = mtx;
@@ -6974,7 +6974,7 @@ inline void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
     Discard the color matrix set by setColorMatrix and enable the other effects.
     \sa setColorMatrix()
 */
-inline void QImageEffects::unsetColorMatrix()
+void QImageEffects::unsetColorMatrix()
 {
     d->hasColorMatirx = false;
 }
