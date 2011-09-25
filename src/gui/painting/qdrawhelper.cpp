@@ -587,29 +587,37 @@ inline bool qt_inTolerance(const QRgb &clr, const quint8 low[3], const quint8 hi
         && (low[2] <= p[2] && p[2] <= hight[2]);
 }
 
+inline void qt_handleColorKey(const QImageEffectsPrivate *effects, uint *buffer, int length)
+{
+    Q_ASSERT(NULL != effects && NULL != buffer);
+
+    if (!effects->hasColorKey)
+        return;
+
+    if (effects->tolerance == 0) {
+        for (int i = 0; i < length; i++) {
+            if (effects->colorKey == buffer[i])
+                buffer[i] = 0;
+        }
+    } else {
+        for (int i = 0; i < length; i++) {
+            if (qt_inTolerance(buffer[i], effects->colorKeyLow, effects->colorKeyHight))
+                buffer[i] = 0;
+        }
+    }
+}
+
 inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length)
 {
     Q_ASSERT(NULL != effects && NULL != buffer);
+
+    qt_handleColorKey(effects, buffer, length);
 
     if (!effects->colorMatrix.isIdentity())
         effects->transform(buffer, length);
 
     if (effects->hasBilevel) {
         qt_setbilevel(buffer, length, effects->bilevelThreshold);
-    }
-
-    if (effects->hasColorKey) {
-        if (effects->tolerance == 0) {
-            for (int i = 0; i < length; i++) {
-                if (effects->colorKey == buffer[i])
-                    buffer[i] = 0;
-            }
-        } else {
-            for (int i = 0; i < length; i++) {
-                if (qt_inTolerance(buffer[i], effects->colorKeyLow, effects->colorKeyHight))
-                    buffer[i] = 0;
-            }
-        }
     }
 }
 
@@ -887,6 +895,14 @@ Q_STATIC_TEMPLATE_FUNCTION inline void fetchTransformedBilinear_pixelBounds(int 
     Q_ASSERT(v2 >= 0 && v2 < max);
 }
 
+inline void qt_transparent(uint &clr, const QSpanData *data)
+{
+    if (NULL != data && NULL != data->effects)
+    {
+        qt_handleColorKey(data->effects, &clr, 1);
+    }
+}
+
 template<TextureBlendType blendType, QImage::Format format> /* blendType = BlendTransformedBilinear or BlendTransformedBilinearTiled */
 Q_STATIC_TEMPLATE_FUNCTION
 const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *, const QSpanData *data,
@@ -912,6 +928,7 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
 
     const qreal cx = x + 0.5;
     const qreal cy = y + 0.5;
+    const bool hasColorKey = data->effects && data->effects->hasColorKey;
 
     uint *end = buffer + length;
     uint *b = buffer;
@@ -960,6 +977,8 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                         Q_ASSERT(x <= image_x2);
                         uint t = fetch(s1, image_x1, data->texture.colorTable);
                         uint b = fetch(s2, image_x1, data->texture.colorTable);
+                        qt_transparent(t, data);
+                        qt_transparent(b, data);
                         quint32 rb = (((t & 0xff00ff) * idisty + (b & 0xff00ff) * disty) >> 8) & 0xff00ff;
                         quint32 ag = ((((t>>8) & 0xff00ff) * idisty + ((b>>8) & 0xff00ff) * disty) >> 8) & 0xff00ff;
                         do {
@@ -978,11 +997,32 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     const __m128i disty_ = _mm_set1_epi16(disty);
                     const __m128i idisty_ = _mm_set1_epi16(idisty);
                     const __m128i colorMask = _mm_set1_epi32(0x00ff00ff);
+                    const __m128i rgbMask = _mm_set1_epi32(0x00ffffff);
+                    const __m128i colorKey = _mm_set1_epi32(hasColorKey ? data->effects->colorKey : 0);
+                    __m128i low, hight;
+                    if (hasColorKey && data->effects->tolerance != 0) {
+                        const quint8 *p = data->effects->colorKeyLow;
+                        low = _mm_set1_epi32(qRgba(p[2], p[1], p[0], 0));
+                        p = data->effects->colorKeyHight;
+                        hight = _mm_set1_epi32(qRgba(p[2], p[1], p[0], 0));
+                    }
 
                     lim -= 3;
                     for (; f < lim; x += 4, f += 4) {
                         // Load 4 pixels from s1, and split the alpha-green and red-blue component
                         __m128i top = _mm_loadu_si128((__m128i*)((const uint *)(s1)+x));
+                        if (hasColorKey) {
+                            if (data->effects->tolerance == 0) {
+                                const __m128i eq = _mm_cmpeq_epi32(top, colorKey);
+                                top = _mm_andnot_si128(eq, top);
+                            } else {
+                                const __m128i rgb = _mm_and_si128(top, rgbMask);
+                                const __m128i lt = _mm_cmplt_epi8(rgb, low);
+                                const __m128i gt = _mm_cmpgt_epi8(rgb, hight);
+                                const __m128i notInTolerance = _mm_or_si128(lt, gt);
+                                top = _mm_and_si128(top, _mm_cmpgt_epi32(notInTolerance, _mm_set1_epi32(0)));
+                            }
+                        }
                         __m128i topAG = _mm_srli_epi16(top, 8);
                         __m128i topRB = _mm_and_si128(top, colorMask);
                         // Multiplies each colour component by idisty
@@ -991,6 +1031,18 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
 
                         // Same for the s2 vector
                         __m128i bottom = _mm_loadu_si128((__m128i*)((const uint *)(s2)+x));
+                        if (hasColorKey) {
+                            if (data->effects->tolerance == 0) {
+                                const __m128i eq = _mm_cmpeq_epi32(bottom, colorKey);
+                                bottom = _mm_andnot_si128(eq, bottom);
+                            } else {
+                                const __m128i rgb = _mm_and_si128(bottom, rgbMask);
+                                const __m128i lt = _mm_cmplt_epi8(rgb, low);
+                                const __m128i gt = _mm_cmpgt_epi8(rgb, hight);
+                                const __m128i notInTolerance = _mm_or_si128(lt, gt);
+                                bottom = _mm_and_si128(bottom, _mm_cmpgt_epi32(notInTolerance, _mm_set1_epi32(0)));
+                            }
+                        }
                         __m128i bottomAG = _mm_srli_epi16(bottom, 8);
                         __m128i bottomRB = _mm_and_si128(bottom, colorMask);
                         bottomAG = _mm_mullo_epi16 (bottomAG, disty_);
@@ -1015,6 +1067,8 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
 
                     uint t = fetch(s1, x, data->texture.colorTable);
                     uint b = fetch(s2, x, data->texture.colorTable);
+                    qt_transparent(t, data);
+                    qt_transparent(b, data);
 
                     intermediate_buffer[0][f] = (((t & 0xff00ff) * idisty + (b & 0xff00ff) * disty) >> 8) & 0xff00ff;
                     intermediate_buffer[1][f] = ((((t>>8) & 0xff00ff) * idisty + ((b>>8) & 0xff00ff) * disty) >> 8) & 0xff00ff;
@@ -1053,6 +1107,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
 
                     int distx = (fx & 0x0000ffff) >> 8;
                     int idistx = 256 - distx;
@@ -1087,6 +1145,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                         uint tr = fetch(s1, x2, data->texture.colorTable);
                         uint bl = fetch(s2, x1, data->texture.colorTable);
                         uint br = fetch(s2, x2, data->texture.colorTable);
+                        qt_transparent(tl, data);
+                        qt_transparent(tr, data);
+                        qt_transparent(bl, data);
+                        qt_transparent(br, data);
                         int distx = (fx & 0x0000ffff) >> 12;
                         *b = interpolate_4_pixels_16(tl, tr, bl, br, distx, disty);
                         fx += fdx;
@@ -1127,6 +1189,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                             tr.i[i] = *addr_tr;
                             bl.i[i] = *(addr_tl+secondLine);
                             br.i[i] = *(addr_tr+secondLine);
+                            qt_transparent(tl.i[i], data);
+                            qt_transparent(tr.i[i], data);
+                            qt_transparent(bl.i[i], data);
+                            qt_transparent(br.i[i], data);
                         }
                         __m128i v_distx = _mm_srli_epi16(v_fx.vect, 12);      //distx = (fx & 0x0000ffff) >> 12;
                         //v_distx = _mm_shuffle_epi8(v_disty, distShuffleMask); //distx |= distx << 16;
@@ -1148,6 +1214,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
                     int distx = (fx & 0x0000ffff) >> 12;
                     *b = interpolate_4_pixels_16(tl, tr, bl, br, distx, disty);
                     fx += fdx;
@@ -1173,6 +1243,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
 
                     int distx = (fx & 0x0000ffff) >> 8;
                     int disty = (fy & 0x0000ffff) >> 8;
@@ -1205,6 +1279,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
 
                     int distx = (fx & 0x0000ffff) >> 12;
                     int disty = (fy & 0x0000ffff) >> 12;
@@ -1251,6 +1329,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
             uint tr = fetch(s1, x2, data->texture.colorTable);
             uint bl = fetch(s2, x1, data->texture.colorTable);
             uint br = fetch(s2, x2, data->texture.colorTable);
+            qt_transparent(tl, data);
+            qt_transparent(tr, data);
+            qt_transparent(bl, data);
+            qt_transparent(br, data);
 
             uint xtop = INTERPOLATE_PIXEL_256(tl, idistx, tr, distx);
             uint xbot = INTERPOLATE_PIXEL_256(bl, idistx, br, distx);
@@ -1267,8 +1349,15 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
         }
     }
 
-    if (NULL != data->effects)
-        qt_makeEffects(data->effects, buffer, length);
+    if (NULL != data->effects) {
+        if (!hasColorKey) {
+            qt_makeEffects(data->effects, buffer, length);
+        } else {
+            QImageEffectsPrivate tmp(*data->effects);
+            tmp.hasColorKey = false;
+            qt_makeEffects(&tmp, buffer, length);
+        }
+    }
 
     return buffer;
 }
