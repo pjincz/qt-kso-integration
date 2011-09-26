@@ -383,7 +383,7 @@ QPainterState *QPaintEngineEx::createState(QPainterState *orig) const
 }
 
 Q_GUI_EXPORT extern bool qt_scaleForTransform(const QTransform &transform, qreal *scale); // qtransform.cpp
-static QComplexStroker createStrokerFromPen(const QPen &pen)
+inline QComplexStroker createStrokerFromPen(const QPen &pen)
 {
     QComplexStroker stroker;
     stroker.setDashPattern(pen.dashPattern());

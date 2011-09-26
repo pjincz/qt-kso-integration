@@ -96,9 +96,9 @@ inline bool qpen_is_complex(const QPen &pen)
             || ptr->endAnchorStyle != Qt::SquareAnchor
             || ptr->startCap > Qt::RoundCap
             || ptr->endCap > Qt::RoundCap
-            || ptr->dashCap > Qt::RoundCap
+            || ptr->dashCap >= Qt::RoundCap
             || ptr->startCap != ptr->endCap
-            || ptr->startCap != ptr->endCap
+            || ptr->startCap != ptr->dashCap
             || !ptr->compoundArray.isEmpty());
 }
 
