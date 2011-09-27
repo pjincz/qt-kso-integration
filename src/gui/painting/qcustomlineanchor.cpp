@@ -587,7 +587,7 @@ bool QCustomLineAnchorState::CalcCrossYPts(const QPainterPath& path, std::vector
     const qreal& scale = width * widthScale();
     QMatrix scaleMatrix(scale, 0.0, 0.0, scale, 0.0, 0.0);
     mtx = scaleMatrix * mtx;
-    QList<QPolygonF> polygons = path.toSubpathPolygons(QTransform(), m_flatness);
+    QList<QPolygonF> polygons = path.toSubpathPolygons(QTransform(mtx), m_flatness);
     for (int subIndex = 0; subIndex < polygons.size(); ++subIndex) {
         const QPolygonF &poly = polygons[subIndex];
         QVector<int> flags(poly.count());
