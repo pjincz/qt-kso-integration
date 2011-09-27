@@ -19,7 +19,8 @@ public:
 
 	void Generate(const QPainterPath& path2generate,
 		QPainterPath& pathAfterGenerate,
-		QPainterPath& generatedCapPath) const;
+		QPainterPath& generatedCapPath,
+        const qreal flatness) const;
 
 private:
 	static QCustomLineAnchor *GetLineCap(Qt::PenAnchorStyle as, const QCustomLineAnchor& customLineCap);
@@ -32,6 +33,7 @@ private:
 private:
 	Q_DISABLE_COPY(QAnchorGenerator)
 	qreal m_width;
+    qreal m_flatness;
 	
 	const QCustomLineAnchorState* m_pCustomStartCap;
 	const QCustomLineAnchorState* m_pCustomEndCap;
@@ -71,6 +73,8 @@ public:
     qreal calcInsetScale(qreal penWidth) const;
     bool GetDevidePoint(qreal width, const QPointF *pts, unsigned count, QPointF &devidePt, int &prevPtOffset) const;
 
+    void setFlatness(qreal flatness);
+
 protected:
     void CalcTransform(qreal width, const QPointF& fromPt, const QPointF& toPt, const QPointF& centerPt, QMatrix& mtx) const;
     bool CalcCrossYPts(const QPainterPath& path, std::vector<qreal>& dists, qreal width = 1) const;
@@ -84,6 +88,7 @@ protected:
     Qt::PenCapStyle m_strokeStartCap, m_strokeEndCap;
     Qt::PenJoinStyle m_strokeLineJoin;
     Qt::PenCapStyle	m_baseCap;
+    qreal m_flatness;
 };
 
 
