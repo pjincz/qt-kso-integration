@@ -1495,7 +1495,7 @@ QPainterPath QPainterPath::toReversed() const
     \sa toFillPolygons(), toFillPolygon(), {QPainterPath#QPainterPath
     Conversion}{QPainterPath Conversion}
 */
-QList<QPolygonF> QPainterPath::toSubpathPolygons(const QTransform &matrix) const
+QList<QPolygonF> QPainterPath::toSubpathPolygons(const QTransform &matrix, qreal flat/* = 0.5*/) const
 {
 
     Q_D(const QPainterPath);
@@ -1524,7 +1524,7 @@ QList<QPolygonF> QPainterPath::toSubpathPolygons(const QTransform &matrix) const
                                        QPointF(e.x, e.y) * matrix,
                                        QPointF(d->elements.at(i+1).x, d->elements.at(i+1).y) * matrix,
                                                  QPointF(d->elements.at(i+2).x, d->elements.at(i+2).y) * matrix);
-            bezier.addToPolygon(&current);
+            bezier.addToPolygon(&current, flat);
             i+=2;
             break;
         }
@@ -2701,10 +2701,9 @@ void QPainterPathStroker::setDashOffset(qreal offset)
   \sa toSubpathPolygons(), toFillPolygons(),
   {QPainterPath#QPainterPath Conversion}{QPainterPath Conversion}
 */
-QPolygonF QPainterPath::toFillPolygon(const QTransform &matrix) const
+QPolygonF QPainterPath::toFillPolygon(const QTransform &matrix, qreal flat/* = 0.5*/) const
 {
-
-    QList<QPolygonF> flats = toSubpathPolygons(matrix);
+    QList<QPolygonF> flats = toSubpathPolygons(matrix, flat);
     QPolygonF polygon;
     if (flats.isEmpty())
         return polygon;

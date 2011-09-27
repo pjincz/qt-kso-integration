@@ -360,9 +360,9 @@ void QMathStroker::StrokePath(const QList<QPolygonF>& path2stroke, QPainterPath&
         StrokeSubPath(path2stroke[i], outPath);
 }
 
-void QMathStroker::StrokePath(const QPainterPath& path2stroke, QPainterPath& outPath) const
-{	
-    QList<QPolygonF> polygons = path2stroke.toSubpathPolygons();
+void QMathStroker::StrokePath(const QPainterPath& path2stroke, QPainterPath& outPath, const qreal flatness/* = 0.25*/) const
+{
+    QList<QPolygonF> polygons = path2stroke.toSubpathPolygons(QTransform(), flatness);
     for (int i = 0; i < polygons.size(); ++i)
         StrokeSubPath(polygons[i], outPath);
 }
@@ -1272,7 +1272,7 @@ qreal QPathZoomer::GetOffSet() const
     return m_offset;
 }
 
-void QPathZoomer::ZoomPath(const QPainterPath& path2zoom, QPainterPath& pathAfterZoom) const
+void QPathZoomer::ZoomPath(const QPainterPath& path2zoom, QPainterPath& pathAfterZoom, const qreal flatness) const
 {
     if (0 == m_offset) {
         pathAfterZoom.addPath(path2zoom);
@@ -1280,7 +1280,7 @@ void QPathZoomer::ZoomPath(const QPainterPath& path2zoom, QPainterPath& pathAfte
     }
 
     if (m_offset > 0) {
-        QList<QPolygonF> polygons = path2zoom.toSubpathPolygons();
+        QList<QPolygonF> polygons = path2zoom.toSubpathPolygons(QTransform(), flatness);
         for (int subIndex = 0; subIndex < polygons.size(); ++ subIndex) {
             QSimplePolygon sp(polygons[subIndex]);
             if (sp.IsValid()) {
@@ -1398,17 +1398,18 @@ void QPathDasher::SetWidth(qreal width)
 }
 
 void QPathDasher::GetDashedPath(const QPainterPath& path2dash, 
-                                QPainterPath& dashedPath) const
+                                QPainterPath& dashedPath, const qreal flatness) const
 {
-    QList<QPolygonF> polygons = path2dash.toSubpathPolygons();
+    QList<QPolygonF> polygons = path2dash.toSubpathPolygons(QTransform(), flatness);
     for (int i = 0; i < polygons.size(); ++i)
         GetDashedPath(polygons[i], dashedPath);
 }
 
 void QPathDasher::GetDashedPath(const QPainterPath& path2dash,  QPainterPath& openStartPath,
-                                QPainterPath& openMiddleAndClosePath, QPainterPath& openEndPath) const
+                                QPainterPath& openMiddleAndClosePath, QPainterPath& openEndPath, 
+                                const qreal flatness) const
 {
-    QList<QPolygonF> polygons = path2dash.toSubpathPolygons();
+    QList<QPolygonF> polygons = path2dash.toSubpathPolygons(QTransform(), flatness);
     for (int subIndex = 0; subIndex < polygons.size(); ++subIndex) {
         if (polygons[subIndex].isClosed())
             continue;
@@ -1420,7 +1421,7 @@ void QPathDasher::GetDashedPath(const QPainterPath& path2dash,  QPainterPath& op
 
         QPainterPath tempDashedPath;
         GetDashedPath(poly, tempDashedPath);
-        QList<QPolygonF> dashedPolygons = tempDashedPath.toSubpathPolygons();
+        QList<QPolygonF> dashedPolygons = tempDashedPath.toSubpathPolygons(QTransform(), flatness);
         int ns = dashedPolygons.count();
         for (int n = 0; n < ns; ++n) {
             if (0 == n) {
@@ -1915,22 +1916,24 @@ void QComplexStroker::setDashCapStyle(Qt::PenCapStyle s)
     d_ptr->dashCap = s;
 }
 
-QPainterPath QComplexStroker::createStroke(const QPainterPath &path) const
+QPainterPath QComplexStroker::createStroke(const QPainterPath &path, const qreal flatness/* = 0.25*/) const
 {
     QPainterPath result;
     result.setFillRule(Qt::WindingFill);
     QPainterPath pathAfterGenerateCap;
+    d_ptr->startAnchor.setFlatness(flatness);
+    d_ptr->startAnchor.setFlatness(flatness);
     QAnchorGenerator capGenerator(d_ptr->startAnchor, d_ptr->endAnchor, d_ptr->width);
-    capGenerator.Generate(path, pathAfterGenerateCap, result);
+    capGenerator.Generate(path, pathAfterGenerateCap, result, flatness);
 
     QPainterPath pathAfterZoom;
     QPathZoomer pathZoomer(d_ptr->alignmentOffset());
-    pathZoomer.ZoomPath(pathAfterGenerateCap, pathAfterZoom);
+    pathZoomer.ZoomPath(pathAfterGenerateCap, pathAfterZoom, flatness);
 
     QScopedPointer<QMathStroker> mathStroker(d_ptr->prepareMathStroker());
 
     if (d_ptr->isSolid()) {
-        mathStroker->StrokePath(pathAfterZoom, result);
+        mathStroker->StrokePath(pathAfterZoom, result, flatness);
     } else {
         QScopedPointer<QPathDasher> dasher(d_ptr->prepareDasher());
 
@@ -1940,20 +1943,20 @@ QPainterPath QComplexStroker::createStroke(const QPainterPath &path) const
 
         if (dc == slc && slc == elc) {
             QPainterPath pathAfterDash;
-            dasher->GetDashedPath(pathAfterZoom, pathAfterDash);
-            mathStroker->StrokePath(pathAfterDash, result);
+            dasher->GetDashedPath(pathAfterZoom, pathAfterDash, flatness);
+            mathStroker->StrokePath(pathAfterDash, result, flatness);
         } else {
             QPainterPath openStartpath, openMiddleAndClosePath, openEndpath;
-            dasher->GetDashedPath(pathAfterZoom,  openStartpath, openMiddleAndClosePath, openEndpath);
+            dasher->GetDashedPath(pathAfterZoom,  openStartpath, openMiddleAndClosePath, openEndpath, flatness);
 
             mathStroker->SetStartCap(slc);
-            mathStroker->StrokePath(openStartpath, result);
+            mathStroker->StrokePath(openStartpath, result, flatness);
 
             mathStroker->SetStartCap(dc);
-            mathStroker->StrokePath(openMiddleAndClosePath, result);
+            mathStroker->StrokePath(openMiddleAndClosePath, result, flatness);
 
             mathStroker->SetEndCap(elc);
-            mathStroker->StrokePath(openEndpath, result);
+            mathStroker->StrokePath(openEndpath, result, flatness);
         }
     }
 
