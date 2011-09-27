@@ -39,7 +39,7 @@ public:
 	void SetScale(qreal sx, qreal sy);
 
 	void StrokePath(const QList<QPolygonF>& path2stroke, QPainterPath& outPath) const;
-	void StrokePath(const QPainterPath& path2stroke, QPainterPath& outPath) const;
+	void StrokePath(const QPainterPath& path2stroke, QPainterPath& outPath, const qreal flatness = 0.25) const;
 
 private:	
     void StrokeSubPath(const QPolygonF &subPath, QPainterPath& outPath) const;
@@ -126,7 +126,7 @@ public:
 	explicit QPathZoomer(qreal offset = 0);
 	void SetOffset(qreal offset);
 	qreal GetOffSet() const;
-	void ZoomPath(const QPainterPath& path2zoom, QPainterPath& pathAfterZoom) const;
+	void ZoomPath(const QPainterPath& path2zoom, QPainterPath& pathAfterZoom, const qreal flatness) const;
 
 private:
 	qreal m_offset;
@@ -147,9 +147,9 @@ public:
 	void SetDashOffset(qreal dashoffset);
 	void SetWidth(qreal width);
 	
-	void GetDashedPath(const QPainterPath& path2dash,  QPainterPath& dashedPath) const;
+	void GetDashedPath(const QPainterPath& path2dash,  QPainterPath& dashedPath, const qreal flatness) const;
 	void GetDashedPath(const QPainterPath& path2dash,  QPainterPath& openStartPath,
-		QPainterPath& openMiddleAndClosePath, QPainterPath& openEndPath) const;
+		QPainterPath& openMiddleAndClosePath, QPainterPath& openEndPath, const qreal flatness) const;
 	
 private:
 	void GetDashedPath(const QPolygonF& subPath, QPainterPath& outPath) const;

@@ -168,9 +168,9 @@ public:
     QList<QPolygonF> toSubpathPolygons(const QMatrix &matrix = QMatrix()) const;
     QList<QPolygonF> toFillPolygons(const QMatrix &matrix = QMatrix()) const;
     QPolygonF toFillPolygon(const QMatrix &matrix = QMatrix()) const;
-    QList<QPolygonF> toSubpathPolygons(const QTransform &matrix) const;
+    QList<QPolygonF> toSubpathPolygons(const QTransform &matrix, qreal flat = 0.5) const;
     QList<QPolygonF> toFillPolygons(const QTransform &matrix) const;
-    QPolygonF toFillPolygon(const QTransform &matrix) const;
+    QPolygonF toFillPolygon(const QTransform &matrix, qreal flat = 0.5) const;
 
     inline int elementCount() const;
     inline const QPainterPath::Element &elementAt(int i) const;

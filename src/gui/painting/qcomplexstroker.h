@@ -62,7 +62,7 @@ public:
     Qt::PenCapStyle dashCapStyle() const;
     void setDashCapStyle(Qt::PenCapStyle s);
 
-    QPainterPath createStroke(const QPainterPath &path) const;
+    QPainterPath createStroke(const QPainterPath &path, const qreal flatness = 0.25) const;
 
 private:
     void detach();
