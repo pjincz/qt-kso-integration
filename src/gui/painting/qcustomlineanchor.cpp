@@ -7,8 +7,8 @@
 
 static const qreal vertex_dist_epsilon = 1.0e-30;
 
-inline qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2);
-inline qreal calc_distance(const QPointF& pt1, const QPointF& pt2);
+extern qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2);
+extern qreal calc_distance(const QPointF& pt1, const QPointF& pt2);
 inline qreal calc_line_point_distance(qreal x1, qreal y1, 
                                       qreal x2, qreal y2, 
                                       qreal x,  qreal y)
