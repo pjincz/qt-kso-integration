@@ -48,6 +48,7 @@
 #include "private/qpicture_p.h"
 #include "QtGui/qpicture.h"
 #include "QtGui/qcomplexstroker.h"
+#include "private/qpen_p.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -109,7 +110,7 @@ bool QAlphaPaintEngine::end()
     flushAndInit(false);
     return true;
 }
-extern inline bool qpen_is_complex(const QPen &pen);
+
 void QAlphaPaintEngine::updateState(const QPaintEngineState &state)
 {
     Q_D(QAlphaPaintEngine);

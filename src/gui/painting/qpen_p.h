@@ -83,6 +83,20 @@ public:
     Qt::PenCapStyle dashCap;
 };
 
+inline bool qpen_is_complex(const QPen &pen)
+{
+    const QPen::DataPtr &ptr = const_cast<QPen &>(pen).data_ptr();
+    return (ptr->alignment != Qt::PenAlignmentCenter
+        || ptr->startAnchorStyle != Qt::SquareAnchor
+        || ptr->endAnchorStyle != Qt::SquareAnchor
+        || ptr->startCap > Qt::RoundCap
+        || ptr->endCap > Qt::RoundCap
+        || ptr->dashCap >= Qt::RoundCap
+        || ptr->startCap != ptr->endCap
+        || ptr->startCap != ptr->dashCap
+        || !ptr->compoundArray.isEmpty());
+}
+
 QT_END_NAMESPACE
 
 #endif // QPEN_P_H
