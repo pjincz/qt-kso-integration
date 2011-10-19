@@ -88,19 +88,6 @@ inline qreal qpen_widthf(const QPen &p) { return data_ptr(p)->width; }
 inline Qt::PenStyle qpen_style(const QPen &p) { return data_ptr(p)->style; }
 inline Qt::PenCapStyle qpen_capStyle(const QPen &p) { return data_ptr(p)->capStyle; }
 inline Qt::PenJoinStyle qpen_joinStyle(const QPen &p) { return data_ptr(p)->joinStyle; }
-inline bool qpen_is_complex(const QPen &pen)
-{
-    const QPen::DataPtr &ptr = data_ptr(pen);
-    return (ptr->alignment != Qt::PenAlignmentCenter
-            || ptr->startAnchorStyle != Qt::SquareAnchor
-            || ptr->endAnchorStyle != Qt::SquareAnchor
-            || ptr->startCap > Qt::RoundCap
-            || ptr->endCap > Qt::RoundCap
-            || ptr->dashCap >= Qt::RoundCap
-            || ptr->startCap != ptr->endCap
-            || ptr->startCap != ptr->dashCap
-            || !ptr->compoundArray.isEmpty());
-}
 
 // QBrush inline functions...
 inline QBrush::DataPtr &data_ptr(const QBrush &p) { return const_cast<QBrush &>(p).data_ptr(); }

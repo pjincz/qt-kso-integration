@@ -18,14 +18,14 @@ inline qreal cross_product(const QPointF &pt1, const QPointF &pt2, const QPointF
     return cross_product(pt1.x(), pt1.y(), pt2.x(), pt2.y(), pt3.x(), pt3.y());
 }
 
-inline qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2)
+qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2)
 {
     const qreal dx = x2-x1;
     const qreal dy = y2-y1;
     return qSqrt(dx * dx + dy * dy);
 }
 
-inline qreal calc_distance(const QPointF& pt1, const QPointF& pt2)
+qreal calc_distance(const QPointF& pt1, const QPointF& pt2)
 {
     return calc_distance(pt1.x(), pt1.y(), pt2.x(), pt2.y());
 }
