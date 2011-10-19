@@ -6926,7 +6926,7 @@ void QImageEffects::unsetBilevel()
     by \a mtx before drawing. The alpha channel is unchanged.
     Note that once set the color matrix, the other effects such as gray and bilevel
     are disable. Call unsetColorMatrix() to enable them.
-    sa\ unsetColorMatrix()
+	\sa unsetColorMatrix()
 */
 void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
 {
