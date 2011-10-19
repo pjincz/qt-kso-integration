@@ -7,8 +7,8 @@
 
 static const qreal vertex_dist_epsilon = 1.0e-30;
 
-inline qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2);
-inline qreal calc_distance(const QPointF& pt1, const QPointF& pt2);
+extern qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2);
+extern qreal calc_distance(const QPointF& pt1, const QPointF& pt2);
 inline qreal calc_line_point_distance(qreal x1, qreal y1, 
                                       qreal x2, qreal y2, 
                                       qreal x,  qreal y)
@@ -267,6 +267,15 @@ void QCustomLineAnchor::setWidthScale(qreal widthScale)
     return;
 }
 
+void QCustomLineAnchor::setFlatness(qreal flatness)
+{
+    if (isValid())
+    {
+        m_cap->setFlatness(flatness);
+        return;
+    }
+    return;
+}
 bool QCustomLineAnchor::isValid() const
 {
     if (m_cap)
@@ -327,9 +336,10 @@ QAnchorGenerator::QAnchorGenerator(const QCustomLineAnchor& startCap,
 
 void QAnchorGenerator::Generate(const QPainterPath& path2generate,
                                 QPainterPath& pathAfterGenerate,
-                                QPainterPath& generatedCapPath) const
+                                QPainterPath& generatedCapPath,
+                                const qreal flatness) const
 {
-    QList<QPolygonF> polygons = path2generate.toSubpathPolygons();
+    QList<QPolygonF> polygons = path2generate.toSubpathPolygons(QTransform(), flatness);
     for (int i = 0; i < polygons.size(); ++i) {
         if (polygons[i].isClosed())
             pathAfterGenerate.addPolygon(polygons[i]);
@@ -453,6 +463,7 @@ QCustomLineAnchorState::QCustomLineAnchorState()
 , m_strokeEndCap(Qt::FlatCap)
 , m_strokeLineJoin(Qt::MiterJoin)
 , m_baseCap(Qt::FlatCap)
+, m_flatness(0.25)
 {
 }
 
@@ -547,6 +558,11 @@ bool QCustomLineAnchorState::GetDevidePoint(qreal width, const QPointF *pts, uns
     return false;
 }
 
+void QCustomLineAnchorState::setFlatness(qreal flatness)
+{
+    m_flatness = flatness;
+}
+
 void QCustomLineAnchorState::CalcTransform(qreal width, const QPointF& fromPt, const QPointF& toPt,
                                            const QPointF& centerPt, QMatrix& mtx) const
 {
@@ -571,7 +587,7 @@ bool QCustomLineAnchorState::CalcCrossYPts(const QPainterPath& path, std::vector
     const qreal& scale = width * widthScale();
     QMatrix scaleMatrix(scale, 0.0, 0.0, scale, 0.0, 0.0);
     mtx = scaleMatrix * mtx;
-    QList<QPolygonF> polygons = path.toSubpathPolygons(mtx);
+    QList<QPolygonF> polygons = path.toSubpathPolygons(QTransform(mtx), m_flatness);
     for (int subIndex = 0; subIndex < polygons.size(); ++subIndex) {
         const QPolygonF &poly = polygons[subIndex];
         QVector<int> flags(poly.count());
@@ -674,7 +690,7 @@ qreal QCustomFillAnchor::GetMaxDistance(qreal width) const
 
     qreal maxDist = 0;
     QPointF origin(0.0, 0.0);
-    QList<QPolygonF> polygons = m_capPath.toSubpathPolygons();
+    QList<QPolygonF> polygons = m_capPath.toSubpathPolygons(QTransform(), m_flatness);
     for (int i = 0; i < polygons.size(); ++i) {
         const QPolygonF &poly = polygons[i];
         foreach(QPointF pt, poly) {
@@ -736,7 +752,7 @@ qreal QCustomStrokeAnchor::GetMaxDistance(qreal width) const
     QMatrix scaleMatrix(scale, 0.0, 0.0, scale, 0.0, 0.0);
     mtx = scaleMatrix * mtx;
 
-    QList<QPolygonF> polygons = m_capPath.toSubpathPolygons();
+    QList<QPolygonF> polygons = m_capPath.toSubpathPolygons(QTransform(), m_flatness);
 
     QMathStroker mathStroker;
     mathStroker.SetWidth(width);

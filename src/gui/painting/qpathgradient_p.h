@@ -13,13 +13,7 @@ QT_BEGIN_NAMESPACE
 #define OUT
 #endif
 
-inline double calc_distance(double x1, double y1, double x2, double y2)
-{
-    double dx = x2 - x1;
-    double dy = y2 - y1;
-
-    return sqrt(dx * dx + dy * dy);
-}
+extern qreal calc_distance(qreal x1, qreal y1, qreal x2, qreal y2);
 
 inline void matrix_multiply (OUT QMatrix *result, const QMatrix *a, const QMatrix *b)
 {

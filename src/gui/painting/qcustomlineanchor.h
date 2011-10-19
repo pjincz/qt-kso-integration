@@ -45,6 +45,8 @@ public:
     qreal widthScale() const;	
     void setWidthScale(qreal widthScale);
 
+    void setFlatness(qreal flatness);
+
     bool isValid() const;
 
     bool operator==(const QCustomLineAnchor &p) const;

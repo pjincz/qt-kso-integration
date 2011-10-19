@@ -47,6 +47,8 @@
 
 #include "private/qpicture_p.h"
 #include "QtGui/qpicture.h"
+#include "QtGui/qcomplexstroker.h"
+#include "private/qpen_p.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -127,7 +129,8 @@ void QAlphaPaintEngine::updateState(const QPaintEngineState &state)
             d->m_advancedPen = false;
             d->m_alphaPen = false;
         } else {
-            d->m_advancedPen = (d->m_pen.brush().style() != Qt::SolidPattern);
+            d->m_advancedPen = (d->m_pen.brush().style() != Qt::SolidPattern)
+                || qpen_is_complex(d->m_pen);
             d->m_alphaPen = !d->m_pen.brush().isOpaque();
         }
     }
@@ -403,6 +406,8 @@ QAlphaPaintEnginePrivate::~QAlphaPaintEnginePrivate()
     delete m_pic;
 }
 
+QComplexStroker createStrokerFromPen(const QPen &pen);
+
 QRectF QAlphaPaintEnginePrivate::addPenWidth(const QPainterPath &path)
 {
     QPainterPath tmp = path;
@@ -411,6 +416,18 @@ QRectF QAlphaPaintEnginePrivate::addPenWidth(const QPainterPath &path)
         return (path.controlPointRect() * m_transform).boundingRect();
     if (m_pen.isCosmetic())
         tmp = path * m_transform;
+
+    if (qpen_is_complex(m_pen))
+    {
+        QComplexStroker stroker = createStrokerFromPen(m_pen);
+        if (m_pen.widthF() == 0.0f)
+            stroker.setWidth(1.0);
+        tmp = stroker.createStroke(tmp);
+        if (m_pen.isCosmetic())
+            return tmp.controlPointRect();
+        else
+            return (tmp.controlPointRect() * m_transform).boundingRect();
+    }
 
     QPainterPathStroker stroker;
     if (m_pen.widthF() == 0.0f)
