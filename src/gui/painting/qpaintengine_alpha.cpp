@@ -406,7 +406,7 @@ QAlphaPaintEnginePrivate::~QAlphaPaintEnginePrivate()
     delete m_pic;
 }
 
-extern inline QComplexStroker createStrokerFromPen(const QPen &pen);
+QComplexStroker createStrokerFromPen(const QPen &pen);
 
 QRectF QAlphaPaintEnginePrivate::addPenWidth(const QPainterPath &path)
 {
