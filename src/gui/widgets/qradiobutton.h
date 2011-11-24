@@ -69,7 +69,6 @@ protected:
     void paintEvent(QPaintEvent *);
     void mouseMoveEvent(QMouseEvent *);
     void initStyleOption(QStyleOptionButton *button) const;
-	void focusInEvent(QFocusEvent *);
 
 #ifdef QT3_SUPPORT
 public:

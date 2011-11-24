@@ -257,12 +257,6 @@ bool QRadioButton::event(QEvent *e)
     return QAbstractButton::event(e);
 }
 
-void QRadioButton::focusInEvent( QFocusEvent *e )
-{
-	setChecked(true);
-	QAbstractButton::focusInEvent(e);
-}
-
 #ifdef QT3_SUPPORT
 /*!
     Use one of the constructors that doesn't take the \a name
