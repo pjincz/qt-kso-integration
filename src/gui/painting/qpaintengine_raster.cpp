@@ -3841,7 +3841,7 @@ void QRasterPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textIte
     QFontEngineFT::GlyphFormat neededFormat =
         painter()->device()->devType() == QInternal::Widget
         ? fe->defaultGlyphFormat()
-        : QFontEngineFT::Format_A8;
+        : QFontEngineFT::Format_A32;
 
     if (d_func()->mono_surface
         || fe->isBitmapFont() // alphaPenBlt can handle mono, too
