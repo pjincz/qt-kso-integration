@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -493,6 +493,7 @@ private slots:
     void QTBUG5590_dummyProperty();
     void QTBUG12260_defaultTemplate();
     void notifyError();
+    void revisions();
 signals:
     void sigWithUnsignedArg(unsigned foo);
     void sigWithSignedArg(signed foo);
@@ -507,6 +508,7 @@ private:
     bool user2() { return false; };
     bool user3() { return false; };
     bool userFunction(){ return false; };
+    template <class T> void revisions_T();
 
 private:
     QString qtIncludePath;
@@ -1384,6 +1386,117 @@ void tst_Moc::notifyError()
 #endif
 }
 
+// If changed, update VersionTestNotify below
+class VersionTest : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(int prop1 READ foo)
+    Q_PROPERTY(int prop2 READ foo REVISION 2)
+    Q_ENUMS(TestEnum);
+
+public:
+    int foo() const { return 0; }
+
+    Q_INVOKABLE void method1() {}
+    Q_INVOKABLE Q_REVISION(4) void method2() {}
+
+    enum TestEnum { One, Two };
+
+public slots:
+    void slot1() {}
+    Q_REVISION(3) void slot2() {}
+
+signals:
+    void signal1();
+    Q_REVISION(5) void signal2();
+
+public slots Q_REVISION(6):
+    void slot3() {}
+    void slot4() {}
+
+signals Q_REVISION(7):
+    void signal3();
+    void signal4();
+};
+
+// If changed, update VersionTest above
+class VersionTestNotify : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(int prop1 READ foo NOTIFY fooChanged)
+    Q_PROPERTY(int prop2 READ foo REVISION 2)
+    Q_ENUMS(TestEnum);
+
+public:
+    int foo() const { return 0; }
+
+    Q_INVOKABLE void method1() {}
+    Q_INVOKABLE Q_REVISION(4) void method2() {}
+
+    enum TestEnum { One, Two };
+
+public slots:
+    void slot1() {}
+    Q_REVISION(3) void slot2() {}
+
+signals:
+    void fooChanged();
+    void signal1();
+    Q_REVISION(5) void signal2();
+
+public slots Q_REVISION(6):
+    void slot3() {}
+    void slot4() {}
+
+signals Q_REVISION(7):
+    void signal3();
+    void signal4();
+};
+
+template <class T>
+void tst_Moc::revisions_T()
+{
+    int idx = T::staticMetaObject.indexOfProperty("prop1");
+    QVERIFY(T::staticMetaObject.property(idx).revision() == 0);
+    idx = T::staticMetaObject.indexOfProperty("prop2");
+    QVERIFY(T::staticMetaObject.property(idx).revision() == 2);
+
+    idx = T::staticMetaObject.indexOfMethod("method1()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 0);
+    idx = T::staticMetaObject.indexOfMethod("method2()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 4);
+
+    idx = T::staticMetaObject.indexOfSlot("slot1()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 0);
+    idx = T::staticMetaObject.indexOfSlot("slot2()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 3);
+
+    idx = T::staticMetaObject.indexOfSlot("slot3()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 6);
+    idx = T::staticMetaObject.indexOfSlot("slot4()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 6);
+
+    idx = T::staticMetaObject.indexOfSignal("signal1()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 0);
+    idx = T::staticMetaObject.indexOfSignal("signal2()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 5);
+
+    idx = T::staticMetaObject.indexOfSignal("signal3()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 7);
+    idx = T::staticMetaObject.indexOfSignal("signal4()");
+    QVERIFY(T::staticMetaObject.method(idx).revision() == 7);
+
+    idx = T::staticMetaObject.indexOfEnumerator("TestEnum");
+    QCOMPARE(T::staticMetaObject.enumerator(idx).keyCount(), 2);
+    QCOMPARE(T::staticMetaObject.enumerator(idx).key(0), "One");
+}
+
+// test using both class that has properties with and without NOTIFY signals
+void tst_Moc::revisions()
+{
+    revisions_T<VersionTest>();
+    revisions_T<VersionTestNotify>();
+}
 
 QTEST_APPLESS_MAIN(tst_Moc)
 #include "tst_moc.moc"

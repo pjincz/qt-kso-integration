@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -46,7 +46,7 @@
 #ifndef ATOM_H
 #define ATOM_H
 
-#include <qstring.h>
+#include <qstringlist.h>
 
 #define QDOC_QML
 
@@ -56,63 +56,64 @@ class Atom
 {
  public:
     enum Type { 
-        AbstractLeft, 
-        AbstractRight, 
+        AbstractLeft,
+        AbstractRight,
         AnnotatedList,
         AutoLink,
-        BaseName, 
+        BaseName,
         BriefLeft,
-        BriefRight, 
+        BriefRight,
         C,
-        CaptionLeft, 
+        CaptionLeft,
         CaptionRight,
-        Code, 
-        CodeBad, 
-        CodeNew, 
-        CodeOld, 
+        Code,
+        CodeBad,
+        CodeNew,
+        CodeOld,
         CodeQuoteArgument,
         CodeQuoteCommand,
-#ifdef QDOC_QML
+        DivLeft,
+        DivRight,
         EndQmlText,
-#endif
         FootnoteLeft,
         FootnoteRight,
-        FormatElse, 
+        FormatElse,
         FormatEndif,
         FormatIf,
         FormattingLeft,
         FormattingRight,
         GeneratedList,
-        Image, 
+        GuidLink,
+        Image,
         ImageText,
         InlineImage,
+        JavaScript,
+        EndJavaScript,
         LegaleseLeft,
         LegaleseRight,
-        LineBreak, 
-        Link, 
+        LineBreak,
+        Link,
         LinkNode,
-        ListLeft, 
+        ListLeft,
         ListItemNumber,
         ListTagLeft,
         ListTagRight,
         ListItemLeft,
-        ListItemRight, 
-        ListRight, 
-        Nop, 
+        ListItemRight,
+        ListRight,
+        Nop,
         ParaLeft,
-        ParaRight, 
-#ifdef QDOC_QML
+        ParaRight,
         Qml,
         QmlText,
-#endif
-        QuotationLeft, 
+        QuotationLeft,
         QuotationRight,
         RawString,
         SectionLeft,
         SectionRight,
         SectionHeadingLeft,
         SectionHeadingRight,
-        SidebarLeft, 
+        SidebarLeft,
         SidebarRight,
         SinceList,
         SnippetCommand,
@@ -120,38 +121,65 @@ class Atom
         SnippetLocation,
         String,
         TableLeft,
-        TableRight, 
+        TableRight,
         TableHeaderLeft,
         TableHeaderRight,
         TableRowLeft,
-        TableRowRight, 
-        TableItemLeft, 
+        TableRowRight,
+        TableItemLeft,
         TableItemRight,
         TableOfContents,
         Target,
         UnhandledFormat, 
         UnknownCommand,
-        Last = UnknownCommand 
+        Last = UnknownCommand
     };
 
-    Atom(Type type, const QString &string = "")
-	: nxt(0), typ(type), str(string) { }
-    Atom(Atom *prev, Type type, const QString &string = "")
-	: nxt(prev->nxt), typ(type), str(string) { prev->nxt = this; }
+    Atom(Type type, const QString& string = "")
+	: nxt(0), typ(type) 
+    {
+        strs << string; 
+    }
 
-    void appendChar(QChar ch) { str += ch; }
-    void appendString(const QString& string) { str += string; }
-    void chopString() { str.chop(1); }
-    void setString(const QString &string) { str = string; }
-    Atom *next() { return nxt; }
-    void setNext(Atom *newNext) { nxt = newNext; }
+    Atom(Type type, const QString& p1, const QString& p2)
+	: nxt(0), typ(type) 
+    { 
+        strs << p1; 
+        if (!p2.isEmpty()) 
+            strs << p2; 
+    }
 
-    const Atom *next() const { return nxt; }
-    const Atom *next(Type t) const;
-    const Atom *next(Type t, const QString& s) const;
+    Atom(Atom* prev, Type type, const QString& string = "")
+	: nxt(prev->nxt), typ(type) 
+    { 
+        strs << string; 
+        prev->nxt = this; 
+    }
+    
+    Atom(Atom* prev, Type type, const QString& p1, const QString& p2)
+	: nxt(prev->nxt), typ(type) 
+    { 
+        strs << p1; 
+        if (!p2.isEmpty()) 
+            strs << p2; 
+        prev->nxt = this; 
+    }
+
+    void appendChar(QChar ch) { strs[0] += ch; }
+    void appendString(const QString& string) { strs[0] += string; }
+    void chopString() { strs[0].chop(1); }
+    void setString(const QString& string) { strs[0] = string; }
+    Atom* next() { return nxt; }
+    void setNext(Atom* newNext) { nxt = newNext; }
+
+    const Atom* next() const { return nxt; }
+    const Atom* next(Type t) const;
+    const Atom* next(Type t, const QString& s) const;
     Type type() const { return typ; }
     QString typeString() const;
-    const QString& string() const { return str; }
+    const QString& string() const { return strs[0]; }
+    const QString& string(int i) const { return strs[i]; }
+    int count() const { return strs.size(); }
     void dump() const;
 
     static QString BOLD_;
@@ -159,6 +187,7 @@ class Atom
     static QString ITALIC_;
     static QString LINK_;
     static QString PARAMETER_;
+    static QString SPAN_;
     static QString SUBSCRIPT_;
     static QString SUPERSCRIPT_;
     static QString TELETYPE_;
@@ -174,9 +203,9 @@ class Atom
     static QString UPPERROMAN_;
 
  private:
-    Atom *nxt;
+    Atom* nxt;
     Type typ;
-    QString str;
+    QStringList strs;
 };
 
 #define ATOM_FORMATTING_BOLD            "bold"
@@ -184,6 +213,7 @@ class Atom
 #define ATOM_FORMATTING_ITALIC          "italic"
 #define ATOM_FORMATTING_LINK            "link"
 #define ATOM_FORMATTING_PARAMETER       "parameter"
+#define ATOM_FORMATTING_SPAN            "span "
 #define ATOM_FORMATTING_SUBSCRIPT       "subscript"
 #define ATOM_FORMATTING_SUPERSCRIPT     "superscript"
 #define ATOM_FORMATTING_TELETYPE        "teletype"

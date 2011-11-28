@@ -23,6 +23,7 @@ along with this library.  If not, see <http://www.gnu.org/licenses/>.
 #include <phonon/mediaobjectinterface.h>
 #include <QScopedPointer>
 #include <QTimer>
+#include <QString>
 
 // For recognizer
 #include <apgcli.h>
@@ -89,8 +90,10 @@ public:
 
     void setVideoOutput(AbstractVideoOutput* videoOutput);
 
+    int openFileHandle(const QString &fileName);
     RFile* file() const;
     QResource* resource() const;
+    int currentIAP() const;
 
 public Q_SLOTS:
     void volumeChanged(qreal volume);
@@ -112,6 +115,9 @@ Q_SIGNALS:
     void finished();
     void tick(qint64 time);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event);
+
 private Q_SLOTS:
     void handlePrefinishMarkReached(qint32);
 
@@ -119,6 +125,7 @@ private:
     void switchToSource(const MediaSource &source);
     void createPlayer(const MediaSource &source);
     bool openRecognizer();
+    void setIAPIdFromNameL(const QString& iapString);
 
     // Audio / video media type recognition
     MediaType fileMediaType(const QString& fileName);
@@ -142,6 +149,7 @@ private:
     QResource*                          m_resource;
 
     QScopedPointer<AbstractPlayer>      m_player;
+    int                                 m_iap;
 
 };
 }

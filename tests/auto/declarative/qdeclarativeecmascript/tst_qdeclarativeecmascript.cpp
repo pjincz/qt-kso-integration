@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -50,6 +50,7 @@
 #include <QtCore/qnumeric.h>
 #include <private/qdeclarativeengine_p.h>
 #include <private/qdeclarativeglobalscriptclass_p.h>
+#include <private/qscriptdeclarativeclass_p.h>
 #include "testtypes.h"
 #include "testhttpserver.h"
 #include "../../../shared/util.h"
@@ -105,7 +106,7 @@ private slots:
     void constantsOverrideBindings();
     void outerBindingOverridesInnerBinding();
     void aliasPropertyAndBinding();
-    void nonExistantAttachedObject();
+    void nonExistentAttachedObject();
     void scope();
     void signalParameterTypes();
     void objectsCompareAsEqual();
@@ -135,10 +136,14 @@ private slots:
     void scriptConnect();
     void scriptDisconnect();
     void ownership();
+    void cppOwnershipReturnValue();
+    void ownershipCustomReturnValue();
     void qlistqobjectMethods();
     void strictlyEquals();
     void compiled();
     void numberAssignment();
+    void propertySplicing();
+    void signalWithUnknownTypes();
 
     void bug1();
     void bug2();
@@ -152,7 +157,10 @@ private slots:
     void qtcreatorbug_1289();
     void noSpuriousWarningsAtShutdown();
     void canAssignNullToQObject();
-    void functionAssignment();
+    void functionAssignment_fromBinding();
+    void functionAssignment_fromJS();
+    void functionAssignment_fromJS_data();
+    void functionAssignmentfromJS_invalid();
     void eval();
     void function();
     void qtbug_10696();
@@ -162,12 +170,21 @@ private slots:
     void deleteLater();
     void in();
     void sharedAttachedObject();
+    void objectName();
+    void writeRemovesBinding();
+    void aliasBindingsAssignCorrectly();
+    void aliasBindingsOverrideTarget();
+    void aliasWritesOverrideBindings();
+    void pushCleanContext();
 
     void include();
 
     void callQtInvokables();
     void invokableObjectArg();
     void invokableObjectRet();
+
+    void revisionErrors();
+    void revision();
 private:
     QDeclarativeEngine engine;
 };
@@ -287,8 +304,8 @@ void tst_qdeclarativeecmascript::signalAssignment()
         MyQmlObject *object = qobject_cast<MyQmlObject *>(component.create());
         QVERIFY(object != 0);
         QCOMPARE(object->string(), QString());
-        emit object->argumentSignal(19, "Hello world!", 10.25);
-        QCOMPARE(object->string(), QString("pass 19 Hello world! 10.25"));
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
+        QCOMPARE(object->string(), QString("pass 19 Hello world! 10.25 3 2"));
     }
 }
 
@@ -622,20 +639,44 @@ void tst_qdeclarativeecmascript::overrideExtensionProperties()
 
 void tst_qdeclarativeecmascript::attachedProperties()
 {
-    QDeclarativeComponent component(&engine, TEST_FILE("attachedProperty.qml"));
-    QObject *object = component.create();
-    QVERIFY(object != 0);
-    QCOMPARE(object->property("a").toInt(), 19);
-    QCOMPARE(object->property("b").toInt(), 19);
-    QCOMPARE(object->property("c").toInt(), 19);
-    QCOMPARE(object->property("d").toInt(), 19);
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("attachedProperty.qml"));
+        QObject *object = component.create();
+        QVERIFY(object != 0);
+        QCOMPARE(object->property("a").toInt(), 19);
+        QCOMPARE(object->property("b").toInt(), 19);
+        QCOMPARE(object->property("c").toInt(), 19);
+        QCOMPARE(object->property("d").toInt(), 19);
+    }
 
-    // ### Need to test attached property assignment
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("attachedProperty.2.qml"));
+        QObject *object = component.create();
+        QVERIFY(object != 0);
+        QCOMPARE(object->property("a").toInt(), 26);
+        QCOMPARE(object->property("b").toInt(), 26);
+        QCOMPARE(object->property("c").toInt(), 26);
+        QCOMPARE(object->property("d").toInt(), 26);
+    }
+
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("writeAttachedProperty.qml"));
+        QObject *object = component.create();
+        QVERIFY(object != 0);
+
+        QMetaObject::invokeMethod(object, "writeValue2");
+
+        MyQmlAttachedObject *attached =
+            qobject_cast<MyQmlAttachedObject *>(qmlAttachedPropertiesObject<MyQmlObject>(object));
+        QVERIFY(attached != 0);
+
+        QCOMPARE(attached->value2(), 9);
+    }
 }
 
 void tst_qdeclarativeecmascript::enums()
 {
-    // Existant enums
+    // Existent enums
     {
     QDeclarativeComponent component(&engine, TEST_FILE("enums.1.qml"));
     QObject *object = component.create();
@@ -731,6 +772,19 @@ void tst_qdeclarativeecmascript::constantsOverrideBindings()
         QCOMPARE(object->property("c2").toInt(), 13);
     }
 #endif
+
+    // Using an alias
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("constantsOverrideBindings.4.qml"));
+        MyQmlObject *object = qobject_cast<MyQmlObject *>(component.create());
+        QVERIFY(object != 0);
+
+        QCOMPARE(object->property("c1").toInt(), 0);
+        QCOMPARE(object->property("c3").toInt(), 10);
+        object->setProperty("c1", QVariant(9));
+        QCOMPARE(object->property("c1").toInt(), 9);
+        QCOMPARE(object->property("c3").toInt(), 10);
+    }
 }
 
 /*
@@ -764,9 +818,9 @@ Access a non-existent attached object.
 
 Tests for a regression where this used to crash.
 */
-void tst_qdeclarativeecmascript::nonExistantAttachedObject()
+void tst_qdeclarativeecmascript::nonExistentAttachedObject()
 {
-    QDeclarativeComponent component(&engine, TEST_FILE("nonExistantAttachedObject.qml"));
+    QDeclarativeComponent component(&engine, TEST_FILE("nonExistentAttachedObject.qml"));
 
     QString warning = component.url().toString() + ":4: Unable to assign [undefined] to QString stringProperty";
     QTest::ignoreMessage(QtWarningMsg, qPrintable(warning));
@@ -801,8 +855,8 @@ void tst_qdeclarativeecmascript::scope()
 
         QCOMPARE(object->property("test1").toInt(), 19);
         QCOMPARE(object->property("test2").toInt(), 19);
-        QCOMPARE(object->property("test3").toInt(), 11);
-        QCOMPARE(object->property("test4").toInt(), 11);
+        QCOMPARE(object->property("test3").toInt(), 14);
+        QCOMPARE(object->property("test4").toInt(), 14);
         QCOMPARE(object->property("test5").toInt(), 24);
         QCOMPARE(object->property("test6").toInt(), 24);
     }
@@ -826,7 +880,7 @@ void tst_qdeclarativeecmascript::scope()
         QCOMPARE(object->property("test").toInt(), 0);
         QCOMPARE(object->property("test2").toString(), QString());
 
-        emit object->argumentSignal(13, "Argument Scope", 9);
+        emit object->argumentSignal(13, "Argument Scope", 9, MyQmlObject::EnumValue4, Qt::RightButton);
 
         QCOMPARE(object->property("test").toInt(), 13);
         QCOMPARE(object->property("test2").toString(), QString("Argument Scope"));
@@ -851,6 +905,8 @@ void tst_qdeclarativeecmascript::signalParameterTypes()
     QCOMPARE(object->property("realProperty").toReal(), 19.2);
     QVERIFY(object->property("colorProperty").value<QColor>() == QColor(255, 255, 0, 255));
     QVERIFY(object->property("variantProperty") == QVariant::fromValue(QColor(255, 0, 255, 255)));
+    QVERIFY(object->property("enumProperty") == MyQmlObject::EnumValue3);
+    QVERIFY(object->property("qtEnumProperty") == Qt::LeftButton);
 }
 
 /*
@@ -1095,7 +1151,7 @@ void tst_qdeclarativeecmascript::signalTriggeredBindings()
     QCOMPARE(object->property("test1").toReal(), 200.);
     QCOMPARE(object->property("test2").toReal(), 200.);
 
-    object->argumentSignal(10, QString(), 10);
+    object->argumentSignal(10, QString(), 10, MyQmlObject::EnumValue4, Qt::RightButton);
 
     QCOMPARE(object->property("base").toReal(), 400.);
     QCOMPARE(object->property("test1").toReal(), 400.);
@@ -1549,7 +1605,7 @@ void tst_qdeclarativeecmascript::callQtInvokables()
 
     o.reset();
     {
-    QString expected = "MyInvokableObject(0x" + QString::number((intptr_t)&o, 16) + ")";
+    QString expected = "MyInvokableObject(0x" + QString::number((quintptr)&o, 16) + ")";
     QCOMPARE(engine->evaluate("object.method_QString(object)").isUndefined(), true);
     QCOMPARE(o.error(), false);
     QCOMPARE(o.invoked(), 11);
@@ -1708,7 +1764,6 @@ void tst_qdeclarativeecmascript::callQtInvokables()
     QCOMPARE(o.actuals().at(0), QVariant(44));
     QVERIFY(qvariant_cast<QScriptValue>(o.actuals().at(1)).isArray());
 
-    // Test overloads - QML will always invoke the *last* method
     o.reset();
     QCOMPARE(engine->evaluate("object.method_overload()").isError(), true);
     QCOMPARE(o.error(), false);
@@ -1716,10 +1771,11 @@ void tst_qdeclarativeecmascript::callQtInvokables()
     QCOMPARE(o.actuals().count(), 0);
 
     o.reset();
-    QCOMPARE(engine->evaluate("object.method_overload(10)").isError(), true);
+    QCOMPARE(engine->evaluate("object.method_overload(10)").isUndefined(), true);
     QCOMPARE(o.error(), false);
-    QCOMPARE(o.invoked(), -1);
-    QCOMPARE(o.actuals().count(), 0);
+    QCOMPARE(o.invoked(), 16);
+    QCOMPARE(o.actuals().count(), 1);
+    QCOMPARE(o.actuals().at(0), QVariant(10));
 
     o.reset();
     QCOMPARE(engine->evaluate("object.method_overload(10, 11)").isUndefined(), true);
@@ -1730,11 +1786,57 @@ void tst_qdeclarativeecmascript::callQtInvokables()
     QCOMPARE(o.actuals().at(1), QVariant(11));
 
     o.reset();
-    QCOMPARE(engine->evaluate("object.method_with_enum(9)").isUndefined(), true);
+    QCOMPARE(engine->evaluate("object.method_overload(\"Hello\")").isUndefined(), true);
     QCOMPARE(o.error(), false);
     QCOMPARE(o.invoked(), 18);
     QCOMPARE(o.actuals().count(), 1);
+    QCOMPARE(o.actuals().at(0), QVariant(QString("Hello")));
+
+    o.reset();
+    QCOMPARE(engine->evaluate("object.method_with_enum(9)").isUndefined(), true);
+    QCOMPARE(o.error(), false);
+    QCOMPARE(o.invoked(), 19);
+    QCOMPARE(o.actuals().count(), 1);
     QCOMPARE(o.actuals().at(0), QVariant(9));
+
+    o.reset();
+    QVERIFY(engine->evaluate("object.method_default(10)").strictlyEquals(QScriptValue(19)));
+    QCOMPARE(o.error(), false);
+    QCOMPARE(o.invoked(), 20);
+    QCOMPARE(o.actuals().count(), 2);
+    QCOMPARE(o.actuals().at(0), QVariant(10));
+    QCOMPARE(o.actuals().at(1), QVariant(19));
+
+    o.reset();
+    QVERIFY(engine->evaluate("object.method_default(10, 13)").strictlyEquals(QScriptValue(13)));
+    QCOMPARE(o.error(), false);
+    QCOMPARE(o.invoked(), 20);
+    QCOMPARE(o.actuals().count(), 2);
+    QCOMPARE(o.actuals().at(0), QVariant(10));
+    QCOMPARE(o.actuals().at(1), QVariant(13));
+
+    o.reset();
+    QCOMPARE(engine->evaluate("object.method_inherited(9)").isUndefined(), true);
+    QCOMPARE(o.error(), false);
+    QCOMPARE(o.invoked(), -3);
+    QCOMPARE(o.actuals().count(), 1);
+    QCOMPARE(o.actuals().at(0), QVariant(9));
+
+    o.reset();
+    QCOMPARE(engine->evaluate("object.method_QVariant(9)").isUndefined(), true);
+    QCOMPARE(o.error(), false);
+    QCOMPARE(o.invoked(), 21);
+    QCOMPARE(o.actuals().count(), 2);
+    QCOMPARE(o.actuals().at(0), QVariant(9));
+    QCOMPARE(o.actuals().at(1), QVariant());
+
+    o.reset();
+    QCOMPARE(engine->evaluate("object.method_QVariant(\"Hello\", \"World\")").isUndefined(), true);
+    QCOMPARE(o.error(), false);
+    QCOMPARE(o.invoked(), 21);
+    QCOMPARE(o.actuals().count(), 2);
+    QCOMPARE(o.actuals().at(0), QVariant(QString("Hello")));
+    QCOMPARE(o.actuals().at(1), QVariant(QString("World")));
 }
 
 // QTBUG-13047 (check that you can pass registered object types as args)
@@ -1850,7 +1952,7 @@ void tst_qdeclarativeecmascript::scriptConnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toBool(), false);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toBool(), true);
 
         delete object;
@@ -1863,7 +1965,7 @@ void tst_qdeclarativeecmascript::scriptConnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toBool(), false);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toBool(), true);
 
         delete object;
@@ -1876,7 +1978,7 @@ void tst_qdeclarativeecmascript::scriptConnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toBool(), false);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toBool(), true);
 
         delete object;
@@ -1889,7 +1991,7 @@ void tst_qdeclarativeecmascript::scriptConnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->methodCalled(), false);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->methodCalled(), true);
 
         delete object;
@@ -1902,7 +2004,7 @@ void tst_qdeclarativeecmascript::scriptConnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->methodCalled(), false);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->methodCalled(), true);
 
         delete object;
@@ -1915,7 +2017,7 @@ void tst_qdeclarativeecmascript::scriptConnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toInt(), 0);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
 
         delete object;
@@ -1931,13 +2033,13 @@ void tst_qdeclarativeecmascript::scriptDisconnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toInt(), 0);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 1);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
         emit object->basicSignal();
         QCOMPARE(object->property("test").toInt(), 2);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
 
         delete object;
@@ -1950,13 +2052,13 @@ void tst_qdeclarativeecmascript::scriptDisconnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toInt(), 0);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 1);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
         emit object->basicSignal();
         QCOMPARE(object->property("test").toInt(), 2);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
 
         delete object;
@@ -1969,13 +2071,13 @@ void tst_qdeclarativeecmascript::scriptDisconnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toInt(), 0);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 1);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
         emit object->basicSignal();
         QCOMPARE(object->property("test").toInt(), 2);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 3);
 
         delete object;
@@ -1987,13 +2089,13 @@ void tst_qdeclarativeecmascript::scriptDisconnect()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("test").toInt(), 0);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 1);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 2);
         emit object->basicSignal();
         QCOMPARE(object->property("test").toInt(), 2);
-        emit object->argumentSignal(19, "Hello world!", 10.25);
+        emit object->argumentSignal(19, "Hello world!", 10.25, MyQmlObject::EnumValue4, Qt::RightButton);
         QCOMPARE(object->property("test").toInt(), 3);
 
         delete object;
@@ -2049,6 +2151,87 @@ void tst_qdeclarativeecmascript::ownership()
 
         delete object;
     }
+}
+
+class CppOwnershipReturnValue : public QObject
+{
+    Q_OBJECT
+public:
+    CppOwnershipReturnValue() : value(0) {}
+    ~CppOwnershipReturnValue() { delete value; }
+
+    Q_INVOKABLE QObject *create() {
+        Q_ASSERT(value == 0);
+
+        value = new QObject;
+        QDeclarativeEngine::setObjectOwnership(value, QDeclarativeEngine::CppOwnership);
+        return value;
+    }
+
+    Q_INVOKABLE MyQmlObject *createQmlObject() {
+        Q_ASSERT(value == 0);
+
+        MyQmlObject *rv = new MyQmlObject;
+        value = rv;
+        return rv;
+    }
+
+    QPointer<QObject> value;
+};
+
+// QTBUG-15695.  
+// Test setObjectOwnership(CppOwnership) works even when there is no QDeclarativeData
+void tst_qdeclarativeecmascript::cppOwnershipReturnValue()
+{
+    CppOwnershipReturnValue source;
+
+    {
+    QDeclarativeEngine engine;
+    engine.rootContext()->setContextProperty("source", &source);
+
+    QVERIFY(source.value == 0);
+
+    QDeclarativeComponent component(&engine);
+    component.setData("import QtQuick 1.0\nQtObject {\nComponent.onCompleted: { var a = source.create(); }\n}\n", QUrl());
+
+    QObject *object = component.create();
+
+    QVERIFY(object != 0);
+    QVERIFY(source.value != 0);
+
+    delete object;
+    }
+
+    QCoreApplication::instance()->processEvents(QEventLoop::DeferredDeletion);
+
+    QVERIFY(source.value != 0);
+}
+
+// QTBUG-15697
+void tst_qdeclarativeecmascript::ownershipCustomReturnValue()
+{
+    CppOwnershipReturnValue source;
+
+    {
+    QDeclarativeEngine engine;
+    engine.rootContext()->setContextProperty("source", &source);
+
+    QVERIFY(source.value == 0);
+
+    QDeclarativeComponent component(&engine);
+    component.setData("import QtQuick 1.0\nQtObject {\nComponent.onCompleted: { var a = source.createQmlObject(); }\n}\n", QUrl());
+
+    QObject *object = component.create();
+
+    QVERIFY(object != 0);
+    QVERIFY(source.value != 0);
+
+    delete object;
+    }
+
+    QCoreApplication::instance()->processEvents(QEventLoop::DeferredDeletion);
+
+    QVERIFY(source.value == 0);
 }
 
 class QListQObjectMethodsObject : public QObject
@@ -2170,6 +2353,38 @@ void tst_qdeclarativeecmascript::numberAssignment()
     QCOMPARE(object->property("test10"), QVariant((unsigned int)7));
     QCOMPARE(object->property("test11"), QVariant((unsigned int)6));
     QCOMPARE(object->property("test12"), QVariant((unsigned int)6));
+
+    delete object;
+}
+
+void tst_qdeclarativeecmascript::propertySplicing()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("propertySplicing.qml"));
+
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+
+    QCOMPARE(object->property("test").toBool(), true);
+
+    delete object;
+}
+
+// QTBUG-16683
+void tst_qdeclarativeecmascript::signalWithUnknownTypes()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("signalWithUnknownTypes.qml"));
+
+    MyQmlObject *object = qobject_cast<MyQmlObject *>(component.create());
+    QVERIFY(object != 0);
+
+    MyQmlObject::MyType type;
+    type.value = 0x8971123;
+    emit object->signalWithUnknownType(type);
+
+    MyQmlObject::MyType result = qvariant_cast<MyQmlObject::MyType>(object->variant());
+
+    QCOMPARE(result.value, type.value);
+
 
     delete object;
 }
@@ -2351,9 +2566,8 @@ void tst_qdeclarativeecmascript::canAssignNullToQObject()
     }
 }
 
-void tst_qdeclarativeecmascript::functionAssignment()
+void tst_qdeclarativeecmascript::functionAssignment_fromBinding()
 {
-    {
     QDeclarativeComponent component(&engine, TEST_FILE("functionAssignment.1.qml"));
 
     QString url = component.url().toString();
@@ -2366,26 +2580,64 @@ void tst_qdeclarativeecmascript::functionAssignment()
     QVERIFY(!o->property("a").isValid());
 
     delete o;
-    }
+}
 
-    {
+void tst_qdeclarativeecmascript::functionAssignment_fromJS()
+{
+    QFETCH(QString, triggerProperty);
+
     QDeclarativeComponent component(&engine, TEST_FILE("functionAssignment.2.qml"));
+    QVERIFY2(component.errorString().isEmpty(), qPrintable(component.errorString()));
 
     MyQmlObject *o = qobject_cast<MyQmlObject *>(component.create());
     QVERIFY(o != 0);
+    QVERIFY(!o->property("a").isValid());
 
-    QVERIFY(!o->property("a").isValid());
-    
-    QString url = component.url().toString();
-    QString warning = url + ":10: Error: Cannot assign a function to a property.";
-    QTest::ignoreMessage(QtWarningMsg, warning.toLatin1().constData());
-    
-    o->setProperty("runTest", true);
-    
-    QVERIFY(!o->property("a").isValid());
+    o->setProperty("aNumber", QVariant(5));
+    o->setProperty(triggerProperty.toUtf8().constData(), true);
+    QCOMPARE(o->property("a"), QVariant(50));
+
+    o->setProperty("aNumber", QVariant(10));
+    QCOMPARE(o->property("a"), QVariant(100));
 
     delete o;
-    }
+}
+
+void tst_qdeclarativeecmascript::functionAssignment_fromJS_data()
+{
+    QTest::addColumn<QString>("triggerProperty");
+
+    QTest::newRow("assign to property") << "assignToProperty";
+    QTest::newRow("assign to property, from JS file") << "assignToPropertyFromJsFile";
+
+    QTest::newRow("assign to value type") << "assignToValueType";
+
+    QTest::newRow("use 'this'") << "assignWithThis";
+    QTest::newRow("use 'this' from JS file") << "assignWithThisFromJsFile";
+}
+
+void tst_qdeclarativeecmascript::functionAssignmentfromJS_invalid()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("functionAssignment.2.qml"));
+    QVERIFY2(component.errorString().isEmpty(), qPrintable(component.errorString()));
+
+    MyQmlObject *o = qobject_cast<MyQmlObject *>(component.create());
+    QVERIFY(o != 0);
+    QVERIFY(!o->property("a").isValid());
+
+    o->setProperty("assignFuncWithoutReturn", true);
+    QVERIFY(!o->property("a").isValid());
+
+    QString url = component.url().toString();
+    QString warning = url + ":63: Unable to assign QString to int";
+    QTest::ignoreMessage(QtWarningMsg, warning.toLatin1().constData());
+    o->setProperty("assignWrongType", true);
+
+    warning = url + ":70: Unable to assign QString to int";
+    QTest::ignoreMessage(QtWarningMsg, warning.toLatin1().constData());
+    o->setProperty("assignWrongTypeToValueType", true);
+
+    delete o;
 }
 
 void tst_qdeclarativeecmascript::eval()
@@ -2592,6 +2844,241 @@ void tst_qdeclarativeecmascript::sharedAttachedObject()
     QCOMPARE(o->property("test1").toBool(), true);
     QCOMPARE(o->property("test2").toBool(), true);
     delete o;
+}
+
+// QTBUG-13999
+void tst_qdeclarativeecmascript::objectName()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("objectName.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test1").toString(), QString("hello"));
+    QCOMPARE(o->property("test2").toString(), QString("ell"));
+
+    o->setObjectName("world");
+
+    QCOMPARE(o->property("test1").toString(), QString("world"));
+    QCOMPARE(o->property("test2").toString(), QString("orl"));
+
+    delete o;
+}
+
+void tst_qdeclarativeecmascript::writeRemovesBinding()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("writeRemovesBinding.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+}
+
+// Test bindings assigned to alias properties actually assign to the alias' target
+void tst_qdeclarativeecmascript::aliasBindingsAssignCorrectly()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasBindingsAssignCorrectly.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+}
+
+// Test bindings assigned to alias properties override a binding on the target (QTBUG-13719)
+void tst_qdeclarativeecmascript::aliasBindingsOverrideTarget()
+{
+    { 
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasBindingsOverrideTarget.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasBindingsOverrideTarget.2.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasBindingsOverrideTarget.3.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+    }
+}
+
+// Test that writes to alias properties override bindings on the alias target (QTBUG-13719)
+void tst_qdeclarativeecmascript::aliasWritesOverrideBindings()
+{
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasWritesOverrideBindings.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasWritesOverrideBindings.2.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("aliasWritesOverrideBindings.3.qml"));
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+
+    QCOMPARE(o->property("test").toBool(), true);
+
+    delete o;
+    }
+}
+
+void tst_qdeclarativeecmascript::revisionErrors()
+{
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevisionErrors.qml"));
+        QString url = component.url().toString();
+
+        QString warning1 = url + ":8: ReferenceError: Can't find variable: prop2";
+        QString warning2 = url + ":11: ReferenceError: Can't find variable: prop2";
+        QString warning3 = url + ":13: ReferenceError: Can't find variable: method2";
+
+        QTest::ignoreMessage(QtWarningMsg, warning1.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning2.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning3.toLatin1().constData());
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass *>(component.create());
+        QVERIFY(object != 0);
+    }
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevisionErrors2.qml"));
+        QString url = component.url().toString();
+
+        // MyRevisionedSubclass 1.0 uses MyRevisionedClass revision 0
+        // method2, prop2 from MyRevisionedClass not available
+        // method4, prop4 from MyRevisionedSubclass not available
+        QString warning1 = url + ":8: ReferenceError: Can't find variable: prop2";
+        QString warning2 = url + ":14: ReferenceError: Can't find variable: prop2";
+        QString warning3 = url + ":10: ReferenceError: Can't find variable: prop4";
+        QString warning4 = url + ":16: ReferenceError: Can't find variable: prop4";
+        QString warning5 = url + ":20: ReferenceError: Can't find variable: method2";
+
+        QTest::ignoreMessage(QtWarningMsg, warning1.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning2.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning3.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning4.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning5.toLatin1().constData());
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass *>(component.create());
+        QVERIFY(object != 0);
+    }
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevisionErrors3.qml"));
+        QString url = component.url().toString();
+
+        // MyRevisionedSubclass 1.1 uses MyRevisionedClass revision 1
+        // All properties/methods available, except MyRevisionedBaseClassUnregistered rev 1
+        QString warning1 = url + ":30: ReferenceError: Can't find variable: methodD";
+        QString warning2 = url + ":10: ReferenceError: Can't find variable: propD";
+        QString warning3 = url + ":20: ReferenceError: Can't find variable: propD";
+        QTest::ignoreMessage(QtWarningMsg, warning1.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning2.toLatin1().constData());
+        QTest::ignoreMessage(QtWarningMsg, warning3.toLatin1().constData());
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass *>(component.create());
+        QVERIFY(object != 0);
+    }
+}
+
+void tst_qdeclarativeecmascript::revision()
+{
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevision.qml"));
+        QString url = component.url().toString();
+
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass *>(component.create());
+        QVERIFY(object != 0);
+    }
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevision2.qml"));
+        QString url = component.url().toString();
+
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass *>(component.create());
+        QVERIFY(object != 0);
+    }
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevision3.qml"));
+        QString url = component.url().toString();
+
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass *>(component.create());
+        QVERIFY(object != 0);
+    }
+    // Test that non-root classes can resolve revisioned methods
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("metaobjectRevision4.qml"));
+
+        QObject *object = component.create();
+        QVERIFY(object != 0);
+        QCOMPARE(object->property("test").toReal(), 11.);
+        delete object;
+    }
+}
+
+// Test for QScriptDeclarativeClass::pushCleanContext()
+void tst_qdeclarativeecmascript::pushCleanContext()
+{
+    QScriptEngine engine;
+    engine.globalObject().setProperty("a", 6);
+    QCOMPARE(engine.evaluate("a").toInt32(), 6);
+
+    // First confirm pushContext() behaves as we expect
+    QScriptValue object = engine.newObject();
+    object.setProperty("a", 15);
+    QScriptContext *context1 = engine.pushContext();
+    context1->pushScope(object);
+    QCOMPARE(engine.evaluate("a").toInt32(), 15);
+
+    QScriptContext *context2 = engine.pushContext();
+    Q_UNUSED(context2);
+    QCOMPARE(engine.evaluate("a").toInt32(), 15);
+    QScriptValue func1 = engine.evaluate("(function() { return a; })");
+
+    // Now check that pushCleanContext() works
+    QScriptDeclarativeClass::pushCleanContext(&engine);
+    QCOMPARE(engine.evaluate("a").toInt32(), 6);
+    QScriptValue func2 = engine.evaluate("(function() { return a; })");
+
+    engine.popContext();
+    QCOMPARE(engine.evaluate("a").toInt32(), 15);
+
+    engine.popContext();
+    QCOMPARE(engine.evaluate("a").toInt32(), 15);
+
+    engine.popContext();
+    QCOMPARE(engine.evaluate("a").toInt32(), 6);
+
+    // Check that function objects created in these contexts work
+    QCOMPARE(func1.call().toInt32(), 15);
+    QCOMPARE(func2.call().toInt32(), 6);
 }
 
 QTEST_MAIN(tst_qdeclarativeecmascript)

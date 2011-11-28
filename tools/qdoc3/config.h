@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -54,6 +54,8 @@
 
 QT_BEGIN_NAMESPACE
 
+typedef QMultiMap<QString, QString> QStringMultiMap;
+
 class Config
 {
  public:
@@ -61,6 +63,7 @@ class Config
     ~Config();
 
     void load(const QString& fileName);
+    void unload(const QString& fileName);
     void setStringList(const QString& var, const QStringList& values);
 
     const QString& programName() const { return prog; }
@@ -74,9 +77,9 @@ class Config
     QRegExp getRegExp(const QString& var) const;
     QList<QRegExp> getRegExpList(const QString& var) const;
     QSet<QString> subVars(const QString& var) const;
+    void subVarsAndValues(const QString& var, QStringMultiMap& t) const;
     QStringList getAllFiles(const QString& filesVar, 
                             const QString& dirsVar,
-                            const QString& defaultNameFilter,
                             const QSet<QString> &excludedDirs = QSet<QString>());
 
     static QStringList getFilesHere(const QString& dir,
@@ -119,12 +122,12 @@ class Config
 };
 
 #define CONFIG_ALIAS                    "alias"
-#define CONFIG_APPLICATION		"application"
 #define CONFIG_BASE                     "base"      // ### don't document for now
 #define CONFIG_CODEINDENT               "codeindent"
 #define CONFIG_DEFINES                  "defines"
 #define CONFIG_DESCRIPTION              "description"
 #define CONFIG_EDITION                  "edition"
+#define CONFIG_ENDHEADER                "endheader"
 #define CONFIG_EXAMPLEDIRS              "exampledirs"
 #define CONFIG_EXAMPLES                 "examples"
 #define CONFIG_EXCLUDEDIRS              "excludedirs"
@@ -134,6 +137,8 @@ class Config
 #define CONFIG_GENERATEINDEX            "generateindex"
 #define CONFIG_HEADERDIRS               "headerdirs"
 #define CONFIG_HEADERS                  "headers"
+#define CONFIG_HEADERSCRIPTS            "headerscripts"
+#define CONFIG_HEADERSTYLES             "headerstyles"
 #define CONFIG_IGNOREDIRECTIVES         "ignoredirectives"
 #define CONFIG_IGNORETOKENS             "ignoretokens"
 #define CONFIG_IMAGEDIRS                "imagedirs"
@@ -143,11 +148,11 @@ class Config
 #define CONFIG_MACRO                    "macro"
 #define CONFIG_NATURALLANGUAGE          "naturallanguage"
 #define CONFIG_OBSOLETELINKS            "obsoletelinks"
-#define CONFIG_APPLICATION              "application"
 #define CONFIG_OUTPUTDIR                "outputdir"
 #define CONFIG_OUTPUTENCODING           "outputencoding"
 #define CONFIG_OUTPUTLANGUAGE           "outputlanguage"
 #define CONFIG_OUTPUTFORMATS            "outputformats"
+#define CONFIG_OUTPUTPREFIXES           "outputprefixes"
 #define CONFIG_PROJECT                  "project"
 #define CONFIG_QHP                      "qhp"
 #define CONFIG_QUOTINGINFORMATION       "quotinginformation"
@@ -160,8 +165,11 @@ class Config
 #define CONFIG_SOURCES                  "sources"
 #define CONFIG_SPURIOUS                 "spurious"
 #define CONFIG_STYLEDIRS                "styledirs"
+#define CONFIG_STYLE                    "style"
 #define CONFIG_STYLES                   "styles"
 #define CONFIG_STYLESHEETS              "stylesheets"
+#define CONFIG_SYNTAXHIGHLIGHTING       "syntaxhighlighting"
+#define CONFIG_TEMPLATEDIR              "templatedir"
 #define CONFIG_TABSIZE                  "tabsize"
 #define CONFIG_TAGFILE                  "tagfile"
 #define CONFIG_TRANSLATORS              "translators" // ### don't document for now

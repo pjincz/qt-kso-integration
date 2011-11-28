@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -70,8 +70,8 @@
 
 #ifndef __CONNMAN_DBUS_H
 
-#define	CONNMAN_SERVICE     "org.moblin.connman"
-#define	CONNMAN_PATH        "/org/moblin/connman"
+#define	CONNMAN_SERVICE     "net.connman"
+#define	CONNMAN_PATH        "/net/connman"
 
 #define CONNMAN_DEBUG_INTERFACE		CONNMAN_SERVICE ".Debug"
 #define CONNMAN_ERROR_INTERFACE		CONNMAN_SERVICE ".Error"
@@ -84,8 +84,6 @@
 #define CONNMAN_TASK_INTERFACE		CONNMAN_SERVICE ".Task"
 #define CONNMAN_PROFILE_INTERFACE	CONNMAN_SERVICE ".Profile"
 #define CONNMAN_SERVICE_INTERFACE	CONNMAN_SERVICE ".Service"
-#define CONNMAN_DEVICE_INTERFACE	CONNMAN_SERVICE ".Device"
-#define CONNMAN_NETWORK_INTERFACE	CONNMAN_SERVICE ".Network"
 #define CONNMAN_PROVIDER_INTERFACE	CONNMAN_SERVICE ".Provider"
 #define CONNMAN_TECHNOLOGY_INTERFACE	CONNMAN_SERVICE ".Technology"
 #endif
@@ -145,38 +143,6 @@ Q_SIGNALS:
     void stateChanged(const QString &);
     void propertyChangedContext(const QString &,const QString &,const QDBusVariant &);
 
-protected:
-    void connectNotify(const char *signal);
-    void disconnectNotify(const char *signal);
-    QVariant getProperty(const QString &);
-};
-
-
-class QConnmanNetworkInterface : public QDBusAbstractInterface
-{
-    Q_OBJECT
-
-public:
-
-    QConnmanNetworkInterface(const QString &dbusPathName, QObject *parent = 0);
-    ~QConnmanNetworkInterface();
-
-    QVariantMap getProperties();
-
-    //properties
-    QString getAddress();
-    QString getName();
-    bool isConnected();
-    quint8 getSignalStrength();
-    QString getDevice();
-    QString getWifiSsid();
-    QString getWifiMode();
-    QString getWifiSecurity();
-    QString getWifiPassphrase();
-
-Q_SIGNALS:
-    void propertyChanged(const QString &, const QDBusVariant &value);
-    void propertyChangedContext(const QString &,const QString &,const QDBusVariant &);
 protected:
     void connectNotify(const char *signal);
     void disconnectNotify(const char *signal);
@@ -287,8 +253,6 @@ public:
     QString getName();
     QString getType();
 
-    QStringList getDevices();
-
 Q_SIGNALS:
     void propertyChanged(const QString &, const QDBusVariant &value);
     void propertyChangedContext(const QString &,const QString &,const QDBusVariant &);
@@ -335,42 +299,6 @@ public:
 
 private:
     QConnmanCounterInterfacePrivate *d;
-};
-
-class QConnmanDeviceInterface : public QDBusAbstractInterface
-{
-    Q_OBJECT
-
-public:
-
-    QConnmanDeviceInterface(const QString &dbusPathName,QObject *parent = 0);
-    ~QConnmanDeviceInterface();
-
-    QVariantMap getProperties();
-    void scan();
-
-//properties
-    QString getAddress();
-    QString getName();
-    QString getType();
-    QString getInterface();
-    bool isPowered();
-    quint16 getScanInterval();
-    bool setScanInterval(const QString &interval);
-
-    bool isScanning();
-    QStringList getNetworks();
-    bool setEnabled(bool powered);
-    bool setProperty(const QString &name, const QDBusVariant &value);
-
-Q_SIGNALS:
-    void propertyChanged(const QString &, const QDBusVariant &value);
-    void propertyChangedContext(const QString &,const QString &,const QDBusVariant &);
-protected:
-    void connectNotify(const char *signal);
-    void disconnectNotify(const char *signal);
-    QVariant getProperty(const QString &);
-
 };
 
 class QConnmanDBusHelper: public QObject, protected QDBusContext

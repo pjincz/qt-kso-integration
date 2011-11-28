@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -49,6 +49,7 @@
 #include <qtimer.h>
 #include <qwaitcondition.h>
 #include <qdebug.h>
+#include <qmetaobject.h>
 
 #ifdef Q_OS_UNIX
 #include <pthread.h>
@@ -103,6 +104,9 @@ private slots:
     void adoptedThreadExec();
     void adoptedThreadFinished();
     void adoptMultipleThreads();
+
+    void QTBUG13810_exitAndStart();
+    void QTBUG15378_exitAndExec();
 
     void stressTest();
 };
@@ -933,6 +937,84 @@ void tst_QThread::stressTest()
         t.wait(one_minute);
     }
 }
+
+class Syncronizer : public QObject
+{ Q_OBJECT
+public slots:
+    void setProp(int p) {
+        if(m_prop != p) {
+            m_prop = p;
+            emit propChanged(p);
+        }
+    }
+signals:
+    void propChanged(int);
+public:
+    Syncronizer() : m_prop(42) {}
+    int m_prop;
+};
+
+void tst_QThread::QTBUG13810_exitAndStart()
+{
+    QThread thread;
+    thread.exit(555); //should do nothing
+
+    thread.start();
+
+    //test that the thread is running by executing queued connected signal there
+    Syncronizer sync1;
+    sync1.moveToThread(&thread);
+    Syncronizer sync2;
+    sync2.moveToThread(&thread);
+    connect(&sync2, SIGNAL(propChanged(int)), &sync1, SLOT(setProp(int)), Qt::QueuedConnection);
+    connect(&sync1, SIGNAL(propChanged(int)), &thread, SLOT(quit()), Qt::QueuedConnection);
+    QMetaObject::invokeMethod(&sync2, "setProp", Qt::QueuedConnection , Q_ARG(int, 89));
+    QTest::qWait(50);
+    while(!thread.wait(10))
+        QTest::qWait(10);
+    QCOMPARE(sync2.m_prop, 89);
+    QCOMPARE(sync1.m_prop, 89);
+}
+
+
+void tst_QThread::QTBUG15378_exitAndExec()
+{
+    class Thread : public QThread {
+    public:
+        QSemaphore sem1;
+        QSemaphore sem2;
+        volatile int value;
+        void run() {
+            sem1.acquire();
+            value = exec();  //First entrence
+            sem2.release();
+            value = exec(); // Second loop
+        }
+    };
+    Thread thread;
+    thread.value = 0;
+    thread.start();
+    thread.exit(556);
+    thread.sem1.release(); //should exit the first loop
+    thread.sem2.acquire();
+    int v = thread.value;
+    QCOMPARE(v, 556);
+
+    //test that the thread is running by executing queued connected signal there
+    Syncronizer sync1;
+    sync1.moveToThread(&thread);
+    Syncronizer sync2;
+    sync2.moveToThread(&thread);
+    connect(&sync2, SIGNAL(propChanged(int)), &sync1, SLOT(setProp(int)), Qt::QueuedConnection);
+    connect(&sync1, SIGNAL(propChanged(int)), &thread, SLOT(quit()), Qt::QueuedConnection);
+    QMetaObject::invokeMethod(&sync2, "setProp", Qt::QueuedConnection , Q_ARG(int, 89));
+    QTest::qWait(50);
+    while(!thread.wait(10))
+        QTest::qWait(10);
+    QCOMPARE(sync2.m_prop, 89);
+    QCOMPARE(sync1.m_prop, 89);
+}
+
 
 
 QTEST_MAIN(tst_QThread)

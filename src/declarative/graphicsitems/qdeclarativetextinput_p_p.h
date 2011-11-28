@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -44,7 +44,7 @@
 
 #include "private/qdeclarativetextinput_p.h"
 
-#include "private/qdeclarativepainteditem_p_p.h"
+#include "private/qdeclarativeimplicitsizeitem_p_p.h"
 
 #include <qdeclarative.h>
 
@@ -66,19 +66,21 @@
 
 QT_BEGIN_NAMESPACE
 
-class QDeclarativeTextInputPrivate : public QDeclarativePaintedItemPrivate
+class Q_AUTOTEST_EXPORT QDeclarativeTextInputPrivate : public QDeclarativeImplicitSizePaintedItemPrivate
 {
     Q_DECLARE_PUBLIC(QDeclarativeTextInput)
 public:
     QDeclarativeTextInputPrivate() : control(new QLineControl(QString())),
                  color((QRgb)0), style(QDeclarativeText::Normal),
                  styleColor((QRgb)0), hAlign(QDeclarativeTextInput::AlignLeft),
-                 hscroll(0), oldScroll(0), focused(false), focusOnPress(true),
+                 mouseSelectionMode(QDeclarativeTextInput::SelectCharacters), inputMethodHints(Qt::ImhNone),
+                 hscroll(0), oldScroll(0), oldValidity(false), focused(false), focusOnPress(true),
                  showInputPanelOnFocus(true), clickCausedFocus(false), cursorVisible(false),
-                 autoScroll(true), selectByMouse(false)
+                 autoScroll(true), selectByMouse(false), canPaste(false), hAlignImplicit(true),
+                 selectPressed(false)
     {
 #ifdef Q_OS_SYMBIAN
-        if (QSysInfo::symbianVersion() == QSysInfo::SV_SF_1 || QSysInfo::symbianVersion() == QSysInfo::SV_SF_3) {
+        if (QSysInfo::symbianVersion() >= QSysInfo::SV_SF_1) {
             showInputPanelOnFocus = false;
         }
 #endif
@@ -102,34 +104,50 @@ public:
     void startCreatingCursor();
     void focusChanged(bool hasFocus);
     void updateHorizontalScroll();
+    bool determineHorizontalAlignment();
+    bool setHAlign(QDeclarativeTextInput::HAlignment, bool forceAlign = false);
+    void mirrorChange();
     int calculateTextWidth();
+    bool sendMouseEventToInputContext(QGraphicsSceneMouseEvent *event, QEvent::Type eventType);
+    void updateInputMethodHints();
 
     QLineControl* control;
 
     QFont font;
+    QFont sourceFont;
     QColor  color;
     QColor  selectionColor;
     QColor  selectedTextColor;
     QDeclarativeText::TextStyle style;
     QColor  styleColor;
     QDeclarativeTextInput::HAlignment hAlign;
+    QDeclarativeTextInput::SelectionMode mouseSelectionMode;
+    Qt::InputMethodHints inputMethodHints;
     QPointer<QDeclarativeComponent> cursorComponent;
     QPointer<QDeclarativeItem> cursorItem;
+    QPointF pressPos;
 
     int lastSelectionStart;
     int lastSelectionEnd;
     int oldHeight;
     int oldWidth;
-    bool oldValidity;
     int hscroll;
     int oldScroll;
-    bool focused;
-    bool focusOnPress;
-    bool showInputPanelOnFocus;
-    bool clickCausedFocus;
-    bool cursorVisible;
-    bool autoScroll;
-    bool selectByMouse;
+    bool oldValidity:1;
+    bool focused:1;
+    bool focusOnPress:1;
+    bool showInputPanelOnFocus:1;
+    bool clickCausedFocus:1;
+    bool cursorVisible:1;
+    bool autoScroll:1;
+    bool selectByMouse:1;
+    bool canPaste:1;
+    bool hAlignImplicit:1;
+    bool selectPressed:1;
+
+    static inline QDeclarativeTextInputPrivate *get(QDeclarativeTextInput *t) {
+        return t->d_func();
+    }
 };
 
 QT_END_NAMESPACE

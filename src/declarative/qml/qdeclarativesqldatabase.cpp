@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -172,16 +172,23 @@ static const char* sqlerror[] = {
     return errorValue; \
 }
 
-
-static QString databaseFile(const QString& connectionName, QScriptEngine *engine)
+static QString qmlsqldatabase_databasesPath(QScriptEngine *engine)
 {
     QDeclarativeScriptEngine *qmlengine = static_cast<QDeclarativeScriptEngine*>(engine);
-    QString basename = qmlengine->offlineStoragePath
-                + QDir::separator() + QLatin1String("Databases") + QDir::separator();
-    basename += connectionName;
-    return basename;
+    return qmlengine->offlineStoragePath
+            + QDir::separator() + QLatin1String("Databases");
 }
 
+static void qmlsqldatabase_initDatabasesPath(QScriptEngine *engine)
+{
+    QDir().mkpath(qmlsqldatabase_databasesPath(engine));
+}
+
+static QString qmlsqldatabase_databaseFile(const QString& connectionName, QScriptEngine *engine)
+{
+    return qmlsqldatabase_databasesPath(engine) + QDir::separator()
+            + connectionName;
+}
 
 
 static QScriptValue qmlsqldatabase_item(QScriptContext *context, QScriptEngine *engine)
@@ -302,7 +309,7 @@ static QScriptValue qmlsqldatabase_change_version(QScriptContext *context, QScri
 
     if (ok) {
         context->thisObject().setProperty(QLatin1String("version"), to_version, QScriptValue::ReadOnly);
-        QSettings ini(databaseFile(db.connectionName(),engine)+QLatin1String(".ini"),QSettings::IniFormat);
+        QSettings ini(qmlsqldatabase_databaseFile(db.connectionName(),engine) + QLatin1String(".ini"), QSettings::IniFormat);
         ini.setValue(QLatin1String("Version"), to_version);
     }
 
@@ -344,10 +351,12 @@ static QScriptValue qmlsqldatabase_read_transaction(QScriptContext *context, QSc
 }
 
 /*
-    Currently documented in doc/src/declarastive/globalobject.qdoc
+    Currently documented in doc/src/declarative/globalobject.qdoc
 */
 static QScriptValue qmlsqldatabase_open_sync(QScriptContext *context, QScriptEngine *engine)
 {
+    qmlsqldatabase_initDatabasesPath(engine);
+
     QSqlDatabase database;
 
     QString dbname = context->argument(0).toString();
@@ -360,7 +369,7 @@ static QScriptValue qmlsqldatabase_open_sync(QScriptContext *context, QScriptEng
     md5.addData(dbname.toUtf8());
     QString dbid(QLatin1String(md5.result().toHex()));
 
-    QString basename = databaseFile(dbid,engine);
+    QString basename = qmlsqldatabase_databaseFile(dbid, engine);
     bool created = false;
     QString version = dbversion;
 
@@ -375,7 +384,6 @@ static QScriptValue qmlsqldatabase_open_sync(QScriptContext *context, QScriptEng
         } else {
             created = !QFile::exists(basename+QLatin1String(".sqlite"));
             database = QSqlDatabase::addDatabase(QLatin1String("QSQLITE"), dbid);
-            QDir().mkpath(basename);
             if (created) {
                 ini.setValue(QLatin1String("Name"), dbname);
                 if (dbcreationCallback.isFunction())

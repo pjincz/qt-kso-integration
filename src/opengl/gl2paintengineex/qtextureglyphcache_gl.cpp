@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -52,12 +52,23 @@ QT_BEGIN_NAMESPACE
 extern Q_GUI_EXPORT bool qt_cleartype_enabled;
 #endif
 
+QBasicAtomicInt qgltextureglyphcache_serial_number = Q_BASIC_ATOMIC_INITIALIZER(1);
+
 QGLTextureGlyphCache::QGLTextureGlyphCache(QGLContext *context, QFontEngineGlyphCache::Type type, const QTransform &matrix)
     : QImageTextureGlyphCache(type, matrix)
-    , ctx(context)
+    , ctx(0)
     , m_width(0)
     , m_height(0)
+    , m_filterMode(Nearest)
+    , m_serialNumber(qgltextureglyphcache_serial_number.fetchAndAddRelaxed(1))
 {
+    setContext(context);
+}
+
+void QGLTextureGlyphCache::setContext(QGLContext *context)
+{
+    ctx = context;
+
     // broken FBO readback is a bug in the SGX 1.3 and 1.4 drivers for the N900 where
     // copying between FBO's is broken if the texture is either GL_ALPHA or POT. The
     // workaround is to use a system-memory copy of the glyph cache for this device.
@@ -70,6 +81,27 @@ QGLTextureGlyphCache::QGLTextureGlyphCache(QGLContext *context, QFontEngineGlyph
             SLOT(contextDestroyed(const QGLContext*)));
 }
 
+void QGLTextureGlyphCache::clear() 
+{
+    if (ctx) {
+        QGLShareContextScope scope(ctx);
+
+        if (m_width || m_height)
+            glDeleteTextures(1, &m_texture);
+
+        m_texture = 0;
+        m_width = 0;
+        m_height = 0;
+        m_w = 0;
+        m_h = 0;
+        m_cx = 0;
+        m_cy = 0;
+        m_currentRowHeight = 0;
+        coords.clear();
+    }
+  
+}
+
 QGLTextureGlyphCache::~QGLTextureGlyphCache()
 {
     if (ctx) {
@@ -77,10 +109,9 @@ QGLTextureGlyphCache::~QGLTextureGlyphCache()
 
         if (!ctx->d_ptr->workaround_brokenFBOReadBack)
             glDeleteFramebuffers(1, &m_fbo);
-
-        if (m_width || m_height)
-            glDeleteTextures(1, &m_texture);
     }
+
+    clear();
 }
 
 void QGLTextureGlyphCache::createTextureData(int width, int height)
@@ -103,17 +134,23 @@ void QGLTextureGlyphCache::createTextureData(int width, int height)
     m_width = width;
     m_height = height;
 
-    QVarLengthArray<uchar> data(width * height);
-    for (int i = 0; i < data.size(); ++i)
-        data[i] = 0;
-
-    if (m_type == QFontEngineGlyphCache::Raster_RGBMask)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, &data[0]);
-    else
+    if (m_type == QFontEngineGlyphCache::Raster_RGBMask) {
+        QVarLengthArray<uchar> data(width * height * 4);
+        for (int i = 0; i < data.size(); ++i)
+            data[i] = 0;
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+    } else {
+        QVarLengthArray<uchar> data(width * height);
+        for (int i = 0; i < data.size(); ++i)
+            data[i] = 0;
         glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, &data[0]);
+    }
 
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_filterMode = Nearest;
 }
 
 void QGLTextureGlyphCache::resizeTextureData(int width, int height)
@@ -133,7 +170,7 @@ void QGLTextureGlyphCache::resizeTextureData(int width, int height)
     if (ctx->d_ptr->workaround_brokenFBOReadBack) {
         QImageTextureGlyphCache::resizeTextureData(width, height);
         Q_ASSERT(image().depth() == 8);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, oldWidth, oldHeight, GL_ALPHA, GL_UNSIGNED_BYTE, image().constBits());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, oldHeight, GL_ALPHA, GL_UNSIGNED_BYTE, image().constBits());
         glDeleteTextures(1, &oldTexture);
         return;
     }
@@ -152,6 +189,7 @@ void QGLTextureGlyphCache::resizeTextureData(int width, int height)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_filterMode = Nearest;
     glBindTexture(GL_TEXTURE_2D, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
                            GL_TEXTURE_2D, tmp_texture, 0);
@@ -258,9 +296,6 @@ void QGLTextureGlyphCache::fillTexture(const Coord &c, glyph_t glyph)
     if (mask.format() == QImage::Format_RGB32) {
         glTexSubImage2D(GL_TEXTURE_2D, 0, c.x, c.y, maskWidth, maskHeight, GL_BGRA, GL_UNSIGNED_BYTE, mask.bits());
     } else {
-#ifdef QT_OPENGL_ES2
-        glTexSubImage2D(GL_TEXTURE_2D, 0, c.x, c.y, maskWidth, maskHeight, GL_ALPHA, GL_UNSIGNED_BYTE, mask.bits());
-#else
         // glTexSubImage2D() might cause some garbage to appear in the texture if the mask width is
         // not a multiple of four bytes. The bug appeared on a computer with 32-bit Windows Vista
         // and nVidia GeForce 8500GT. GL_UNPACK_ALIGNMENT is set to four bytes, 'mask' has a
@@ -271,8 +306,7 @@ void QGLTextureGlyphCache::fillTexture(const Coord &c, glyph_t glyph)
         // time.
 
         for (int i = 0; i < maskHeight; ++i)
-            glTexSubImage2D(GL_TEXTURE_2D, 0, c.x, c.y + i, maskWidth, 1, GL_ALPHA, GL_UNSIGNED_BYTE, mask.scanLine(i));
-#endif
+            glTexSubImage2D(GL_TEXTURE_2D, 0, c.x, c.y + i, qMin(c.w, maskWidth), 1, GL_ALPHA, GL_UNSIGNED_BYTE, mask.scanLine(i));
     }
 }
 
@@ -288,6 +322,9 @@ int QGLTextureGlyphCache::maxTextureWidth() const
 
 int QGLTextureGlyphCache::maxTextureHeight() const
 {
-    return ctx->d_ptr->maxTextureSize();
+    if (ctx->d_ptr->workaround_brokenTexSubImage)
+        return qMin(1024, ctx->d_ptr->maxTextureSize());
+    else
+        return ctx->d_ptr->maxTextureSize();
 }
 QT_END_NAMESPACE

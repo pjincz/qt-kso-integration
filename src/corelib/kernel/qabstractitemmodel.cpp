@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -1197,7 +1197,7 @@ void QAbstractItemModelPrivate::columnsRemoved(const QModelIndex &parent,
     \l{QAbstractItemModel::}{endInsertRows()} must be called.
 
     \sa {Model Classes}, {Model Subclassing Reference}, QModelIndex,
-        QAbstractItemView, {Using drag & drop with item views},
+        QAbstractItemView, {Using drag and drop with item views},
         {Simple DOM Model Example}, {Simple Tree Model Example},
         {Editable Tree Model Example}, {Fetch More Example}
 */
@@ -1336,13 +1336,12 @@ void QAbstractItemModelPrivate::columnsRemoved(const QModelIndex &parent,
     layoutChanged(). In other words, when the structure changes:
 
     \list
-        \o  Call beginLayoutChanged()
+        \o  emit layoutAboutToBeChanged
         \o  Remember the QModelIndex that will change
         \o  Update your internal data
         \o  Call changePersistentIndex()
-        \o  Call endLayoutChanged()
+        \o  emit layoutChanged
     \endlist
-
 
     \sa layoutAboutToBeChanged(), dataChanged(), headerDataChanged(), modelReset(),
         changePersistentIndex()
@@ -1761,7 +1760,7 @@ QMimeData *QAbstractItemModel::mimeData(const QModelIndexList &indexes) const
     where to place the data. This can occur in a tree when data is dropped on
     a parent. Models will usually append the data to the parent in this case.
 
-    \sa supportedDropActions(), {Using drag & drop with item views}
+    \sa supportedDropActions(), {Using drag and drop with item views}
 */
 bool QAbstractItemModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
                                       int row, int column, const QModelIndex &parent)
@@ -1798,7 +1797,7 @@ bool QAbstractItemModel::dropMimeData(const QMimeData *data, Qt::DropAction acti
     reimplement the dropMimeData() function to handle the additional
     operations.
 
-    \sa dropMimeData(), Qt::DropActions, {Using drag & drop with item
+    \sa dropMimeData(), Qt::DropActions, {Using drag and drop with item
     views}
 */
 Qt::DropActions QAbstractItemModel::supportedDropActions() const
@@ -1815,7 +1814,7 @@ Qt::DropActions QAbstractItemModel::supportedDropActions() const
     supportedDragActions() is used by QAbstractItemView::startDrag() as the
     default values when a drag occurs.
 
-    \sa Qt::DropActions, {Using drag & drop with item views}
+    \sa Qt::DropActions, {Using drag and drop with item views}
 */
 Qt::DropActions QAbstractItemModel::supportedDragActions() const
 {
@@ -1831,7 +1830,7 @@ Qt::DropActions QAbstractItemModel::supportedDragActions() const
 
     Sets the supported drag \a actions for the items in the model.
 
-    \sa supportedDragActions(), {Using drag & drop with item views}
+    \sa supportedDragActions(), {Using drag and drop with item views}
 */
 void QAbstractItemModel::setSupportedDragActions(Qt::DropActions actions)
 {

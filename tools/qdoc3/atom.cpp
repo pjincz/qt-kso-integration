@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -51,6 +51,7 @@ QString Atom::INDEX_         ("index");
 QString Atom::ITALIC_        ("italic");
 QString Atom::LINK_          ("link");
 QString Atom::PARAMETER_     ("parameter");
+QString Atom::SPAN_          ("span");
 QString Atom::SUBSCRIPT_     ("subscript");
 QString Atom::SUPERSCRIPT_   ("superscript");
 QString Atom::TELETYPE_      ("teletype");
@@ -107,6 +108,8 @@ QString Atom::UPPERROMAN_    ("upperroman");
   \value CodeOld
   \value CodeQuoteArgument
   \value CodeQuoteCommand
+  \value DivLeft
+  \value DivRight
   \value EndQmlText
   \value FormatElse
   \value FormatEndif
@@ -179,9 +182,9 @@ static const struct {
     { "CodeOld", Atom::CodeOld },
     { "CodeQuoteArgument", Atom::CodeQuoteArgument },
     { "CodeQuoteCommand", Atom::CodeQuoteCommand },
-#ifdef QDOC_QML
+    { "DivLeft", Atom::DivLeft },
+    { "DivRight", Atom::DivRight },
     { "EndQmlText", Atom::EndQmlText },
-#endif
     { "FootnoteLeft", Atom::FootnoteLeft },
     { "FootnoteRight", Atom::FootnoteRight },
     { "FormatElse", Atom::FormatElse },
@@ -190,9 +193,12 @@ static const struct {
     { "FormattingLeft", Atom::FormattingLeft },
     { "FormattingRight", Atom::FormattingRight },
     { "GeneratedList", Atom::GeneratedList },
+    { "GuidLink", Atom::GuidLink},
     { "Image", Atom::Image },
     { "ImageText", Atom::ImageText },
     { "InlineImage", Atom::InlineImage },
+    { "JavaScript", Atom::JavaScript },
+    { "EndJavaScript", Atom::EndJavaScript },
     { "LegaleseLeft", Atom::LegaleseLeft },
     { "LegaleseRight", Atom::LegaleseRight },
     { "LineBreak", Atom::LineBreak },
@@ -208,10 +214,8 @@ static const struct {
     { "Nop", Atom::Nop },
     { "ParaLeft", Atom::ParaLeft },
     { "ParaRight", Atom::ParaRight },
-#ifdef QDOC_QML
     { "Qml", Atom::Qml},
     { "QmlText", Atom::QmlText },
-#endif
     { "QuotationLeft", Atom::QuotationLeft },
     { "QuotationRight", Atom::QuotationRight },
     { "RawString", Atom::RawString },
@@ -241,25 +245,25 @@ static const struct {
     { 0, 0 }
 };
 
-/*! \fn Atom::Atom( Type type, const QString& string )
+/*! \fn Atom::Atom(Type type, const QString& string)
 
   Constructs an atom (\a type, \a string) outside of any atom list.
 */
 
-/*! \fn Atom( Atom *prev, Type type, const QString& string )
+/*! \fn Atom(Atom *prev, Type type, const QString& string)
 
   Constructs an atom (\a type, \a string) that follows \a prev in \a
   prev's atom list.
 */
 
-/*! \fn void Atom::appendChar( QChar ch )
+/*! \fn void Atom::appendChar(QChar ch)
 
   Appends \a ch to the string parameter of this atom.
 
   \also string()
 */
 
-/*! \fn void Atom::appendString( const QString& string )
+/*! \fn void Atom::appendString(const QString& string)
 
   Appends \a string to the string parameter of this atom.
 
@@ -316,18 +320,18 @@ QString Atom::typeString() const
 {
     static bool deja = false;
 
-    if ( !deja ) {
+    if (!deja) {
 	int i = 0;
-	while ( atms[i].english != 0 ) {
-	    if ( atms[i].no != i )
-		Location::internalError( tr("atom %1 missing").arg(i) );
+	while (atms[i].english != 0) {
+	    if (atms[i].no != i)
+		Location::internalError(tr("atom %1 missing").arg(i));
 	    i++;
 	}
 	deja = true;
     }
 
     int i = (int) type();
-    if ( i < 0 || i > (int) Last )
+    if (i < 0 || i > (int) Last)
         return QLatin1String("Invalid");
     return QLatin1String(atms[i].english);
 }
@@ -346,10 +350,10 @@ QString Atom::typeString() const
 void Atom::dump() const
 {
     QString str = string();
-    str.replace( "\\", "\\\\" );
-    str.replace( "\"", "\\\"" );
-    str.replace( "\n", "\\n" );
-    str.replace( QRegExp("[^\x20-\x7e]"), "?" );
+    str.replace("\\", "\\\\");
+    str.replace("\"", "\\\"");
+    str.replace("\n", "\\n");
+    str.replace(QRegExp("[^\x20-\x7e]"), "?");
     if (!str.isEmpty())
         str = " \"" + str + "\"";
     fprintf(stderr,

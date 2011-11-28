@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -55,7 +55,7 @@
 
 #include "private/qdeclarativepositioners_p.h"
 
-#include "private/qdeclarativeitem_p.h"
+#include "private/qdeclarativeimplicitsizeitem_p_p.h"
 
 #include <qdeclarativestate_p.h>
 #include <qdeclarativetransitionmanager_p_p.h>
@@ -67,7 +67,7 @@
 #include <QDebug>
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeBasePositionerPrivate : public QDeclarativeItemPrivate, public QDeclarativeItemChangeListener
+class QDeclarativeBasePositionerPrivate : public QDeclarativeImplicitSizeItemPrivate, public QDeclarativeItemChangeListener
 {
     Q_DECLARE_PUBLIC(QDeclarativeBasePositioner)
 
@@ -75,7 +75,7 @@ public:
     QDeclarativeBasePositionerPrivate()
         : spacing(0), type(QDeclarativeBasePositioner::None)
         , moveTransition(0), addTransition(0), queuedPositioning(false)
-        , doingPositioning(false), anchorConflict(false)
+        , doingPositioning(false), anchorConflict(false), layoutDirection(Qt::LeftToRight)
     {
     }
 
@@ -100,6 +100,9 @@ public:
     bool doingPositioning : 1;
     bool anchorConflict : 1;
 
+    Qt::LayoutDirection layoutDirection;
+
+
     void schedulePositioning()
     {
         Q_Q(QDeclarativeBasePositioner);
@@ -107,6 +110,18 @@ public:
             QTimer::singleShot(0,q,SLOT(prePositioning()));
             queuedPositioning = true;
         }
+    }
+
+    void mirrorChange() {
+        Q_Q(QDeclarativeBasePositioner);
+        if (type != QDeclarativeBasePositioner::Vertical)
+            q->prePositioning();
+    }
+    bool isLeftToRight() const {
+        if (type == QDeclarativeBasePositioner::Vertical)
+            return true;
+        else
+            return effectiveLayoutMirror ? layoutDirection == Qt::RightToLeft : layoutDirection == Qt::LeftToRight;
     }
 
     virtual void itemSiblingOrderChanged(QDeclarativeItem* other)
@@ -138,6 +153,19 @@ public:
     {
         Q_Q(QDeclarativeBasePositioner);
         q->positionedItems.removeOne(QDeclarativeBasePositioner::PositionedItem(item));
+    }
+
+    static Qt::LayoutDirection getLayoutDirection(const QDeclarativeBasePositioner *positioner)
+    {
+        return positioner->d_func()->layoutDirection;
+    }
+
+    static Qt::LayoutDirection getEffectiveLayoutDirection(const QDeclarativeBasePositioner *positioner)
+    {
+        if (positioner->d_func()->effectiveLayoutMirror)
+            return positioner->d_func()->layoutDirection == Qt::RightToLeft ? Qt::LeftToRight : Qt::RightToLeft;
+        else
+            return positioner->d_func()->layoutDirection;
     }
 };
 

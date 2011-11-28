@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -54,12 +54,13 @@
 #include "private/qdeclarativescriptparser_p.h"
 #include "private/qdeclarativedebugtrace_p.h"
 #include "private/qdeclarativeenginedebug_p.h"
+#include <QtScript/qscriptvalueiterator.h>
 
 #include <QStack>
 #include <QStringList>
-#include <QFileInfo>
 #include <QtCore/qdebug.h>
 #include <QApplication>
+#include <qdeclarativeinfo.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -99,7 +100,44 @@ class QByteArray;
     int width = item->width();  // width = 200
     \endcode
 
-    \sa {Using QML in C++ Applications}, {Integrating QML with existing Qt UI code}
+
+    \section2 Network Components
+
+    If the URL passed to QDeclarativeComponent is a network resource, or if the QML document references a
+    network resource, the QDeclarativeComponent has to fetch the network data before it is able to create
+    objects.  In this case, the QDeclarativeComponent will have a \l {QDeclarativeComponent::Loading}{Loading}
+    \l {QDeclarativeComponent::status()}{status}.  An application will have to wait until the component
+    is \l {QDeclarativeComponent::Ready}{Ready} before calling \l {QDeclarativeComponent::create()}.
+
+    The following example shows how to load a QML file from a network resource.  After creating
+    the QDeclarativeComponent, it tests whether the component is loading.  If it is, it connects to the
+    QDeclarativeComponent::statusChanged() signal and otherwise calls the \c {continueLoading()} method
+    directly. Note that QDeclarativeComponent::isLoading() may be false for a network component if the
+    component has been cached and is ready immediately.
+
+    \code
+    MyApplication::MyApplication()
+    {
+        // ...
+        component = new QDeclarativeComponent(engine, QUrl("http://www.example.com/main.qml"));
+        if (component->isLoading())
+            QObject::connect(component, SIGNAL(statusChanged(QDeclarativeComponent::Status)),
+                             this, SLOT(continueLoading()));
+        else
+            continueLoading();
+    }
+
+    void MyApplication::continueLoading()
+    {
+        if (component->isError()) {
+            qWarning() << component->errors();
+        } else {
+            QObject *myObject = component->create();
+        }
+    }
+    \endcode
+
+    \sa {Using QML Bindings in C++ Applications}, {Integrating QML Code with Existing Qt UI Code}
 */
 
 /*!
@@ -111,32 +149,36 @@ class QByteArray;
     Components are reusable, encapsulated QML elements with well-defined interfaces.
 
     Components are often defined by \l {qdeclarativedocuments.html}{component files} -
-    that is, \c .qml files. The \e Component element allows components to be defined
-    within QML items rather than in a separate file. This may be useful for reusing 
-    a small component within a QML file, or for defining a component that logically 
-    belongs with other QML components within a file.
+    that is, \c .qml files. The \e Component element essentially allows QML components
+    to be defined inline, within a \l {QML Document}{QML document}, rather than as a separate QML file.
+    This may be useful for reusing a small component within a QML file, or for defining
+    a component that logically belongs with other QML components within a file.
 
     For example, here is a component that is used by multiple \l Loader objects.
-    It contains a top level \l Rectangle item:
+    It contains a single item, a \l Rectangle:
 
     \snippet doc/src/snippets/declarative/component.qml 0
 
     Notice that while a \l Rectangle by itself would be automatically 
     rendered and displayed, this is not the case for the above rectangle
     because it is defined inside a \c Component. The component encapsulates the
-    QML elements within, as if they were defined in a separate \c .qml
+    QML elements within, as if they were defined in a separate QML
     file, and is not loaded until requested (in this case, by the
     two \l Loader objects).
 
-    A Component cannot contain anything other
-    than an \c id and a single top level item. While the \c id is optional,
-    the top level item is not; you cannot define an empty component.
+    Defining a \c Component is similar to defining a \l {QML Document}{QML document}.
+    A QML document has a single top-level item that defines the behaviors and
+    properties of that component, and cannot define properties or behaviors outside
+    of that top-level item. In the same way, a \c Component definition contains a single
+    top level item (which in the above example is a \l Rectangle) and cannot define any
+    data outside of this item, with the exception of an \e id (which in the above example
+    is \e redSquare).
 
-    The Component element is commonly used to provide graphical components
-    for views. For example, the ListView::delegate property requires a Component
+    The \c Component element is commonly used to provide graphical components
+    for views. For example, the ListView::delegate property requires a \c Component
     to specify how each list item is to be displayed.
 
-    Component objects can also be dynamically created using
+    \c Component objects can also be created dynamically using
     \l{QML:Qt::createComponent()}{Qt.createComponent()}.
 */
 
@@ -573,10 +615,11 @@ QDeclarativeComponent::QDeclarativeComponent(QDeclarativeComponentPrivate &dd, Q
 }
 
 /*!
-    \qmlmethod object Component::createObject(Item parent)
+    \qmlmethod object Component::createObject(Item parent, object properties)
 
-    Creates and returns an object instance of this component that will have the given 
-    \a parent. Returns null if object creation fails.
+    Creates and returns an object instance of this component that will have
+    the given \a parent and \a properties. The \a properties argument is optional.
+    Returns null if object creation fails.
 
     The object will be created in the same context as the one in which the component
     was created. This function will always return null when called on components
@@ -586,6 +629,25 @@ QDeclarativeComponent::QDeclarativeComponent(QDeclarativeComponentPrivate &dd, Q
     the \a parent value. Note that if the returned object is to be displayed, you 
     must provide a valid \a parent value or set the returned object's \l{Item::parent}{parent} 
     property, or else the object will not be visible.
+
+    If a \a parent is not provided to createObject(), a reference to the returned object must be held so that
+    it is not destroyed by the garbage collector.  This is true regardless of whether \l{Item::parent} is set afterwards,
+    since setting the Item parent does not change object ownership; only the graphical parent is changed.
+
+    As of QtQuick 1.1, this method accepts an optional \a properties argument that specifies a
+    map of initial property values for the created object. These values are applied before object
+    creation is finalized. (This is more efficient than setting property values after object creation,
+    particularly where large sets of property values are defined, and also allows property bindings
+    to be set up before the object is created.)
+
+    The \a properties argument is specified as a map of property-value items. For example, the code
+    below creates an object with initial \c x and \c y values of 100 and 200, respectively:
+
+    \js
+        var component = Qt.createComponent("Button.qml");
+        if (component.status == Component.Ready)
+            component.createObject(parent, {"x": 100, "y": 100});
+    \endjs
 
     Dynamically created instances can be deleted with the \c destroy() method.
     See \l {Dynamic Object Management in QML} for more information.
@@ -602,25 +664,46 @@ QDeclarativeComponent::QDeclarativeComponent(QDeclarativeComponentPrivate &dd, Q
 QScriptValue QDeclarativeComponent::createObject(QObject* parent)
 {
     Q_D(QDeclarativeComponent);
-    QDeclarativeContext* ctxt = creationContext();
-    if(!ctxt && d->engine)
-        ctxt = d->engine->rootContext();
+    return d->createObject(parent, QScriptValue(QScriptValue::NullValue));
+}
+
+/*!
+    \internal
+    Overloadable method allows properties to be set during creation
+*/
+QScriptValue QDeclarativeComponent::createObject(QObject* parent, const QScriptValue& valuemap)
+{
+    Q_D(QDeclarativeComponent);
+
+    if (!valuemap.isObject() || valuemap.isArray()) {
+        qmlInfo(this) << tr("createObject: value is not an object");
+        return QScriptValue(QScriptValue::NullValue);
+    }
+    return d->createObject(parent, valuemap);
+}
+
+QScriptValue QDeclarativeComponentPrivate::createObject(QObject *publicParent, const QScriptValue valuemap)
+{
+    Q_Q(QDeclarativeComponent);
+    QDeclarativeContext* ctxt = q->creationContext();
+    if(!ctxt && engine)
+        ctxt = engine->rootContext();
     if (!ctxt)
         return QScriptValue(QScriptValue::NullValue);
-    QObject* ret = beginCreate(ctxt);
+    QObject* ret = q->beginCreate(ctxt);
     if (!ret) {
-        completeCreate();
+        q->completeCreate();
         return QScriptValue(QScriptValue::NullValue);
     }
 
-    if (parent) {
-        ret->setParent(parent);
+    if (publicParent) {
+        ret->setParent(publicParent);
         QList<QDeclarativePrivate::AutoParentFunction> functions = QDeclarativeMetaType::parentFunctions();
 
         bool needParent = false;
 
         for (int ii = 0; ii < functions.count(); ++ii) {
-            QDeclarativePrivate::AutoParentResult res = functions.at(ii)(ret, parent);
+            QDeclarativePrivate::AutoParentResult res = functions.at(ii)(ret, publicParent);
             if (res == QDeclarativePrivate::Parented) {
                 needParent = false;
                 break;
@@ -629,14 +712,41 @@ QScriptValue QDeclarativeComponent::createObject(QObject* parent)
             }
         }
 
-        if (needParent) 
+        if (needParent)
             qWarning("QDeclarativeComponent: Created graphical object was not placed in the graphics scene.");
     }
-    completeCreate();
 
-    QDeclarativeEnginePrivate *priv = QDeclarativeEnginePrivate::get(d->engine);
+    QDeclarativeEnginePrivate *priv = QDeclarativeEnginePrivate::get(engine);
     QDeclarativeData::get(ret, true)->setImplicitDestructible();
-    return priv->objectClass->newQObject(ret, QMetaType::QObjectStar);
+    QScriptValue newObject = priv->objectClass->newQObject(ret, QMetaType::QObjectStar);
+
+    if (valuemap.isObject() && !valuemap.isArray()) {
+        //Iterate through and assign properties
+        QScriptValueIterator it(valuemap);
+        while (it.hasNext()) {
+            it.next();
+            QScriptValue prop = newObject;
+            QString propName = it.name();
+            int index = propName.indexOf(QLatin1Char('.'));
+            if (index > 0) {
+                QString subProp = propName;
+                int lastIndex = 0;
+                while (index > 0) {
+                    subProp = propName.mid(lastIndex, index - lastIndex);
+                    prop = prop.property(subProp);
+                    lastIndex = index + 1;
+                    index = propName.indexOf(QLatin1Char('.'), index + 1);
+                }
+                prop.setProperty(propName.mid(propName.lastIndexOf(QLatin1Char('.')) + 1), it.value());
+            } else {
+                newObject.setProperty(propName, it.value());
+            }
+        }
+    }
+
+    q->completeCreate();
+
+    return newObject;
 }
 
 /*!
@@ -655,17 +765,6 @@ QObject *QDeclarativeComponent::create(QDeclarativeContext *context)
         context = d->engine->rootContext();
 
     QObject *rv = beginCreate(context);
-    completeCreate();
-    return rv;
-}
-
-QObject *QDeclarativeComponentPrivate::create(QDeclarativeContextData *context, 
-                                              const QBitField &bindings)
-{
-    if (!context)
-        context = QDeclarativeContextData::get(engine->rootContext());
-
-    QObject *rv = beginCreate(context, bindings);
     completeCreate();
     return rv;
 }
@@ -734,48 +833,47 @@ QDeclarativeComponentPrivate::beginCreate(QDeclarativeContextData *context, cons
         return 0;
     }
 
-    QDeclarativeEnginePrivate *ep = QDeclarativeEnginePrivate::get(engine);
+    return begin(context, creationContext, cc, start, count, &state, 0, bindings);
+}
 
-    bool isRoot = !ep->inBeginCreate;
-    if (isRoot) 
+QObject * QDeclarativeComponentPrivate::begin(QDeclarativeContextData *parentContext, 
+                                              QDeclarativeContextData *componentCreationContext,
+                                              QDeclarativeCompiledData *component, int start, int count,
+                                              ConstructionState *state, QList<QDeclarativeError> *errors,
+                                              const QBitField &bindings)
+{
+    QDeclarativeEnginePrivate *enginePriv = QDeclarativeEnginePrivate::get(parentContext->engine);
+    bool isRoot = !enginePriv->inBeginCreate;
+
+    Q_ASSERT(!isRoot || state); // Either this isn't a root component, or a state data must be provided
+    Q_ASSERT((state != 0) ^ (errors != 0)); // One of state or errors (but not both) must be provided
+
+    if (isRoot) {
         QDeclarativeDebugTrace::startRange(QDeclarativeDebugTrace::Creating);
-    QDeclarativeDebugTrace::rangeData(QDeclarativeDebugTrace::Creating, cc->url);
+        QDeclarativeDebugTrace::rangeData(QDeclarativeDebugTrace::Creating, component->url);
+    }
 
     QDeclarativeContextData *ctxt = new QDeclarativeContextData;
     ctxt->isInternal = true;
-    ctxt->url = cc->url;
-    ctxt->imports = cc->importCache;
+    ctxt->url = component->url;
+    ctxt->imports = component->importCache;
 
     // Nested global imports
-    if (creationContext && start != -1) 
-        ctxt->importedScripts = creationContext->importedScripts;
+    if (componentCreationContext && start != -1) 
+        ctxt->importedScripts = componentCreationContext->importedScripts;
 
-    cc->importCache->addref();
-    ctxt->setParent(context);
+    component->importCache->addref();
+    ctxt->setParent(parentContext);
 
-    QObject *rv = begin(ctxt, ep, cc, start, count, &state, bindings);
-
-    if (ep->isDebugging && rv) {
-        if  (!context->isInternal)
-            context->asQDeclarativeContextPrivate()->instances.append(rv);
-        QDeclarativeEngineDebugServer::instance()->objectCreated(engine, rv);
-    }
-
-    return rv;
-}
-
-QObject * QDeclarativeComponentPrivate::begin(QDeclarativeContextData *ctxt, QDeclarativeEnginePrivate *enginePriv,
-                                              QDeclarativeCompiledData *component, int start, int count,
-                                              ConstructionState *state, const QBitField &bindings)
-{
-    bool isRoot = !enginePriv->inBeginCreate;
     enginePriv->inBeginCreate = true;
 
     QDeclarativeVME vme;
     QObject *rv = vme.run(ctxt, component, start, count, bindings);
 
-    if (vme.isError()) 
-        state->errors = vme.errors();
+    if (vme.isError()) {
+       if(errors) *errors = vme.errors();
+       else state->errors = vme.errors();
+    }
 
     if (isRoot) {
         enginePriv->inBeginCreate = false;
@@ -793,6 +891,12 @@ QObject * QDeclarativeComponentPrivate::begin(QDeclarativeContextData *ctxt, QDe
         enginePriv->finalizedParserStatus.clear();
         state->completePending = true;
         enginePriv->inProgressCreations++;
+    }
+
+    if (enginePriv->isDebugging && rv) {
+        if  (!parentContext->isInternal)
+            parentContext->asQDeclarativeContextPrivate()->instances.append(rv);
+        QDeclarativeEngineDebugServer::instance()->objectCreated(parentContext->engine, rv);
     }
 
     return rv;
@@ -837,9 +941,12 @@ void QDeclarativeComponentPrivate::complete(QDeclarativeEnginePrivate *enginePri
             QDeclarativeEnginePrivate::SimpleList<QDeclarativeAbstractBinding> bv = 
                 state->bindValues.at(ii);
             for (int jj = 0; jj < bv.count; ++jj) {
-                if(bv.at(jj)) 
+                if(bv.at(jj)) {
+                    // XXX akennedy
+                    bv.at(jj)->m_mePtr = 0;
                     bv.at(jj)->setEnabled(true, QDeclarativePropertyPrivate::BypassInterceptor | 
                                                 QDeclarativePropertyPrivate::DontRemoveBinding);
+                }
             }
             QDeclarativeEnginePrivate::clear(bv);
         }
@@ -868,6 +975,21 @@ void QDeclarativeComponentPrivate::complete(QDeclarativeEnginePrivate *enginePri
             }
         }
 
+        //componentComplete() can register additional finalization objects
+        //that are then never handled. Handle them manually here.
+        if (1 == enginePriv->inProgressCreations) {
+            for (int ii = 0; ii < enginePriv->finalizedParserStatus.count(); ++ii) {
+                QPair<QDeclarativeGuard<QObject>, int> status = enginePriv->finalizedParserStatus.at(ii);
+                QObject *obj = status.first;
+                if (obj) {
+                    void *args[] = { 0 };
+                    QMetaObject::metacall(obj, QMetaObject::InvokeMetaMethod,
+                                          status.second, args);
+                }
+            }
+            enginePriv->finalizedParserStatus.clear();
+        }
+
         while (state->componentAttached) {
             QDeclarativeComponentAttached *a = state->componentAttached;
             a->rem();
@@ -890,7 +1012,6 @@ void QDeclarativeComponentPrivate::complete(QDeclarativeEnginePrivate *enginePri
                 enginePriv->erroredBindings->removeError();
             }
         }
-
     }
 }
 

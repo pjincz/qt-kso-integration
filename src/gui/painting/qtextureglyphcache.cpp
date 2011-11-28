@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -145,13 +145,20 @@ bool QTextureGlyphCache::populate(QFontEngine *fontEngine, int numGlyphs, const 
                 // no room on the current line, start new glyph strip
                 m_cx = 0;
                 m_cy += m_currentRowHeight + paddingDoubled;
-                m_currentRowHeight = 0; // New row
+                m_currentRowHeight = c.h + margin * 2; // New row
             }
         }
         if (m_cy + c.h > m_h) {
             int new_height = m_h*2;
             while (new_height < m_cy + c.h)
                 new_height *= 2;
+
+            if (maxTextureHeight() > 0 && new_height > maxTextureHeight()) {
+                // We can't make a new texture of the required size, so
+                // bail out
+                return false;
+            }
+
             // if no room in the current texture - realloc a larger texture
             if (new_height <= maxTextureHeight())
             {
@@ -181,14 +188,10 @@ bool QTextureGlyphCache::populate(QFontEngine *fontEngine, int numGlyphs, const 
 QImage QTextureGlyphCache::textureMapForGlyph(glyph_t g) const
 {
 #if defined(Q_WS_X11)
-    if (m_transform.type() > QTransform::TxTranslate) {
+    if (m_type != Raster_RGBMask && m_transform.type() > QTransform::TxTranslate && m_current_fontengine->type() == QFontEngine::Freetype) {
         QFontEngineFT::GlyphFormat format = QFontEngineFT::Format_None;
         QImage::Format imageFormat = QImage::Format_Invalid;
         switch (m_type) {
-        case Raster_RGBMask:
-            format = QFontEngineFT::Format_A32;
-            imageFormat = QImage::Format_RGB32;
-            break;
         case Raster_A8:
             format = QFontEngineFT::Format_A8;
             imageFormat = QImage::Format_Indexed8;
@@ -270,10 +273,13 @@ void QImageTextureGlyphCache::fillTexture(const Coord &c, glyph_t g)
 #endif
 
     if (m_type == QFontEngineGlyphCache::Raster_RGBMask) {
-        QPainter p(&m_image);
+        QImage ref(m_image.bits() + (c.x * 4 + c.y * m_image.bytesPerLine()),
+                   qMax(mask.width(), c.w), qMax(mask.height(), c.h), m_image.bytesPerLine(),
+                   m_image.format());
+        QPainter p(&ref);
         p.setCompositionMode(QPainter::CompositionMode_Source);
-        p.fillRect(c.x, c.y, c.w, c.h, QColor(0,0,0,0)); // TODO optimize this
-        p.drawImage(c.x, c.y, mask);
+        p.fillRect(0, 0, c.w, c.h, QColor(0,0,0,0)); // TODO optimize this
+        p.drawImage(0, 0, mask);
         p.end();
     } else if (m_type == QFontEngineGlyphCache::Raster_Mono) {
         if (mask.depth() > 1) {

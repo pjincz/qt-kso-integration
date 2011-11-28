@@ -1,46 +1,47 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
 #include "qglengineshadermanager_p.h"
 #include "qglengineshadersource_p.h"
+#include "qpaintengineex_opengl2_p.h"
 
 #if defined(QT_DEBUG)
 #include <QMetaEnum>
@@ -248,6 +249,7 @@ QByteArray QGLEngineSharedShaders::snippetNameStr(SnippetName name)
 #endif
 
 // The address returned here will only be valid until next time this function is called.
+// The program is return bound.
 QGLEngineShaderProg *QGLEngineSharedShaders::findProgramInCache(const QGLEngineShaderProg &prog)
 {
     for (int i = 0; i < cachedPrograms.size(); ++i) {
@@ -255,6 +257,7 @@ QGLEngineShaderProg *QGLEngineSharedShaders::findProgramInCache(const QGLEngineS
         if (*cachedProg == prog) {
             // Move the program to the top of the list as a poor-man's cache algo
             cachedPrograms.move(i, 0);
+            cachedProg->program->bind();
             return cachedProg;
         }
     }
@@ -355,6 +358,14 @@ QGLEngineShaderProg *QGLEngineSharedShaders::findProgramInCache(const QGLEngineS
             qWarning() << error;
             break;
         }
+
+        newProg->program->bind();
+
+        if (newProg->maskFragShader != QGLEngineSharedShaders::NoMaskFragmentShader) {
+            GLuint location = newProg->program->uniformLocation("maskTexture");
+            newProg->program->setUniformValue(location, QT_MASK_TEXTURE_UNIT);
+        }
+
         if (cachedPrograms.count() > 30) {
             // The cache is full, so delete the last 5 programs in the list.
             // These programs will be least used, as a program us bumped to
@@ -769,10 +780,8 @@ bool QGLEngineShaderManager::useCorrectShaderProg()
     // At this point, requiredProgram is fully populated so try to find the program in the cache
     currentShaderProg = sharedShaders->findProgramInCache(requiredProgram);
 
-    if (currentShaderProg) {
-        currentShaderProg->program->bind();
-        if (useCustomSrc)
-            customSrcStage->setUniforms(currentShaderProg->program);
+    if (currentShaderProg && useCustomSrc) {
+        customSrcStage->setUniforms(currentShaderProg->program);
     }
 
     // Make sure all the vertex attribute arrays the program uses are enabled (and the ones it

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -282,8 +282,8 @@ QDialog::QDialog(QWidget *parent, Qt::WindowFlags f)
 QDialog::QDialog(QWidget *parent, const char *name, bool modal, Qt::WindowFlags f)
     : QWidget(*new QDialogPrivate, parent,
               f
-              | QFlag(modal ? Qt::WShowModal : 0)
-              | QFlag((f & Qt::WindowType_Mask) == 0 ? Qt::Dialog : 0)
+              | QFlag(modal ? Qt::WShowModal : Qt::WindowType(0))
+              | QFlag((f & Qt::WindowType_Mask) == 0 ? Qt::Dialog : Qt::WindowType(0))
         )
 {
     setObjectName(QString::fromAscii(name));
@@ -899,17 +899,27 @@ bool QDialog::symbianAdjustedPosition()
 {
 #if defined(Q_WS_S60)
     QPoint p;
-    const bool doS60Positioning = !(isFullScreen()||isMaximized());
-    if (doS60Positioning) {
+    QPoint oldPos = pos();
+    if (isFullScreen()) {
+        p.setX(0);
+        p.setY(0);
+    } else if (isMaximized()) {
+        TRect statusPaneRect = TRect();
+        if (S60->screenHeightInPixels > S60->screenWidthInPixels) {
+            AknLayoutUtils::LayoutMetricsRect(AknLayoutUtils::EStatusPane, statusPaneRect);
+        } else {
+            AknLayoutUtils::LayoutMetricsRect(AknLayoutUtils::EStaconTop, statusPaneRect);
+        }
+
+        p.setX(0);
+        p.setY(statusPaneRect.Height());
+    } else {
         // naive way to deduce screen orientation
         if (S60->screenHeightInPixels > S60->screenWidthInPixels) {
             int cbaHeight;
-            const CEikButtonGroupContainer* bgContainer = S60->buttonGroupContainer();
-            if (!bgContainer) {
-                cbaHeight = 0;
-            } else {
-                cbaHeight = qt_TSize2QSize(bgContainer->Size()).height();
-            }
+            TRect rect;
+            AknLayoutUtils::LayoutMetricsRect(AknLayoutUtils::EControlPane, rect);
+            cbaHeight = rect.Height();
             p.setY(S60->screenHeightInPixels - height() - cbaHeight);
             p.setX(0);
         } else {
@@ -939,9 +949,10 @@ bool QDialog::symbianAdjustedPosition()
                 p.setX(qMax(0,S60->screenWidthInPixels - width()));
             }
         }
-        move(p);
     }
-    return doS60Positioning;
+    if (oldPos != p || p.y() < 0)
+        move(p);
+    return true;
 #else
     // TODO - check positioning requirement for Symbian, non-s60
     return false;
@@ -1111,7 +1122,7 @@ QSize QDialog::sizeHint() const
     // if size is not fixed, try to adjust it according to S60 layoutting
     if (minimumSize() != maximumSize()) {
         // In S60, dialogs are always the width of screen (in portrait, regardless of current layout)
-        return QSize(qMax(S60->screenHeightInPixels, S60->screenWidthInPixels), QWidget::sizeHint().height());
+        return QSize(qMin(S60->screenHeightInPixels, S60->screenWidthInPixels), QWidget::sizeHint().height());
     } else {
         return QWidget::sizeHint();
     }

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -61,7 +61,7 @@ public:
     QDeclarativeDebugClientPrivate();
 
     QString name;
-    QDeclarativeDebugConnection *client;
+    QDeclarativeDebugConnection *connection;
 };
 
 class QDeclarativeDebugConnectionPrivate : public QObject
@@ -93,7 +93,7 @@ QDeclarativeDebugConnectionPrivate::QDeclarativeDebugConnectionPrivate(QDeclarat
 
 void QDeclarativeDebugConnectionPrivate::advertisePlugins()
 {
-    if (!q->isConnected() || !gotHello)
+    if (!q->isConnected())
         return;
 
     QPacket pack;
@@ -202,7 +202,7 @@ QDeclarativeDebugConnection::~QDeclarativeDebugConnection()
 {
     QHash<QString, QDeclarativeDebugClient*>::iterator iter = d->plugins.begin();
     for (; iter != d->plugins.end(); ++iter) {
-         iter.value()->d_func()->client = 0;
+         iter.value()->d_func()->connection = 0;
          iter.value()->statusChanged(QDeclarativeDebugClient::NotConnected);
     }
 }
@@ -213,7 +213,7 @@ bool QDeclarativeDebugConnection::isConnected() const
 }
 
 QDeclarativeDebugClientPrivate::QDeclarativeDebugClientPrivate()
-: client(0)
+: connection(0)
 {
 }
 
@@ -223,26 +223,26 @@ QDeclarativeDebugClient::QDeclarativeDebugClient(const QString &name,
 {
     Q_D(QDeclarativeDebugClient);
     d->name = name;
-    d->client = parent;
+    d->connection = parent;
 
-    if (!d->client)
+    if (!d->connection)
         return;
 
-    if (d->client->d->plugins.contains(name)) {
+    if (d->connection->d->plugins.contains(name)) {
         qWarning() << "QDeclarativeDebugClient: Conflicting plugin name" << name;
-        d->client = 0;
+        d->connection = 0;
     } else {
-        d->client->d->plugins.insert(name, this);
-        d->client->d->advertisePlugins();
+        d->connection->d->plugins.insert(name, this);
+        d->connection->d->advertisePlugins();
     }
 }
 
 QDeclarativeDebugClient::~QDeclarativeDebugClient()
 {
     Q_D(const QDeclarativeDebugClient);
-    if (d->client && d->client->d) {
-        d->client->d->plugins.remove(d->name);
-        d->client->d->advertisePlugins();
+    if (d->connection && d->connection->d) {
+        d->connection->d->plugins.remove(d->name);
+        d->connection->d->advertisePlugins();
     }
 }
 
@@ -255,12 +255,12 @@ QString QDeclarativeDebugClient::name() const
 QDeclarativeDebugClient::Status QDeclarativeDebugClient::status() const
 {
     Q_D(const QDeclarativeDebugClient);
-    if (!d->client
-            || !d->client->isConnected()
-            || !d->client->d->gotHello)
+    if (!d->connection
+            || !d->connection->isConnected()
+            || !d->connection->d->gotHello)
         return NotConnected;
 
-    if (d->client->d->serverPlugins.contains(d->name))
+    if (d->connection->d->serverPlugins.contains(d->name))
         return Enabled;
 
     return Unavailable;
@@ -275,8 +275,8 @@ void QDeclarativeDebugClient::sendMessage(const QByteArray &message)
 
     QPacket pack;
     pack << d->name << message;
-    d->client->d->protocol->send(pack);
-    d->client->d->q->flush();
+    d->connection->d->protocol->send(pack);
+    d->connection->d->q->flush();
 }
 
 void QDeclarativeDebugClient::statusChanged(Status)

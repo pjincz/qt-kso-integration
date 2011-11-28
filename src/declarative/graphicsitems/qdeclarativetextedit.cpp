@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,9 +48,11 @@
 
 #include <QtCore/qmath.h>
 
+#include <private/qtextengine_p.h>
 #include <QTextLayout>
 #include <QTextLine>
 #include <QTextDocument>
+#include <QTextObject>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
 #include <QPainter>
@@ -103,8 +105,16 @@ TextEdit {
     \sa Text, TextInput, {declarative/text/textselection}{Text Selection example}
 */
 
+/*!
+    \qmlsignal TextEdit::onLinkActivated(string link)
+    \since QtQuick 1.1
+
+    This handler is called when the user clicks on a link embedded in the text.
+    The link must be in rich text or HTML format and the
+    \a link string provides access to the particular link.
+*/
 QDeclarativeTextEdit::QDeclarativeTextEdit(QDeclarativeItem *parent)
-: QDeclarativePaintedItem(*(new QDeclarativeTextEditPrivate), parent)
+: QDeclarativeImplicitSizePaintedItem(*(new QDeclarativeTextEditPrivate), parent)
 {
     Q_D(QDeclarativeTextEdit);
     d->init();
@@ -240,6 +250,7 @@ void QDeclarativeTextEdit::setText(const QString &text)
     Q_D(QDeclarativeTextEdit);
     if (QDeclarativeTextEdit::text() == text)
         return;
+
     d->richText = d->format == RichText || (d->format == AutoText && Qt::mightBeRichText(text));
     if (d->richText) {
 #ifndef QT_NO_TEXTHTMLPARSER
@@ -319,28 +330,42 @@ void QDeclarativeTextEdit::setTextFormat(TextFormat format)
         updateSize();
     }
     d->format = format;
+    d->control->setAcceptRichText(d->format != PlainText);
     emit textFormatChanged(d->format);
 }
 
 QFont QDeclarativeTextEdit::font() const
 {
     Q_D(const QDeclarativeTextEdit);
-    return d->font;
+    return d->sourceFont;
 }
 
 void QDeclarativeTextEdit::setFont(const QFont &font)
 {
     Q_D(QDeclarativeTextEdit);
-    d->font = font;
+    if (d->sourceFont == font)
+        return;
 
-    clearCache();
-    d->document->setDefaultFont(d->font);
-    if(d->cursor){
-        d->cursor->setHeight(QFontMetrics(d->font).height());
-        moveCursorDelegate();
+    d->sourceFont = font;
+    QFont oldFont = d->font;
+    d->font = font;
+    if (d->font.pointSizeF() != -1) {
+        // 0.5pt resolution
+        qreal size = qRound(d->font.pointSizeF()*2.0);
+        d->font.setPointSizeF(size/2.0);
     }
-    updateSize();
-    update();
+
+    if (oldFont != d->font) {
+        clearCache();
+        d->document->setDefaultFont(d->font);
+        if(d->cursor){
+            d->cursor->setHeight(QFontMetrics(d->font).height());
+            moveCursorDelegate();
+        }
+        updateSize();
+        update();
+    }
+    emit fontChanged(d->sourceFont);
 }
 
 /*!
@@ -349,11 +374,13 @@ void QDeclarativeTextEdit::setFont(const QFont &font)
     The text color.
 
     \qml
-// green text using hexadecimal notation
-TextEdit { color: "#00FF00"; ...  }
+    // green text using hexadecimal notation
+    TextEdit { color: "#00FF00" }
+    \endqml
 
-// steelblue text using SVG color name
-TextEdit { color: "steelblue"; ...  }
+    \qml
+    // steelblue text using SVG color name
+    TextEdit { color: "steelblue" }
     \endqml
 */
 QColor QDeclarativeTextEdit::color() const
@@ -434,21 +461,29 @@ void QDeclarativeTextEdit::setSelectedTextColor(const QColor &color)
     \qmlproperty enumeration TextEdit::verticalAlignment
 
     Sets the horizontal and vertical alignment of the text within the TextEdit item's
-    width and height.  By default, the text is top-left aligned.
+    width and height. By default, the text alignment follows the natural alignment
+    of the text, for example text that is read from left to right will be aligned to
+    the left.
 
     Valid values for \c horizontalAlignment are:
     \list
     \o TextEdit.AlignLeft (default)
     \o TextEdit.AlignRight 
     \o TextEdit.AlignHCenter
+    \o TextEdit.AlignJustify
     \endlist
     
     Valid values for \c verticalAlignment are:
     \list
     \o TextEdit.AlignTop (default)
     \o TextEdit.AlignBottom
-    \c TextEdit.AlignVCenter
+    \o TextEdit.AlignVCenter
     \endlist
+
+    When using the attached property \l {LayoutMirroring::enabled} to mirror application
+    layouts, the horizontal alignment of text will also be mirrored. However, the property
+    \c horizontalAlignment will remain unchanged. To query the effective horizontal alignment
+    of TextEdit, use the property \l {LayoutMirroring::enabled}.
 */
 QDeclarativeTextEdit::HAlignment QDeclarativeTextEdit::hAlign() const
 {
@@ -456,15 +491,77 @@ QDeclarativeTextEdit::HAlignment QDeclarativeTextEdit::hAlign() const
     return d->hAlign;
 }
 
-void QDeclarativeTextEdit::setHAlign(QDeclarativeTextEdit::HAlignment alignment)
+void QDeclarativeTextEdit::setHAlign(HAlignment align)
 {
     Q_D(QDeclarativeTextEdit);
-    if (alignment == d->hAlign)
-        return;
-    d->hAlign = alignment;
-    d->updateDefaultTextOption();
-    updateSize();
-    emit horizontalAlignmentChanged(d->hAlign);
+    bool forceAlign = d->hAlignImplicit && d->effectiveLayoutMirror;
+    d->hAlignImplicit = false;
+    if (d->setHAlign(align, forceAlign) && isComponentComplete()) {
+        d->updateDefaultTextOption();
+        updateSize();
+    }
+}
+
+void QDeclarativeTextEdit::resetHAlign()
+{
+    Q_D(QDeclarativeTextEdit);
+    d->hAlignImplicit = true;
+    if (d->determineHorizontalAlignment() && isComponentComplete()) {
+        d->updateDefaultTextOption();
+        updateSize();
+    }
+}
+
+QDeclarativeTextEdit::HAlignment QDeclarativeTextEdit::effectiveHAlign() const
+{
+    Q_D(const QDeclarativeTextEdit);
+    QDeclarativeTextEdit::HAlignment effectiveAlignment = d->hAlign;
+    if (!d->hAlignImplicit && d->effectiveLayoutMirror) {
+        switch (d->hAlign) {
+        case QDeclarativeTextEdit::AlignLeft:
+            effectiveAlignment = QDeclarativeTextEdit::AlignRight;
+            break;
+        case QDeclarativeTextEdit::AlignRight:
+            effectiveAlignment = QDeclarativeTextEdit::AlignLeft;
+            break;
+        default:
+            break;
+        }
+    }
+    return effectiveAlignment;
+}
+
+bool QDeclarativeTextEditPrivate::setHAlign(QDeclarativeTextEdit::HAlignment alignment, bool forceAlign)
+{
+    Q_Q(QDeclarativeTextEdit);
+    if (hAlign != alignment || forceAlign) {
+        QDeclarativeTextEdit::HAlignment oldEffectiveHAlign = q->effectiveHAlign();
+        hAlign = alignment;
+        emit q->horizontalAlignmentChanged(alignment);
+        return true;
+    }
+    return false;
+}
+
+bool QDeclarativeTextEditPrivate::determineHorizontalAlignment()
+{
+    Q_Q(QDeclarativeTextEdit);
+    if (hAlignImplicit && q->isComponentComplete()) {
+        bool alignToRight = text.isEmpty() ? QApplication::keyboardInputDirection() == Qt::RightToLeft : rightToLeftText;
+        return setHAlign(alignToRight ? QDeclarativeTextEdit::AlignRight : QDeclarativeTextEdit::AlignLeft);
+    }
+    return false;
+}
+
+void QDeclarativeTextEditPrivate::mirrorChange()
+{
+    Q_Q(QDeclarativeTextEdit);
+    if (q->isComponentComplete()) {
+        if (!hAlignImplicit && (hAlign == QDeclarativeTextEdit::AlignRight || hAlign == QDeclarativeTextEdit::AlignLeft)) {
+            updateDefaultTextOption();
+            q->updateSize();
+        }
+    }
 }
 
 QDeclarativeTextEdit::VAlignment QDeclarativeTextEdit::vAlign() const
@@ -481,6 +578,7 @@ void QDeclarativeTextEdit::setVAlign(QDeclarativeTextEdit::VAlignment alignment)
     d->vAlign = alignment;
     d->updateDefaultTextOption();
     updateSize();
+    moveCursorDelegate();
     emit verticalAlignmentChanged(d->vAlign);
 }
 
@@ -517,6 +615,18 @@ void QDeclarativeTextEdit::setWrapMode(WrapMode mode)
 }
 
 /*!
+    \qmlproperty int TextEdit::lineCount
+    \since QtQuick 1.1
+
+    Returns the total number of lines in the textEdit item.
+*/
+int QDeclarativeTextEdit::lineCount() const
+{
+    Q_D(const QDeclarativeTextEdit);
+    return d->lineCount;
+}
+
+/*!
     \qmlproperty real TextEdit::paintedWidth
 
     Returns the width of the text, including the width past the width
@@ -524,7 +634,8 @@ void QDeclarativeTextEdit::setWrapMode(WrapMode mode)
 */
 qreal QDeclarativeTextEdit::paintedWidth() const
 {
-    return implicitWidth();
+    Q_D(const QDeclarativeTextEdit);
+    return d->paintedSize.width();
 }
 
 /*!
@@ -535,7 +646,8 @@ qreal QDeclarativeTextEdit::paintedWidth() const
 */
 qreal QDeclarativeTextEdit::paintedHeight() const
 {
-    return implicitHeight();
+    Q_D(const QDeclarativeTextEdit);
+    return d->paintedSize.height();
 }
 
 /*!
@@ -566,32 +678,25 @@ int QDeclarativeTextEdit::positionAt(int x, int y) const
 {
     Q_D(const QDeclarativeTextEdit);
     int r = d->document->documentLayout()->hitTest(QPoint(x,y-d->yoff), Qt::FuzzyHit);
+    QTextCursor cursor = d->control->textCursor();
+    if (r > cursor.position()) {
+        // The cursor position includes positions within the preedit text, but only positions in the
+        // same text block are offset so it is possible to get a position that is either part of the
+        // preedit or the next text block.
+        QTextLayout *layout = cursor.block().layout();
+        const int preeditLength = layout
+                ? layout->preeditAreaText().length()
+                : 0;
+        if (preeditLength > 0
+                && d->document->documentLayout()->blockBoundingRect(cursor.block()).contains(x,y-d->yoff)) {
+            r = r > cursor.position() + preeditLength
+                    ? r - preeditLength
+                    : cursor.position();
+        }
+    }
     return r;
 }
 
-/*!
-    \qmlmethod int TextEdit::moveCursorSelection(int pos)
-
-    Moves the cursor to \a position and updates the selection accordingly.
-    (To only move the cursor, set the \l cursorPosition property.)
-
-    When this method is called it additionally sets either the
-    selectionStart or the selectionEnd (whichever was at the previous cursor position)
-    to the specified position. This allows you to easily extend and contract the selected
-    text range.
-
-    For example, take this sequence of calls:
-
-    \code
-        cursorPosition = 5
-        moveCursorSelection(9)
-        moveCursorSelection(7)
-    \endcode
-
-    This moves the cursor to position 5, extend the selection end from 5 to 9
-    and then retract the selection end from 9 to 7, leaving the text from position 5 to 7
-    selected (the 6th and 7th characters).
-*/
 void QDeclarativeTextEdit::moveCursorSelection(int pos)
 {
     //Note that this is the same as setCursorPosition but with the KeepAnchor flag set
@@ -600,6 +705,93 @@ void QDeclarativeTextEdit::moveCursorSelection(int pos)
     if (cursor.position() == pos)
         return;
     cursor.setPosition(pos, QTextCursor::KeepAnchor);
+    d->control->setTextCursor(cursor);
+}
+
+/*!
+    \qmlmethod void TextEdit::moveCursorSelection(int position, SelectionMode mode = TextEdit.SelectCharacters)
+    \since QtQuick 1.1
+
+    Moves the cursor to \a position and updates the selection according to the optional \a mode
+    parameter. (To only move the cursor, set the \l cursorPosition property.)
+
+    When this method is called it additionally sets either the
+    selectionStart or the selectionEnd (whichever was at the previous cursor position)
+    to the specified position. This allows you to easily extend and contract the selected
+    text range.
+
+    The selection mode specifies whether the selection is updated on a per character or a per word
+    basis.  If not specified the selection mode will default to TextEdit.SelectCharacters.
+
+    \list
+    \o TextEdit.SelectCharacters - Sets either the selectionStart or selectionEnd (whichever was at
+    the previous cursor position) to the specified position.
+    \o TextEdit.SelectWords - Sets the selectionStart and selectionEnd to include all
+    words between the specified postion and the previous cursor position.  Words partially in the
+    range are included.
+    \endlist
+
+    For example, take this sequence of calls:
+
+    \code
+        cursorPosition = 5
+        moveCursorSelection(9, TextEdit.SelectCharacters)
+        moveCursorSelection(7, TextEdit.SelectCharacters)
+    \endcode
+
+    This moves the cursor to position 5, extend the selection end from 5 to 9
+    and then retract the selection end from 9 to 7, leaving the text from position 5 to 7
+    selected (the 6th and 7th characters).
+
+    The same sequence with TextEdit.SelectWords will extend the selection start to a word boundary
+    before or on position 5 and extend the selection end to a word boundary on or past position 9.
+*/
+void QDeclarativeTextEdit::moveCursorSelection(int pos, SelectionMode mode)
+{
+    Q_D(QDeclarativeTextEdit);
+    QTextCursor cursor = d->control->textCursor();
+    if (cursor.position() == pos)
+        return;
+    if (mode == SelectCharacters) {
+        cursor.setPosition(pos, QTextCursor::KeepAnchor);
+    } else if (cursor.anchor() < pos || (cursor.anchor() == pos && cursor.position() < pos)) {
+        if (cursor.anchor() > cursor.position()) {
+            cursor.setPosition(cursor.anchor(), QTextCursor::MoveAnchor);
+            cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
+            if (cursor.position() == cursor.anchor())
+                cursor.movePosition(QTextCursor::PreviousWord, QTextCursor::MoveAnchor);
+            else
+                cursor.setPosition(cursor.position(), QTextCursor::MoveAnchor);
+        } else {
+            cursor.setPosition(cursor.anchor(), QTextCursor::MoveAnchor);
+            cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::MoveAnchor);
+        }
+
+        cursor.setPosition(pos, QTextCursor::KeepAnchor);
+        cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
+        if (cursor.position() != pos)
+            cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+    } else if (cursor.anchor() > pos || (cursor.anchor() == pos && cursor.position() > pos)) {
+        if (cursor.anchor() < cursor.position()) {
+            cursor.setPosition(cursor.anchor(), QTextCursor::MoveAnchor);
+            cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::MoveAnchor);
+        } else {
+            cursor.setPosition(cursor.anchor(), QTextCursor::MoveAnchor);
+            cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+            cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+            if (cursor.position() != cursor.anchor()) {
+                cursor.setPosition(cursor.anchor(), QTextCursor::MoveAnchor);
+                cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::MoveAnchor);
+            }
+        }
+
+        cursor.setPosition(pos, QTextCursor::KeepAnchor);
+        cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+        if (cursor.position() != pos) {
+            cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+            cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
+        }
+    }
     d->control->setTextCursor(cursor);
 }
 
@@ -642,8 +834,10 @@ int QDeclarativeTextEdit::cursorPosition() const
 void QDeclarativeTextEdit::setCursorPosition(int pos)
 {
     Q_D(QDeclarativeTextEdit);
+    if (pos < 0 || pos > d->text.length())
+        return;
     QTextCursor cursor = d->control->textCursor();
-    if (cursor.position() == pos)
+    if (cursor.position() == pos && cursor.anchor() == pos)
         return;
     cursor.setPosition(pos);
     d->control->setTextCursor(cursor);
@@ -673,8 +867,6 @@ void QDeclarativeTextEdit::setCursorDelegate(QDeclarativeComponent* c)
     Q_D(QDeclarativeTextEdit);
     if(d->cursorComponent){
         if(d->cursor){
-            disconnect(d->control, SIGNAL(cursorPositionChanged()),
-                    this, SLOT(moveCursorDelegate()));
             d->control->setCursorWidth(-1);
             dirtyCache(cursorRectangle());
             delete d->cursor;
@@ -700,8 +892,6 @@ void QDeclarativeTextEdit::loadCursorDelegate()
         return;
     d->cursor = qobject_cast<QDeclarativeItem*>(d->cursorComponent->create(qmlContext(this)));
     if(d->cursor){
-        connect(d->control, SIGNAL(cursorPositionChanged()),
-                this, SLOT(moveCursorDelegate()));
         d->control->setCursorWidth(0);
         dirtyCache(cursorRectangle());
         QDeclarative_setParent_noEvent(d->cursor, this);
@@ -845,6 +1035,8 @@ void QDeclarativeTextEdit::componentComplete()
     Q_D(QDeclarativeTextEdit);
     QDeclarativePaintedItem::componentComplete();
     if (d->dirty) {
+        d->determineHorizontalAlignment();
+        d->updateDefaultTextOption();
         updateSize();
         d->dirty = false;
     }
@@ -871,11 +1063,45 @@ void QDeclarativeTextEdit::setSelectByMouse(bool on)
     Q_D(QDeclarativeTextEdit);
     if (d->selectByMouse != on) {
         d->selectByMouse = on;
+        setKeepMouseGrab(on);
+        if (on)
+            setTextInteractionFlags(d->control->textInteractionFlags() | Qt::TextSelectableByMouse);
+        else
+            setTextInteractionFlags(d->control->textInteractionFlags() & ~Qt::TextSelectableByMouse);
         emit selectByMouseChanged(on);
     }
 }
 
 
+/*!
+    \qmlproperty enum TextEdit::mouseSelectionMode
+    \since QtQuick 1.1
+
+    Specifies how text should be selected using a mouse.
+
+    \list
+    \o TextEdit.SelectCharacters - The selection is updated with individual characters. (Default)
+    \o TextEdit.SelectWords - The selection is updated with whole words.
+    \endlist
+
+    This property only applies when \l selectByMouse is true.
+*/
+
+QDeclarativeTextEdit::SelectionMode QDeclarativeTextEdit::mouseSelectionMode() const
+{
+    Q_D(const QDeclarativeTextEdit);
+    return d->mouseSelectionMode;
+}
+
+void QDeclarativeTextEdit::setMouseSelectionMode(SelectionMode mode)
+{
+    Q_D(QDeclarativeTextEdit);
+    if (d->mouseSelectionMode != mode) {
+        d->mouseSelectionMode = mode;
+        d->control->setWordSelectionEnabled(mode == SelectWords);
+        emit mouseSelectionModeChanged(mode);
+    }
+}
 
 /*!
     \qmlproperty bool TextEdit::readOnly
@@ -891,13 +1117,13 @@ void QDeclarativeTextEdit::setReadOnly(bool r)
     if (r == isReadOnly())
         return;
 
+    setFlag(QGraphicsItem::ItemAcceptsInputMethod, !r);
 
-    Qt::TextInteractionFlags flags = Qt::NoTextInteraction;
-    if (r) {
-        flags = Qt::TextSelectableByMouse;
-    } else {
-        flags = Qt::TextEditorInteraction;
-    }
+    Qt::TextInteractionFlags flags = Qt::LinksAccessibleByMouse;
+    if (d->selectByMouse)
+        flags = flags | Qt::TextSelectableByMouse;
+    if (!r)
+        flags = flags | Qt::TextSelectableByKeyboard | Qt::TextEditable;
     d->control->setTextInteractionFlags(flags);
     if (!r)
         d->control->moveCursor(QTextCursor::End);
@@ -940,7 +1166,7 @@ Qt::TextInteractionFlags QDeclarativeTextEdit::textInteractionFlags() const
 QRect QDeclarativeTextEdit::cursorRectangle() const
 {
     Q_D(const QDeclarativeTextEdit);
-    return d->control->cursorRect().toRect().translated(0,-d->yoff);
+    return d->control->cursorRect().toRect().translated(0,d->yoff);
 }
 
 
@@ -989,8 +1215,22 @@ void QDeclarativeTextEdit::keyReleaseEvent(QKeyEvent *event)
 void QDeclarativeTextEditPrivate::focusChanged(bool hasFocus)
 {
     Q_Q(QDeclarativeTextEdit);
-    q->setCursorVisible(hasFocus);
+    q->setCursorVisible(hasFocus && scene && scene->hasFocus());
     QDeclarativeItemPrivate::focusChanged(hasFocus);
+}
+
+/*!
+    \qmlmethod void TextEdit::deselect()
+    \since QtQuick 1.1
+
+    Removes active text selection.
+*/
+void QDeclarativeTextEdit::deselect()
+{
+    Q_D(QDeclarativeTextEdit);
+    QTextCursor c = d->control->textCursor();
+    c.clearSelection();
+    d->control->setTextCursor(c);
 }
 
 /*!
@@ -1044,6 +1284,23 @@ void QDeclarativeTextEdit::select(int start, int end)
 
     // QTBUG-11100
     updateSelectionMarkers();
+}
+
+/*!
+    \qmlmethod void TextEdit::isRightToLeft(int start, int end)
+
+    Returns true if the natural reading direction of the editor text
+    found between positions \a start and \a end is right to left.
+*/
+bool QDeclarativeTextEdit::isRightToLeft(int start, int end)
+{
+    Q_D(QDeclarativeTextEdit);
+    if (start > end) {
+        qmlInfo(this) << "isRightToLeft(start, end) called with the end property being smaller than the start.";
+        return false;
+    } else {
+        return d->text.mid(start, end - start).isRightToLeft();
+    }
 }
 
 #ifndef QT_NO_CLIPBOARD
@@ -1102,8 +1359,8 @@ void QDeclarativeTextEdit::mousePressEvent(QGraphicsSceneMouseEvent *event)
             }
         }
     }
-    if (event->type() != QEvent::GraphicsSceneMouseDoubleClick || d->selectByMouse)
-        d->control->processEvent(event, QPointF(0, -d->yoff));
+
+    d->control->processEvent(event, QPointF(0, -d->yoff));
     if (!event->isAccepted())
         QDeclarativePaintedItem::mousePressEvent(event);
 }
@@ -1138,13 +1395,11 @@ Handles the given mouse \a event.
 void QDeclarativeTextEdit::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
     Q_D(QDeclarativeTextEdit);
-    if (d->selectByMouse) {
-        d->control->processEvent(event, QPointF(0, -d->yoff));
-        if (!event->isAccepted())
-            QDeclarativePaintedItem::mouseDoubleClickEvent(event);
-    } else {
+
+    d->control->processEvent(event, QPointF(0, -d->yoff));
+    if (!event->isAccepted())
         QDeclarativePaintedItem::mouseDoubleClickEvent(event);
-    }
+
 }
 
 /*!
@@ -1154,14 +1409,9 @@ Handles the given mouse \a event.
 void QDeclarativeTextEdit::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
     Q_D(QDeclarativeTextEdit);
-    if (d->selectByMouse) {
-        d->control->processEvent(event, QPointF(0, -d->yoff));
-        if (!event->isAccepted())
-            QDeclarativePaintedItem::mouseMoveEvent(event);
-        event->setAccepted(true);
-    } else {
+    d->control->processEvent(event, QPointF(0, -d->yoff));
+    if (!event->isAccepted())
         QDeclarativePaintedItem::mouseMoveEvent(event);
-    }
 }
 
 /*!
@@ -1171,7 +1421,10 @@ Handles the given input method \a event.
 void QDeclarativeTextEdit::inputMethodEvent(QInputMethodEvent *event)
 {
     Q_D(QDeclarativeTextEdit);
+    const bool wasComposing = isInputMethodComposing();
     d->control->processEvent(event, QPointF(0, -d->yoff));
+    if (wasComposing != isInputMethodComposing())
+        emit inputMethodComposingChanged();
 }
 
 /*!
@@ -1234,6 +1487,40 @@ void QDeclarativeTextEdit::updateImgCache(const QRectF &rf)
     filtering at the beginning of the animation and reenable it at the conclusion.
 */
 
+/*!
+    \qmlproperty bool TextEdit::canPaste
+    \since QtQuick 1.1
+
+    Returns true if the TextEdit is writable and the content of the clipboard is
+    suitable for pasting into the TextEdit.
+*/
+bool QDeclarativeTextEdit::canPaste() const
+{
+    Q_D(const QDeclarativeTextEdit);
+    return d->canPaste;
+}
+
+/*!
+    \qmlproperty bool TextEdit::inputMethodComposing
+
+    \since QtQuick 1.1
+
+    This property holds whether the TextEdit has partial text input from an
+    input method.
+
+    While it is composing an input method may rely on mouse or key events from
+    the TextEdit to edit or commit the partial text.  This property can be used
+    to determine when to disable events handlers that may interfere with the
+    correct operation of an input method.
+*/
+bool QDeclarativeTextEdit::isInputMethodComposing() const
+{
+    Q_D(const QDeclarativeTextEdit);
+    if (QTextLayout *layout = d->control->textCursor().block().layout())
+        return layout->preeditAreaText().length() > 0;
+    return false;
+}
+
 void QDeclarativeTextEditPrivate::init()
 {
     Q_Q(QDeclarativeTextEdit);
@@ -1245,6 +1532,8 @@ void QDeclarativeTextEditPrivate::init()
 
     control = new QTextControl(q);
     control->setIgnoreUnusedNavigationEvents(true);
+    control->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::TextSelectableByKeyboard | Qt::TextEditable);
+    control->setDragEnabled(false);
 
     // QTextControl follows the default text color
     // defined by the platform, declarative text
@@ -1262,7 +1551,13 @@ void QDeclarativeTextEditPrivate::init()
     QObject::connect(control, SIGNAL(selectionChanged()), q, SLOT(updateSelectionMarkers()));
     QObject::connect(control, SIGNAL(cursorPositionChanged()), q, SLOT(updateSelectionMarkers()));
     QObject::connect(control, SIGNAL(cursorPositionChanged()), q, SIGNAL(cursorPositionChanged()));
-    QObject::connect(control, SIGNAL(cursorPositionChanged()), q, SIGNAL(cursorRectangleChanged()));
+    QObject::connect(control, SIGNAL(microFocusChanged()), q, SLOT(moveCursorDelegate()));
+    QObject::connect(control, SIGNAL(linkActivated(QString)), q, SIGNAL(linkActivated(QString)));
+#ifndef QT_NO_CLIPBOARD
+    QObject::connect(q, SIGNAL(readOnlyChanged(bool)), q, SLOT(q_canPasteChanged()));
+    QObject::connect(QApplication::clipboard(), SIGNAL(dataChanged()), q, SLOT(q_canPasteChanged()));
+    canPaste = control->canPaste();
+#endif
 
     document = control->document();
     document->setDefaultFont(font);
@@ -1276,17 +1571,22 @@ void QDeclarativeTextEdit::q_textChanged()
 {
     Q_D(QDeclarativeTextEdit);
     d->text = text();
+    d->rightToLeftText = d->document->begin().layout()->engine()->isRightToLeft();
+    d->determineHorizontalAlignment();
+    d->updateDefaultTextOption();
     updateSize();
-    updateMicroFocus();
+    updateTotalLines();
     emit textChanged(d->text);
 }
 
 void QDeclarativeTextEdit::moveCursorDelegate()
 {
     Q_D(QDeclarativeTextEdit);
+    updateMicroFocus();
+    emit cursorRectangleChanged();
     if(!d->cursor)
         return;
-    QRectF cursorRect = d->control->cursorRect();
+    QRectF cursorRect = cursorRectangle();
     d->cursor->setX(cursorRect.x());
     d->cursor->setY(cursorRect.y());
 }
@@ -1319,7 +1619,6 @@ void QDeclarativeTextEdit::updateSelectionMarkers()
         d->lastSelectionEnd = d->control->textCursor().selectionEnd();
         emit selectionEndChanged();
     }
-    updateMicroFocus();
 }
 
 QRectF QDeclarativeTextEdit::boundingRect() const
@@ -1338,6 +1637,17 @@ QRectF QDeclarativeTextEdit::boundingRect() const
     return r.translated(0,d->yoff);
 }
 
+qreal QDeclarativeTextEditPrivate::implicitWidth() const
+{
+    Q_Q(const QDeclarativeTextEdit);
+    if (!requireImplicitWidth) {
+        // We don't calculate implicitWidth unless it is required.
+        // We need to force a size update now to ensure implicitWidth is calculated
+        const_cast<QDeclarativeTextEditPrivate*>(this)->requireImplicitWidth = true;
+        const_cast<QDeclarativeTextEdit*>(q)->updateSize();
+    }
+    return mImplicitWidth;
+}
 
 //### we should perhaps be a bit smarter here -- depending on what has changed, we shouldn't
 //    need to do all the calculations each time
@@ -1345,12 +1655,27 @@ void QDeclarativeTextEdit::updateSize()
 {
     Q_D(QDeclarativeTextEdit);
     if (isComponentComplete()) {
-        QFontMetrics fm = QFontMetrics(d->font);
-        int dy = height();
+        qreal naturalWidth = d->mImplicitWidth;
         // ### assumes that if the width is set, the text will fill to edges
         // ### (unless wrap is false, then clipping will occur)
-        if (widthValid() && d->document->textWidth() != width())
-            d->document->setTextWidth(width());
+        if (widthValid()) {
+            if (!d->requireImplicitWidth) {
+                emit implicitWidthChanged();
+                // if the implicitWidth is used, then updateSize() has already been called (recursively)
+                if (d->requireImplicitWidth)
+                    return;
+            }
+            if (d->requireImplicitWidth) {
+                d->document->setTextWidth(-1);
+                naturalWidth = d->document->idealWidth();
+            }
+            if (d->document->textWidth() != width())
+                d->document->setTextWidth(width());
+        } else {
+            d->document->setTextWidth(-1);
+        }
+        QFontMetrics fm = QFontMetrics(d->font);
+        int dy = height();
         dy -= (int)d->document->size().height();
 
         int nyoff;
@@ -1375,12 +1700,15 @@ void QDeclarativeTextEdit::updateSize()
         if (!widthValid() && d->document->textWidth() != newWidth)
             d->document->setTextWidth(newWidth); // ### Text does not align if width is not set (QTextDoc bug)
         // ### Setting the implicitWidth triggers another updateSize(), and unless there are bindings nothing has changed.
-        setImplicitWidth(newWidth);
+        if (!widthValid())
+            setImplicitWidth(newWidth);
+        else if (d->requireImplicitWidth)
+            setImplicitWidth(naturalWidth);
         qreal newHeight = d->document->isEmpty() ? fm.height() : (int)d->document->size().height();
         setImplicitHeight(newHeight);
 
-        setContentsSize(QSize(newWidth, newHeight));
-
+        d->paintedSize = QSize(newWidth, newHeight);
+        setContentsSize(d->paintedSize);
         emit paintedSizeChanged();
     } else {
         d->dirty = true;
@@ -1388,11 +1716,40 @@ void QDeclarativeTextEdit::updateSize()
     emit update();
 }
 
+void QDeclarativeTextEdit::updateTotalLines()
+{
+    Q_D(QDeclarativeTextEdit);
+
+    int subLines = 0;
+
+    for (QTextBlock it = d->document->begin(); it != d->document->end(); it = it.next()) {
+        QTextLayout *layout = it.layout();
+        if (!layout)
+            continue;
+        subLines += layout->lineCount()-1;
+    }
+
+    int newTotalLines = d->document->lineCount() + subLines;
+    if (d->lineCount != newTotalLines) {
+        d->lineCount = newTotalLines;
+        emit lineCountChanged();
+    }
+}
+
 void QDeclarativeTextEditPrivate::updateDefaultTextOption()
 {
+    Q_Q(QDeclarativeTextEdit);
     QTextOption opt = document->defaultTextOption();
     int oldAlignment = opt.alignment();
-    opt.setAlignment((Qt::Alignment)(int)(hAlign | vAlign));
+
+    QDeclarativeTextEdit::HAlignment horizontalAlignment = q->effectiveHAlign();
+    if (rightToLeftText) {
+        if (horizontalAlignment == QDeclarativeTextEdit::AlignLeft)
+            horizontalAlignment = QDeclarativeTextEdit::AlignRight;
+        else if (horizontalAlignment == QDeclarativeTextEdit::AlignRight)
+            horizontalAlignment = QDeclarativeTextEdit::AlignLeft;
+    }
+    opt.setAlignment((Qt::Alignment)(int)(horizontalAlignment | vAlign));
 
     QTextOption::WrapMode oldWrapMode = opt.wrapMode();
     opt.setWrapMode(QTextOption::WrapMode(wrapMode));
@@ -1514,6 +1871,15 @@ void QDeclarativeTextEdit::focusInEvent(QFocusEvent *event)
         }
     }
     QDeclarativePaintedItem::focusInEvent(event);
+}
+
+void QDeclarativeTextEdit::q_canPasteChanged()
+{
+    Q_D(QDeclarativeTextEdit);
+    bool old = d->canPaste;
+    d->canPaste = d->control->canPaste();
+    if(old!=d->canPaste)
+        emit canPasteChanged();
 }
 
 QT_END_NAMESPACE

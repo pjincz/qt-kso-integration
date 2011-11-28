@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -254,6 +254,7 @@ QScriptValue::QScriptValue(QScriptEngine *engine, int val)
     : d_ptr(new (QScriptEnginePrivate::get(engine))QScriptValuePrivate(QScriptEnginePrivate::get(engine)))
 {
     if (engine) {
+        QScript::APIShim shim(d_ptr->engine);
         JSC::ExecState *exec = d_ptr->engine->currentFrame;
         d_ptr->initFrom(JSC::jsNumber(exec, val));
     } else
@@ -271,6 +272,7 @@ QScriptValue::QScriptValue(QScriptEngine *engine, uint val)
     : d_ptr(new (QScriptEnginePrivate::get(engine))QScriptValuePrivate(QScriptEnginePrivate::get(engine)))
 {
     if (engine) {
+        QScript::APIShim shim(d_ptr->engine);
         JSC::ExecState *exec = d_ptr->engine->currentFrame;
         d_ptr->initFrom(JSC::jsNumber(exec, val));
     } else
@@ -288,6 +290,7 @@ QScriptValue::QScriptValue(QScriptEngine *engine, qsreal val)
     : d_ptr(new (QScriptEnginePrivate::get(engine))QScriptValuePrivate(QScriptEnginePrivate::get(engine)))
 {
     if (engine) {
+        QScript::APIShim shim(d_ptr->engine);
         JSC::ExecState *exec = d_ptr->engine->currentFrame;
         d_ptr->initFrom(JSC::jsNumber(exec, val));
     } else
@@ -305,6 +308,7 @@ QScriptValue::QScriptValue(QScriptEngine *engine, const QString &val)
     : d_ptr(new (QScriptEnginePrivate::get(engine))QScriptValuePrivate(QScriptEnginePrivate::get(engine)))
 {
     if (engine) {
+        QScript::APIShim shim(d_ptr->engine);
         JSC::ExecState *exec = d_ptr->engine->currentFrame;
         d_ptr->initFrom(JSC::jsString(exec, val));
     } else {
@@ -325,6 +329,7 @@ QScriptValue::QScriptValue(QScriptEngine *engine, const char *val)
     : d_ptr(new (QScriptEnginePrivate::get(engine))QScriptValuePrivate(QScriptEnginePrivate::get(engine)))
 {
     if (engine) {
+        QScript::APIShim shim(d_ptr->engine);
         JSC::ExecState *exec = d_ptr->engine->currentFrame;
         d_ptr->initFrom(JSC::jsString(exec, val));
     } else {
@@ -1736,10 +1741,12 @@ QScriptValue QScriptValue::construct(const QScriptValueList &args)
 
     JSC::JSValue savedException;
     QScriptEnginePrivate::saveException(exec, &savedException);
-    JSC::JSObject *result = JSC::construct(exec, callee, constructType, constructData, jscArgs);
+    JSC::JSValue result;
+    JSC::JSObject *newObject = JSC::construct(exec, callee, constructType, constructData, jscArgs);
     if (exec->hadException()) {
-        result = JSC::asObject(exec->exception());
+        result = exec->exception();
     } else {
+        result = newObject;
         QScriptEnginePrivate::restoreException(exec, savedException);
     }
     return d->engine->scriptValueFromJSCValue(result);
@@ -1796,11 +1803,12 @@ QScriptValue QScriptValue::construct(const QScriptValue &arguments)
 
     JSC::JSValue savedException;
     QScriptEnginePrivate::saveException(exec, &savedException);
-    JSC::JSObject *result = JSC::construct(exec, callee, constructType, constructData, applyArgs);
+    JSC::JSValue result;
+    JSC::JSObject *newObject = JSC::construct(exec, callee, constructType, constructData, applyArgs);
     if (exec->hadException()) {
-        if (exec->exception().isObject())
-            result = JSC::asObject(exec->exception());
+        result = exec->exception();
     } else {
+        result = newObject;
         QScriptEnginePrivate::restoreException(exec, savedException);
     }
     return d->engine->scriptValueFromJSCValue(result);
@@ -2033,6 +2041,7 @@ void QScriptValue::setData(const QScriptValue &data)
     Q_D(QScriptValue);
     if (!d || !d->isObject())
         return;
+    QScript::APIShim shim(d->engine);
     JSC::JSValue other = d->engine->scriptValueToJSCValue(data);
     if (d->jscValue.inherits(&QScriptObject::info)) {
         QScriptObject *scriptObject = static_cast<QScriptObject*>(JSC::asObject(d->jscValue));

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -85,13 +85,13 @@ void QNetworkReplyImplPrivate::_q_startOperation()
     }
 
 #ifndef QT_NO_BEARERMANAGEMENT
-    if (!backend->start()) {
+    if (!backend->start()) { // ### we should call that method even if bearer is not used
         // backend failed to start because the session state is not Connected.
         // QNetworkAccessManager will call reply->backend->start() again for us when the session
         // state changes.
         state = WaitingForSession;
 
-        QNetworkSession *session = manager->d_func()->networkSession;
+        QNetworkSession *session = manager->d_func()->networkSession.data();
 
         if (session) {
             Q_Q(QNetworkReplyImpl);
@@ -109,11 +109,15 @@ void QNetworkReplyImplPrivate::_q_startOperation()
     }
 #endif
 
-    if (state != Finished) {
-        if (operation == QNetworkAccessManager::GetOperation)
-            pendingNotifications.append(NotifyDownstreamReadyWrite);
+    if (backend && backend->isSynchronous()) {
+        state = Finished;
+    } else {
+        if (state != Finished) {
+            if (operation == QNetworkAccessManager::GetOperation)
+                pendingNotifications.append(NotifyDownstreamReadyWrite);
 
-        handleNotifications();
+            handleNotifications();
+        }
     }
 }
 
@@ -242,7 +246,7 @@ void QNetworkReplyImplPrivate::_q_networkSessionConnected()
     if (manager.isNull())
         return;
 
-    QNetworkSession *session = manager->d_func()->networkSession;
+    QNetworkSession *session = manager->d_func()->networkSession.data();
     if (!session)
         return;
 
@@ -267,8 +271,8 @@ void QNetworkReplyImplPrivate::_q_networkSessionConnected()
 
 void QNetworkReplyImplPrivate::_q_networkSessionFailed()
 {
-    // Abort waiting replies.
-    if (state == WaitingForSession) {
+    // Abort waiting and working replies.
+    if (state == WaitingForSession || state == Working) {
         state = Working;
         error(QNetworkReplyImpl::UnknownNetworkError,
               QCoreApplication::translate("QNetworkReply", "Network session error."));
@@ -287,7 +291,25 @@ void QNetworkReplyImplPrivate::setup(QNetworkAccessManager::Operation op, const 
     url = request.url();
     operation = op;
 
-    if (outgoingData && backend) {
+    q->QIODevice::open(QIODevice::ReadOnly);
+    // Internal code that does a HTTP reply for the synchronous Ajax
+    // in QtWebKit.
+    QVariant synchronousHttpAttribute = req.attribute(
+            static_cast<QNetworkRequest::Attribute>(QNetworkRequest::DownloadBufferAttribute + 1));
+    if (backend && synchronousHttpAttribute.toBool()) {
+        backend->setSynchronous(true);
+        if (outgoingData && outgoingData->isSequential()) {
+            outgoingDataBuffer = new QRingBuffer();
+            QByteArray data;
+            do {
+                data = outgoingData->readAll();
+                if (data.isEmpty())
+                    break;
+                outgoingDataBuffer->append(data);
+            } while (1);
+        }
+    }
+    if (outgoingData && backend && !backend->isSynchronous()) {
         // there is data to be uploaded, e.g. HTTP POST.
 
         if (!backend->needsResetableUploadData() || !outgoingData->isSequential()) {
@@ -298,7 +320,7 @@ void QNetworkReplyImplPrivate::setup(QNetworkAccessManager::Operation op, const 
         } else {
             bool bufferingDisallowed =
                     req.attribute(QNetworkRequest::DoNotBufferUploadDataAttribute,
-                                             false).toBool();
+                                  false).toBool();
 
             if (bufferingDisallowed) {
                 // if a valid content-length header for the request was supplied, we can disable buffering
@@ -323,17 +345,18 @@ void QNetworkReplyImplPrivate::setup(QNetworkAccessManager::Operation op, const 
         // for HTTP, we want to send out the request as fast as possible to the network, without
         // invoking methods in a QueuedConnection
 #ifndef QT_NO_HTTP
-        if (qobject_cast<QNetworkAccessHttpBackend *>(backend)) {
+        if (qobject_cast<QNetworkAccessHttpBackend *>(backend) || (backend && backend->isSynchronous())) {
             _q_startOperation();
         } else {
             QMetaObject::invokeMethod(q, "_q_startOperation", Qt::QueuedConnection);
         }
 #else
-        QMetaObject::invokeMethod(q, "_q_startOperation", Qt::QueuedConnection);
+        if (backend && backend->isSynchronous())
+            _q_startOperation();
+        else
+            QMetaObject::invokeMethod(q, "_q_startOperation", Qt::QueuedConnection);
 #endif // QT_NO_HTTP
-    }
-
-    q->QIODevice::open(QIODevice::ReadOnly);
+        }
 }
 
 void QNetworkReplyImplPrivate::backendNotify(InternalNotifications notification)
@@ -482,6 +505,13 @@ void QNetworkReplyImplPrivate::initCacheSaveDevice()
 {
     Q_Q(QNetworkReplyImpl);
 
+    // The disk cache does not support partial content, so don't even try to
+    // save any such content into the cache.
+    if (q->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 206) {
+        cacheEnabled = false;
+        return;
+    }
+
     // save the meta data
     QNetworkCacheMetaData metaData;
     metaData.setUrl(url);
@@ -610,7 +640,7 @@ void QNetworkReplyImplPrivate::finished()
 
     if (!manager.isNull()) {
 #ifndef QT_NO_BEARERMANAGEMENT
-        QNetworkSession *session = manager->d_func()->networkSession;
+        QNetworkSession *session = manager->d_func()->networkSession.data();
         if (session && session->state() == QNetworkSession::Roaming &&
             state == Working && errorCode != QNetworkReply::OperationCanceledError) {
             // only content with a known size will fail with a temporary network failure error
@@ -745,6 +775,8 @@ void QNetworkReplyImpl::abort()
     if (d->state != QNetworkReplyImplPrivate::Finished) {
         // emit signals
         d->error(OperationCanceledError, tr("Operation canceled"));
+        if (d->state == QNetworkReplyImplPrivate::WaitingForSession)
+            d->state = QNetworkReplyImplPrivate::Working;
         d->finished();
     }
     d->state = QNetworkReplyImplPrivate::Aborted;
@@ -883,10 +915,6 @@ bool QNetworkReplyImplPrivate::migrateBackend()
     if (state == Finished || state == Aborted)
         return true;
 
-    // Backend does not support resuming download.
-    if (!backend->canResume())
-        return false;
-
     // Request has outgoing data, not migrating.
     if (outgoingData)
         return false;
@@ -894,6 +922,10 @@ bool QNetworkReplyImplPrivate::migrateBackend()
     // Request is serviced from the cache, don't need to migrate.
     if (copyDevice)
         return true;
+
+    // Backend does not support resuming download.
+    if (backend && !backend->canResume())
+        return false;
 
     state = QNetworkReplyImplPrivate::Reconnecting;
 

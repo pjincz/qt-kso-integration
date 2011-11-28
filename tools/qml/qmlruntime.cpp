@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -586,7 +586,6 @@ QNetworkAccessManager *NetworkAccessManagerFactory::create(QObject *parent)
     }
     connect(manager, SIGNAL(destroyed(QObject*)), this, SLOT(managerDestroyed(QObject*)));
     namList.append(manager);
-    qDebug() << "created new network access manager for" << parent;
     return manager;
 }
 
@@ -742,8 +741,10 @@ void QDeclarativeViewer::createMenu()
     connect(slowAction, SIGNAL(triggered(bool)), this, SLOT(setSlowMode(bool)));
 
     showWarningsWindow = new QAction(tr("Show Warnings"), this);
+#if !defined(Q_OS_SYMBIAN)
     showWarningsWindow->setCheckable((true));
     showWarningsWindow->setChecked(loggerWindow->isVisible());
+#endif
     connect(showWarningsWindow, SIGNAL(triggered(bool)), this, SLOT(showWarnings(bool)));
 
     QAction *proxyAction = new QAction(tr("HTTP &Proxy..."), this);
@@ -780,9 +781,11 @@ void QDeclarativeViewer::createMenu()
     aboutAction->setMenuRole(QAction::AboutQtRole);
     connect(aboutAction, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
 
+#if !defined(Q_OS_SYMBIAN)
     QAction *closeAction = new QAction(tr("&Close"), this);
     closeAction->setShortcuts(QKeySequence::Close);
     connect(closeAction, SIGNAL(triggered()), this, SLOT(close()));
+#endif
 
     QAction *quitAction = new QAction(tr("&Quit"), this);
     quitAction->setMenuRole(QAction::QuitRole);
@@ -818,25 +821,25 @@ void QDeclarativeViewer::createMenu()
     fileMenu->addAction(openAction);
     fileMenu->addAction(openUrlAction);
     fileMenu->addAction(reloadAction);
+#if !defined(Q_OS_SYMBIAN)
     fileMenu->addSeparator();
     fileMenu->addAction(closeAction);
-#if !defined(Q_OS_SYMBIAN)    
     fileMenu->addAction(quitAction);
 
     QMenu *recordMenu = menu->addMenu(tr("&Recording"));
     recordMenu->addAction(snapshotAction);
     recordMenu->addAction(recordAction);
+#endif // ! Q_OS_SYMBIAN
 
     QMenu *debugMenu = menu->addMenu(tr("&Debugging"));
     debugMenu->addAction(slowAction);
     debugMenu->addAction(showWarningsWindow);
-#endif // ! Q_OS_SYMBIAN
 
     QMenu *settingsMenu = menu->addMenu(tr("&Settings"));
     settingsMenu->addAction(proxyAction);
 #if defined(Q_OS_SYMBIAN)
     settingsMenu->addAction(fullscreenAction);
-#else 
+#else
     settingsMenu->addAction(recordOptions);
     settingsMenu->addMenu(loggerWindow->preferencesMenu());
 #endif // !Q_OS_SYMBIAN
@@ -914,7 +917,11 @@ void QDeclarativeViewer::toggleFullScreen()
 
 void QDeclarativeViewer::showWarnings(bool show)
 {
+#if defined(Q_OS_SYMBIAN)
+    loggerWindow->showMaximized();
+#else
     loggerWindow->setVisible(show);
+#endif
 }
 
 void QDeclarativeViewer::warningsWidgetOpened()
@@ -1012,7 +1019,7 @@ void QDeclarativeViewer::addPluginPath(const QString& plugin)
 
 void QDeclarativeViewer::reload()
 {
-    open(currentFileOrUrl);
+    launch(currentFileOrUrl);
 }
 
 void QDeclarativeViewer::openFile()
@@ -1383,6 +1390,8 @@ void QDeclarativeViewer::appAboutToQuit()
     // avoid crashes if messages are received after app has closed
     delete loggerWindow;
     loggerWindow = 0;
+    delete tester;
+    tester = 0;
 }
 
 void QDeclarativeViewer::autoStartRecording()
@@ -1518,6 +1527,7 @@ void QDeclarativeViewer::updateSizeHints(bool initial)
     //qWarning() << "USH: R2V: setting free size ";
     layout()->setSizeConstraint(QLayout::SetNoConstraint);
     layout()->activate();
+    setMinimumSize(minimumSizeHint());
     setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
     canvas->setMinimumSize(QSize(0,0));
     canvas->setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));

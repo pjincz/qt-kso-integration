@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -62,7 +62,9 @@ GLWidget::GLWidget(QWidget *parent)
     , cube(0)
 {
     // create the pbuffer
-    pbuffer = new QGLPixelBuffer(QSize(512, 512), format(), this);
+    QGLFormat pbufferFormat = format();
+    pbufferFormat.setSampleBuffers(false);
+    pbuffer = new QGLPixelBuffer(QSize(512, 512), pbufferFormat, this);
     setWindowTitle(tr("OpenGL pbuffers"));
     initializeGeometry();
 }

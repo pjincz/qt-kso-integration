@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -94,6 +94,7 @@ private slots:
     void itemSpacing();
     void setStretchFactor_data();
     void setStretchFactor();
+    void testStretch();
     void defaultStretchFactors_data();
     void defaultStretchFactors();
     void sizeHint_data();
@@ -103,6 +104,10 @@ private slots:
     void removeLayout();
     void avoidRecursionInInsertItem();
     void styleInfoLeak();
+    void testAlignmentInLargerLayout();
+    void testOffByOneInLargerLayout();
+    void testDefaultAlignment();
+    void combineSizePolicies();
 
     // Task specific tests
     void task218400_insertStretchCrash();
@@ -663,6 +668,10 @@ void tst_QGraphicsLinearLayout::invalidate()
     layout.setContentsMargins(0, 0, 0, 0);
     view.show();
     widget->show();
+    //QTest::qWait(1000);
+    QTest::qWaitForWindowShown(&view);
+    qApp->processEvents();
+    layout.layoutRequest = 0;
 
     layout.setContentsMargins(1, 2, 3, 4);
     QApplication::sendPostedEvents(0, 0);
@@ -1126,6 +1135,41 @@ void tst_QGraphicsLinearLayout::setStretchFactor()
     delete widget;
 }
 
+void tst_QGraphicsLinearLayout::testStretch()
+{
+    QGraphicsScene scene;
+    QGraphicsView *view = new QGraphicsView(&scene);
+    QGraphicsWidget *form = new QGraphicsWidget(0, Qt::Window);
+
+    scene.addItem(form);
+    form->setMinimumSize(600, 600);
+    form->setMaximumSize(600, 600);
+    QGraphicsLinearLayout *layout = new QGraphicsLinearLayout(Qt::Horizontal, form);
+    QGraphicsWidget *w1 = new RectWidget;
+    w1->setPreferredSize(100,100);
+    w1->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    QGraphicsWidget *w2 = new RectWidget;
+    w2->setPreferredSize(200,200);
+    w2->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    layout->setSpacing(0);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addItem(w1);
+    layout->addStretch(2);
+    layout->addItem(w2);
+    QCOMPARE(layout->count(), 2);
+    QVERIFY(layout->itemAt(0) == w1);
+    QVERIFY(layout->itemAt(1) == w2);
+    layout->activate();
+
+    //view->setSceneRect(-50, -50, 800, 800);
+    //view->show();
+    //QTest::qWaitForWindowShown(view);
+    //QTest::qWait(5000);
+    QCOMPARE(form->geometry().size(), QSizeF(600,600));
+    QCOMPARE(w1->geometry(), QRectF(0, 0, 100, 100));
+    QCOMPARE(w2->geometry(), QRectF(400, 0, 200, 200));
+}
+
 void tst_QGraphicsLinearLayout::defaultStretchFactors_data()
 {
     QTest::addColumn<Qt::Orientation>("orientation");
@@ -1463,6 +1507,146 @@ void tst_QGraphicsLinearLayout::task218400_insertStretchCrash()
 
     QGraphicsWidget *form  = new QGraphicsWidget;
     form->setLayout(layout); // crash
+}
+
+void tst_QGraphicsLinearLayout::testAlignmentInLargerLayout()
+{
+    QGraphicsScene *scene = new QGraphicsScene;
+    QGraphicsWidget *form = new QGraphicsWidget;
+    scene->addItem(form);
+    QGraphicsLinearLayout *layout = new QGraphicsLinearLayout(Qt::Vertical, form);
+    layout->setSpacing(0);
+    layout->setContentsMargins(0,0,0,0);
+
+    QGraphicsWidget *a = new QGraphicsWidget;
+    a->setMaximumSize(100,100);
+    layout->addItem(a);
+
+    QCOMPARE(form->maximumSize(), QSizeF(100,100));
+    QCOMPARE(layout->maximumSize(), QSizeF(100,100));
+    layout->setMinimumSize(QSizeF(200,200));
+    layout->setMaximumSize(QSizeF(200,200));
+
+    layout->setAlignment(a, Qt::AlignCenter);
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(50,50,100,100));
+
+    layout->setAlignment(a, Qt::AlignRight | Qt::AlignBottom);
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(100,100,100,100));
+
+    layout->setAlignment(a, Qt::AlignHCenter | Qt::AlignTop);
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(50,0,100,100));
+
+    QGraphicsWidget *b = new QGraphicsWidget;
+    b->setMaximumSize(100,100);
+    layout->addItem(b);
+
+    layout->setAlignment(a, Qt::AlignCenter);
+    layout->setAlignment(b, Qt::AlignCenter);
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(50,0,100,100));
+    QCOMPARE(b->geometry(), QRectF(50,100,100,100));
+
+    layout->setAlignment(a, Qt::AlignRight | Qt::AlignBottom);
+    layout->setAlignment(b, Qt::AlignLeft | Qt::AlignTop);
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(100,0,100,100));
+    QCOMPARE(b->geometry(), QRectF(0,100,100,100));
+}
+
+void tst_QGraphicsLinearLayout::testOffByOneInLargerLayout() {
+    QGraphicsScene *scene = new QGraphicsScene;
+    QGraphicsWidget *form = new QGraphicsWidget;
+    scene->addItem(form);
+    QGraphicsLinearLayout *layout = new QGraphicsLinearLayout(Qt::Vertical, form);
+    layout->setSpacing(0);
+    layout->setContentsMargins(0,0,0,0);
+
+    QGraphicsWidget *a = new QGraphicsWidget;
+    QGraphicsWidget *b = new QGraphicsWidget;
+    a->setMaximumSize(100,100);
+    b->setMaximumSize(100,100);
+    layout->addItem(a);
+    layout->addItem(b);
+
+    layout->setAlignment(a, Qt::AlignRight | Qt::AlignBottom);
+    layout->setAlignment(b, Qt::AlignLeft | Qt::AlignTop);
+    layout->setMinimumSize(QSizeF(101,201));
+    layout->setMaximumSize(QSizeF(101,201));
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(1,0.5,100,100));
+    QCOMPARE(b->geometry(), QRectF(0,100.5,100,100));
+
+    layout->setMinimumSize(QSizeF(100,200));
+    layout->setMaximumSize(QSizeF(100,200));
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(0,0,100,100));
+    QCOMPARE(b->geometry(), QRectF(0,100,100,100));
+
+    layout->setMinimumSize(QSizeF(99,199));
+    layout->setMaximumSize(QSizeF(99,199));
+    layout->activate();
+    QCOMPARE(a->geometry(), QRectF(0,0,99,99.5));
+    QCOMPARE(b->geometry(), QRectF(0,99.5,99,99.5));
+}
+void tst_QGraphicsLinearLayout::testDefaultAlignment()
+{
+    QGraphicsWidget *widget = new QGraphicsWidget;
+    QGraphicsLinearLayout *layout = new QGraphicsLinearLayout(Qt::Vertical, widget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    QGraphicsWidget *w = new QGraphicsWidget;
+    w->setMinimumSize(50,50);
+    w->setMaximumSize(50,50);
+    layout->addItem(w);
+
+    //Default alignment should be to the top-left
+    QCOMPARE(layout->alignment(w), 0);
+
+    //First, check by forcing the layout to be bigger
+    layout->setMinimumSize(100,100);
+    layout->activate();
+    QCOMPARE(layout->geometry(), QRectF(0,0,100,100));
+    QCOMPARE(w->geometry(), QRectF(0,0,50,50));
+    layout->setMinimumSize(-1,-1);
+
+    //Second, check by adding a larger item in the column
+    QGraphicsWidget *w2 = new QGraphicsWidget;
+    w2->setMinimumSize(100,100);
+    w2->setMaximumSize(100,100);
+    layout->addItem(w2);
+    layout->activate();
+    QCOMPARE(layout->geometry(), QRectF(0,0,100,150));
+    QCOMPARE(w->geometry(), QRectF(0,0,50,50));
+    QCOMPARE(w2->geometry(), QRectF(0,50,100,100));
+}
+
+void tst_QGraphicsLinearLayout::combineSizePolicies()
+{
+    QGraphicsWidget *widget = new QGraphicsWidget;
+    QGraphicsLinearLayout *layout = new QGraphicsLinearLayout(Qt::Horizontal, widget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    QGraphicsWidget *w1 = new QGraphicsWidget;
+    w1->setMaximumSize(200,200);
+    w1->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    layout->addItem(w1);
+
+    QGraphicsWidget *w2 = new QGraphicsWidget;
+    w2->setPreferredSize(50,50);
+    w2->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    layout->addItem(w2);
+    QCOMPARE(layout->maximumHeight(), qreal(200));
+
+    // now remove the fixed vertical size policy, and set instead the maximum height to 50
+    // this should in effect give the same maximumHeight
+    w2->setMaximumHeight(50);
+    w2->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    QCOMPARE(layout->maximumHeight(), qreal(200));
 }
 
 QTEST_MAIN(tst_QGraphicsLinearLayout)

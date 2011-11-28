@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -120,6 +120,8 @@ private slots:
     void childChanged();
     void objectListModel();
     void singleRole();
+    void modelProperties();
+    void noDelegate();
 
 private:
     QDeclarativeEngine engine;
@@ -186,6 +188,11 @@ void tst_qdeclarativevisualdatamodel::rootIndex()
     QVERIFY(qvariant_cast<QModelIndex>(obj->rootIndex()) == model.index(0,0));
 
     QMetaObject::invokeMethod(obj, "setRootToParent");
+    QVERIFY(qvariant_cast<QModelIndex>(obj->rootIndex()) == QModelIndex());
+
+    QMetaObject::invokeMethod(obj, "setRoot");
+    QVERIFY(qvariant_cast<QModelIndex>(obj->rootIndex()) == model.index(0,0));
+    model.clear(); // will emit modelReset()
     QVERIFY(qvariant_cast<QModelIndex>(obj->rootIndex()) == QModelIndex());
 
     delete obj;
@@ -363,6 +370,136 @@ void tst_qdeclarativevisualdatamodel::singleRole()
         QCOMPARE(name->text(), QString("Changed"));
     }
 }
+
+void tst_qdeclarativevisualdatamodel::modelProperties()
+{
+    {
+        QDeclarativeView view;
+
+        SingleRoleModel model;
+
+        QDeclarativeContext *ctxt = view.rootContext();
+        ctxt->setContextProperty("myModel", &model);
+
+        view.setSource(QUrl::fromLocalFile(SRCDIR "/data/modelproperties.qml"));
+
+        QDeclarativeListView *listview = qobject_cast<QDeclarativeListView*>(view.rootObject());
+        QVERIFY(listview != 0);
+
+        QDeclarativeItem *contentItem = listview->contentItem();
+        QVERIFY(contentItem != 0);
+
+        QDeclarativeItem *delegate = findItem<QDeclarativeItem>(contentItem, "delegate", 1);
+        QCOMPARE(delegate->property("test1").toString(),QString("two"));
+        QCOMPARE(delegate->property("test2").toString(),QString("two"));
+        QCOMPARE(delegate->property("test3").toString(),QString("two"));
+        QCOMPARE(delegate->property("test4").toString(),QString("two"));
+        QVERIFY(!delegate->property("test9").isValid());
+        QCOMPARE(delegate->property("test5").toString(),QString(""));
+        QVERIFY(delegate->property("test6").value<QObject*>() != 0);
+        QCOMPARE(delegate->property("test7").toInt(),1);
+        QCOMPARE(delegate->property("test8").toInt(),1);
+    }
+
+    {
+        QDeclarativeView view;
+
+        QList<QObject*> dataList;
+        dataList.append(new DataObject("Item 1", "red"));
+        dataList.append(new DataObject("Item 2", "green"));
+        dataList.append(new DataObject("Item 3", "blue"));
+        dataList.append(new DataObject("Item 4", "yellow"));
+
+        QDeclarativeContext *ctxt = view.rootContext();
+        ctxt->setContextProperty("myModel", QVariant::fromValue(dataList));
+
+        view.setSource(QUrl::fromLocalFile(SRCDIR "/data/modelproperties.qml"));
+
+        QDeclarativeListView *listview = qobject_cast<QDeclarativeListView*>(view.rootObject());
+        QVERIFY(listview != 0);
+
+        QDeclarativeItem *contentItem = listview->contentItem();
+        QVERIFY(contentItem != 0);
+
+        QDeclarativeItem *delegate = findItem<QDeclarativeItem>(contentItem, "delegate", 1);
+        QCOMPARE(delegate->property("test1").toString(),QString("Item 2"));
+        QEXPECT_FAIL("", "QTBUG-13576", Continue);
+        QCOMPARE(delegate->property("test2").toString(),QString("Item 2"));
+        QVERIFY(qobject_cast<DataObject*>(delegate->property("test3").value<QObject*>()) != 0);
+        QVERIFY(qobject_cast<DataObject*>(delegate->property("test4").value<QObject*>()) != 0);
+        QCOMPARE(delegate->property("test5").toString(),QString("Item 2"));
+        QCOMPARE(delegate->property("test9").toString(),QString("Item 2"));
+        QVERIFY(delegate->property("test6").value<QObject*>() != 0);
+        QCOMPARE(delegate->property("test7").toInt(),1);
+        QCOMPARE(delegate->property("test8").toInt(),1);
+    }
+
+    {
+        QDeclarativeView view;
+
+        QStandardItemModel model;
+        initStandardTreeModel(&model);
+
+        view.rootContext()->setContextProperty("myModel", &model);
+
+        QUrl source(QUrl::fromLocalFile(SRCDIR "/data/modelproperties2.qml"));
+
+        //3 items, 3 warnings each
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":11: ReferenceError: Can't find variable: modelData");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":11: ReferenceError: Can't find variable: modelData");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":11: ReferenceError: Can't find variable: modelData");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":9: ReferenceError: Can't find variable: modelData");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":9: ReferenceError: Can't find variable: modelData");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":9: ReferenceError: Can't find variable: modelData");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":15: TypeError: Result of expression 'model.modelData' [undefined] is not an object.");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":15: TypeError: Result of expression 'model.modelData' [undefined] is not an object.");
+        QTest::ignoreMessage(QtWarningMsg, source.toString().toLatin1() + ":15: TypeError: Result of expression 'model.modelData' [undefined] is not an object.");
+
+        view.setSource(source);
+
+        QDeclarativeListView *listview = qobject_cast<QDeclarativeListView*>(view.rootObject());
+        QVERIFY(listview != 0);
+
+        QDeclarativeItem *contentItem = listview->contentItem();
+        QVERIFY(contentItem != 0);
+
+        QDeclarativeItem *delegate = findItem<QDeclarativeItem>(contentItem, "delegate", 1);
+        QCOMPARE(delegate->property("test1").toString(),QString("Row 2 Item"));
+        QCOMPARE(delegate->property("test2").toString(),QString("Row 2 Item"));
+        QVERIFY(!delegate->property("test3").isValid());
+        QVERIFY(!delegate->property("test4").isValid());
+        QVERIFY(!delegate->property("test5").isValid());
+        QVERIFY(!delegate->property("test9").isValid());
+        QVERIFY(delegate->property("test6").value<QObject*>() != 0);
+        QCOMPARE(delegate->property("test7").toInt(),1);
+        QCOMPARE(delegate->property("test8").toInt(),1);
+    }
+
+    //### should also test QStringList and QVariantList
+}
+
+void tst_qdeclarativevisualdatamodel::noDelegate()
+{
+    QDeclarativeView view;
+
+    QStandardItemModel model;
+    initStandardTreeModel(&model);
+
+    view.rootContext()->setContextProperty("myModel", &model);
+
+    view.setSource(QUrl::fromLocalFile(SRCDIR "/data/datalist.qml"));
+
+    QDeclarativeListView *listview = qobject_cast<QDeclarativeListView*>(view.rootObject());
+    QVERIFY(listview != 0);
+
+    QDeclarativeVisualDataModel *vdm = listview->findChild<QDeclarativeVisualDataModel*>("visualModel");
+    QVERIFY(vdm != 0);
+    QCOMPARE(vdm->count(), 3);
+
+    vdm->setDelegate(0);
+    QCOMPARE(vdm->count(), 0);
+}
+
 
 template<typename T>
 T *tst_qdeclarativevisualdatamodel::findItem(QGraphicsObject *parent, const QString &objectName, int index)

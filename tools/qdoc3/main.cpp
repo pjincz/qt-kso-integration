@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -45,30 +45,19 @@
 
 #include <qglobal.h>
 #include <stdlib.h>
-#include "apigenerator.h"
 #include "codemarker.h"
 #include "codeparser.h"
 #include "config.h"
 #include "cppcodemarker.h"
 #include "cppcodeparser.h"
-#include "cpptoqsconverter.h"
+#include "ditaxmlgenerator.h"
 #include "doc.h"
 #include "htmlgenerator.h"
-#include "jambiapiparser.h"
-#include "javacodemarker.h"
-#include "javadocgenerator.h"
-#include "linguistgenerator.h"
-#include "loutgenerator.h"
-#include "mangenerator.h"
+#include "jscodemarker.h"
 #include "plaincodemarker.h"
-#include "polyarchiveextractor.h"
-#include "polyuncompressor.h"
-#include "qsakernelparser.h"
-#include "qscodemarker.h"
-#include "qscodeparser.h"
-#include "sgmlgenerator.h"
-#include "webxmlgenerator.h"
-#include "ditaxmlgenerator.h"
+#include "puredocparser.h"
+#include "qmlcodemarker.h"
+#include "qmlcodeparser.h"
 #include "tokenizer.h"
 #include "tree.h"
 #include <qdebug.h>
@@ -105,22 +94,6 @@ static bool showInternal = false;
 static bool obsoleteLinks = false;
 static QStringList defines;
 static QHash<QString, Tree *> trees;
-static QString appArg; // application
-
-/*!
-  Find the Tree for language \a lang and return a pointer to it.
-  If there is no Tree for language \a lang in the Tree table, add
-  a new one. The Tree table is indexed by \a lang strings.
- */
-static Tree* treeForLanguage(const QString &lang)
-{
-    Tree* tree = trees.value(lang);
-    if (tree == 0) {
-        tree = new Tree;
-        trees.insert( lang, tree );
-    }
-    return tree;
-}
 
 /*!
   Print the help message to \c stdout.
@@ -174,7 +147,7 @@ static void processQdocconfFile(const QString &fileName)
                              QStringList() << defaults[i].value);
 	++i;
     }
-    config.setStringList(CONFIG_SLOW, QStringList(slow ? "true" : "false"));
+    config.setStringList(CONFIG_SYNTAXHIGHLIGHTING, QStringList(slow ? "true" : "false"));
     config.setStringList(CONFIG_SHOWINTERNAL,
                          QStringList(showInternal ? "true" : "false"));
     config.setStringList(CONFIG_OBSOLETELINKS,
@@ -191,24 +164,6 @@ static void processQdocconfFile(const QString &fileName)
      */
     Location::initialize(config);
     config.load(fileName);
-
-    /*
-      Set the application to which qdoc will create the output.
-      The two applications are:
-
-      creator: additional formatting for viewing in
-      the Creator application.
-
-      online: full-featured online version with search and
-      links to Qt topics
-    */
-    if (appArg.isEmpty()) {
-        qDebug() << "Warning: Application flag not specified on"
-                 << "command line. Options are -creator (default)"
-                 << "and -online.";
-        appArg = "creator";
-    }
-    config.setStringList(CONFIG_APPLICATION, QStringList(appArg));
 
     /*
       Add the defines to the configuration variables.
@@ -229,7 +184,6 @@ static void processQdocconfFile(const QString &fileName)
     Location::initialize(config);
     Tokenizer::initialize(config);
     Doc::initialize(config);
-    CppToQsConverter::initialize(config);
     CodeMarker::initialize(config);
     CodeParser::initialize(config);
     Generator::initialize(config);
@@ -270,74 +224,95 @@ static void processQdocconfFile(const QString &fileName)
     tree->setVersion(config.getString(CONFIG_VERSION));
 
     /*
-      There must be a code parser for the source code language, e.g. C++.
-      If there isn't one, give up.
-     */
-    CodeParser *codeParser = CodeParser::parserForLanguage(lang);
-    if (codeParser == 0)
-        config.lastLocation().fatal(tr("Cannot parse programming language '%1'").arg(lang));
-
-    /*
       By default, the only output format is HTML.
      */
     QSet<QString> outputFormats = config.getStringSet(CONFIG_OUTPUTFORMATS);
     Location outputFormatsLocation = config.lastLocation();
 
     /*
-      There must be a code marker for the source code language, e.g. C++.
-      If there isn't one, give up.
-     */
-    CodeMarker *marker = CodeMarker::markerForLanguage(lang);
-    if (!marker && !outputFormats.isEmpty())
-	langLocation.fatal(tr("Cannot output documentation for programming language '%1'").arg(lang));
-
-    /*
-      Read some XML indexes. What are they??? 
+      Read some XML indexes containing definitions from other documentation sets.
      */
     QStringList indexFiles = config.getStringList(CONFIG_INDEXES);
     tree->readIndexes(indexFiles);
-    
+
+#if 0
     /*
-      Get all the header files: "*.ch *.h *.h++ *.hh *.hpp *.hxx"
-      Put them in a set.
+      I think we won't beusing this...
+
+      Read the list of DITA excluded directories.
+     */
+    QSet<QString> ditaExcludedDirs;
+    QStringList ditaExcludedDirsList = config.getStringList("dita.metadata.excludedirs");
+    foreach (const QString &t, ditaExcludedDirsList)
+        ditaExcludedDirs.insert(QDir::fromNativeSeparators(t));
+
+    if (!ditaExcludedDirs.isEmpty()) {
+        QSet<QString>::iterator i = ditaExcludedDirs.begin();
+        while (i != ditaExcludedDirs.end()) {
+            qDebug() << "DITA EXCLUDED DIR:" << (*i);
+            ++i;
+        }
+    }
+#endif
+
+    /*
+      Read the list of excluded directories.
      */
     QSet<QString> excludedDirs;
     QStringList excludedDirsList = config.getStringList(CONFIG_EXCLUDEDIRS);
     foreach (const QString &excludeDir, excludedDirsList)
         excludedDirs.insert(QDir::fromNativeSeparators(excludeDir));
-    QSet<QString> headers = QSet<QString>::fromList(
-        config.getAllFiles(CONFIG_HEADERS, CONFIG_HEADERDIRS,
-                           codeParser->headerFileNameFilter(),
-                           excludedDirs));
 
     /*
-      Parse each header file in the set and add it to the big tree.
+      Get all the header files: "*.ch *.h *.h++ *.hh *.hpp *.hxx"
+      Put them in a set.
      */
-    QSet<QString>::ConstIterator h = headers.begin();
-    while (h != headers.end()) {
-	codeParser->parseHeaderFile(config.location(), *h, tree);
-	++h;
-    }
-    codeParser->doneParsingHeaderFiles(tree);
+    QSet<QString> headers = QSet<QString>::fromList(
+        config.getAllFiles(CONFIG_HEADERS, CONFIG_HEADERDIRS, excludedDirs));
 
     /*
       Get all the source text files: "*.cpp *.qdoc *.mm"
       Put them in a set.
      */
     QSet<QString> sources = QSet<QString>::fromList(
-        config.getAllFiles(CONFIG_SOURCES, CONFIG_SOURCEDIRS,
-                           codeParser->sourceFileNameFilter(),
-                           excludedDirs));
+        config.getAllFiles(CONFIG_SOURCES, CONFIG_SOURCEDIRS, excludedDirs));
 
     /*
-      Parse each source text file in the set and add it to the big tree.
+      Parse each header file in the set using the appropriate parser and add it
+      to the big tree.
+     */
+    QSet<CodeParser *> usedParsers;
+
+    QSet<QString>::ConstIterator h = headers.begin();
+    while (h != headers.end()) {
+        CodeParser *codeParser = CodeParser::parserForHeaderFile(*h);
+        if (codeParser) {
+	    codeParser->parseHeaderFile(config.location(), *h, tree);
+            usedParsers.insert(codeParser);
+        }
+	++h;
+    }
+
+    foreach (CodeParser *codeParser, usedParsers)
+        codeParser->doneParsingHeaderFiles(tree);
+
+    usedParsers.clear();
+    /*
+      Parse each source text file in the set using the appropriate parser and
+      add it to the big tree.
      */
     QSet<QString>::ConstIterator s = sources.begin();
     while (s != sources.end()) {
-	codeParser->parseSourceFile(config.location(), *s, tree);
+        CodeParser *codeParser = CodeParser::parserForSourceFile(*s);
+        if (codeParser) {
+	    codeParser->parseSourceFile(config.location(), *s, tree);
+            usedParsers.insert(codeParser);
+        }
 	++s;
     }
-    codeParser->doneParsingSourceFiles(tree);
+
+    foreach (CodeParser *codeParser, usedParsers)
+        codeParser->doneParsingSourceFiles(tree);
 
     /*
       Now the big tree has been built from all the header and
@@ -358,7 +333,7 @@ static void processQdocconfFile(const QString &fileName)
         if (generator == 0)
             outputFormatsLocation.fatal(tr("Unknown output format '%1'")
                                         .arg(*of));
-        generator->generateTree(tree, marker);
+        generator->generateTree(tree);
         ++of;
     }
 
@@ -374,7 +349,6 @@ static void processQdocconfFile(const QString &fileName)
     Generator::terminate();
     CodeParser::terminate();
     CodeMarker::terminate();
-    CppToQsConverter::terminate();
     Doc::terminate();
     Tokenizer::terminate();
     Location::terminate();
@@ -401,52 +375,24 @@ int main(int argc, char **argv)
 #ifndef QT_BOOTSTRAPPED
     QCoreApplication app(argc, argv);
 #endif
-    QString cf = "qsauncompress \1 \2";
-    PolyArchiveExtractor qsaExtractor(QStringList() << "qsa",cf);
-    cf = "tar -C \2 -xf \1";
-    PolyArchiveExtractor tarExtractor(QStringList() << "tar",cf);
-    cf = "tar -C \2 -Zxf \1";
-    PolyArchiveExtractor tazExtractor(QStringList() << "taz",cf);
-    cf = "tar -C \2 -jxf \1";
-    PolyArchiveExtractor tbz2Extractor(QStringList() << "tbz" << "tbz2",cf);
-    cf = "tar -C \2 -zxf \1";
-    PolyArchiveExtractor tgzExtractor(QStringList() << "tgz",cf);
-    cf = "unzip \1 -d \2";
-    PolyArchiveExtractor zipExtractor(QStringList() << "zip",cf);
-    cf = "bunzip2 -c \1 > \2";
-    PolyUncompressor bz2Uncompressor(QStringList() << "bz" << "bz2",cf);
-    cf = "gunzip -c \1 > \2";
-    PolyUncompressor gzAndZUncompressor(QStringList() << "gz" << "z" << "Z",cf);
-    cf = "unzip -c \1 > \2";
-    PolyUncompressor zipUncompressor(QStringList() << "zip",cf);
 
     /*
       Create code parsers for the languages to be parsed,
       and create a tree for C++.
      */
     CppCodeParser cppParser;
-    Tree *cppTree = treeForLanguage(cppParser.language());
-
-    QsCodeParser qsParser(cppTree);
-    QsaKernelParser qsaKernelParser(cppTree);
-    JambiApiParser jambiParser(cppTree);
+    QmlCodeParser qmlParser;
+    PureDocParser docParser;
 
     /*
-      Create code markers for plain text, C++, Java, and qs.
+      Create code markers for plain text and C++.
      */
     PlainCodeMarker plainMarker;
     CppCodeMarker cppMarker;
-    JavaCodeMarker javaMarker;
-    QsCodeMarker qsMarker;
+    JsCodeMarker jsMarker;
+    QmlCodeMarker qmlMarker;
 
-    ApiGenerator apiGenerator;
     HtmlGenerator htmlGenerator;
-    JavadocGenerator javadocGenerator;
-    LinguistGenerator linguistGenerator;
-    LoutGenerator loutGenerator;
-    ManGenerator manGenerator;
-    SgmlGenerator smglGenerator;
-    WebXMLGenerator webxmlGenerator;
     DitaXmlGenerator ditaxmlGenerator;
 
     QStringList qdocFiles;
@@ -481,10 +427,6 @@ int main(int argc, char **argv)
         else if (opt == "-obsoletelinks") {
             obsoleteLinks = true;
         }
-	else if (opt == "-creator")
-		appArg = "creator";
-	else if (opt == "-online")
-		appArg = "online";
         else {
 	    qdocFiles.append(opt);
 	}

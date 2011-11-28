@@ -86,6 +86,10 @@
 <context>
     <name>DataModel</name>
     <message>
+        <source>The translation file &apos;%1&apos; will not be loaded because it is empty.</source>
+        <translation>Файл перекладу &apos;%1&apos; не буде завантажено, бо він порожній.</translation>
+    </message>
+    <message>
         <source>&lt;qt&gt;Duplicate messages found in &apos;%1&apos;:</source>
         <translation>&lt;qt&gt;Повідомлення-дублікати знайдено в &apos;%1&apos;:</translation>
     </message>
@@ -1146,7 +1150,7 @@ lupdate - це частина набору програм Qt Linguist. Вона 
         <translation>Незакритий рядок в кінці файлу</translation>
     </message>
     <message>
-        <source>Illegal escape squence</source>
+        <source>Illegal escape sequence</source>
         <translation>Неприпустима керуюча послідовність</translation>
     </message>
     <message>
@@ -1987,8 +1991,8 @@ All files (*)</source>
         <translation>Версія %1</translation>
     </message>
     <message>
-        <source>&lt;center&gt;&lt;img src=&quot;:/images/splash.png&quot;/&gt;&lt;/img&gt;&lt;p&gt;%1&lt;/p&gt;&lt;/center&gt;&lt;p&gt;Qt Linguist is a tool for adding translations to Qt applications.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).</source>
-        <translation>&lt;center&gt;&lt;img src=&quot;:/images/splash.png&quot;/&gt;&lt;/img&gt;&lt;p&gt;%1&lt;/p&gt;&lt;/center&gt;&lt;p&gt;Qt Linguist - це засіб для додавання перекладів до програм на Qt.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Корпорація Nokia та/або її дочірні компанії.</translation>
+        <source>&lt;center&gt;&lt;img src=&quot;:/images/splash.png&quot;/&gt;&lt;/img&gt;&lt;p&gt;%1&lt;/p&gt;&lt;/center&gt;&lt;p&gt;Qt Linguist is a tool for adding translations to Qt applications.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).</source>
+        <translation>&lt;center&gt;&lt;img src=&quot;:/images/splash.png&quot;/&gt;&lt;/img&gt;&lt;p&gt;%1&lt;/p&gt;&lt;/center&gt;&lt;p&gt;Qt Linguist - це засіб для додавання перекладів до програм на Qt.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Корпорація Nokia та/або її дочірні компанії.</translation>
     </message>
     <message>
         <source>Do you want to save the modified files?</source>

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -192,13 +192,19 @@ bool QTiffHandler::read(QImage *image)
         return false;
     }
 
-    // BitsPerSample defaults to 1 according to the TIFF spec.
-    uint16 bitPerSample;
-    if (!TIFFGetField(tiff, TIFFTAG_BITSPERSAMPLE, &bitPerSample))
-        bitPerSample = 1;
+    uint16 bitsPerSample, samplesPerPixel, bitsPerPixel;
+    if (!TIFFGetFieldDefaulted(tiff, TIFFTAG_BITSPERSAMPLE, &bitsPerSample)) {
+        TIFFClose(tiff);
+        return false;
+    }
+    if (!TIFFGetFieldDefaulted(tiff, TIFFTAG_SAMPLESPERPIXEL, &samplesPerPixel)) {
+        TIFFClose(tiff);
+        return false;
+    }
+    bitsPerPixel = bitsPerSample * samplesPerPixel;
 
     bool grayscale = photometric == PHOTOMETRIC_MINISBLACK || photometric == PHOTOMETRIC_MINISWHITE;
-    if (grayscale && bitPerSample == 1) {
+    if (grayscale && bitsPerPixel == 1) {
         if (image->size() != QSize(width, height) || image->format() != QImage::Format_Mono)
             *image = QImage(width, height, QImage::Format_Mono);
         QVector<QRgb> colortable(2);
@@ -220,7 +226,7 @@ bool QTiffHandler::read(QImage *image)
             }
         }
     } else {
-        if ((grayscale || photometric == PHOTOMETRIC_PALETTE) && bitPerSample == 8) {
+        if ((grayscale || photometric == PHOTOMETRIC_PALETTE) && bitsPerPixel == 8) {
             if (image->size() != QSize(width, height) || image->format() != QImage::Format_Indexed8)
                 *image = QImage(width, height, QImage::Format_Indexed8);
             if (!image->isNull()) {
@@ -233,14 +239,14 @@ bool QTiffHandler::read(QImage *image)
                     }
                 } else {
                     // create the color table
-                    uint16 *redTable = static_cast<uint16 *>(qMalloc(tableSize * sizeof(uint16)));
-                    uint16 *greenTable = static_cast<uint16 *>(qMalloc(tableSize * sizeof(uint16)));
-                    uint16 *blueTable = static_cast<uint16 *>(qMalloc(tableSize * sizeof(uint16)));
-                    if (!redTable || !greenTable || !blueTable) {
+                    uint16 *redTable = 0;
+                    uint16 *greenTable = 0;
+                    uint16 *blueTable = 0;
+                    if (!TIFFGetField(tiff, TIFFTAG_COLORMAP, &redTable, &greenTable, &blueTable)) {
                         TIFFClose(tiff);
                         return false;
                     }
-                    if (!TIFFGetField(tiff, TIFFTAG_COLORMAP, &redTable, &greenTable, &blueTable)) {
+                    if (!redTable || !greenTable || !blueTable) {
                         TIFFClose(tiff);
                         return false;
                     }
@@ -497,6 +503,9 @@ bool QTiffHandler::write(const QImage &image)
             uint16 *greenTable = static_cast<uint16 *>(qMalloc(256 * sizeof(uint16)));
             uint16 *blueTable = static_cast<uint16 *>(qMalloc(256 * sizeof(uint16)));
             if (!redTable || !greenTable || !blueTable) {
+                qFree(redTable);
+                qFree(greenTable);
+                qFree(blueTable);
                 TIFFClose(tiff);
                 return false;
             }
@@ -608,6 +617,7 @@ QVariant QTiffHandler::option(ImageOption option) const
             TIFFGetField(tiff, TIFFTAG_IMAGEWIDTH, &width);
             TIFFGetField(tiff, TIFFTAG_IMAGELENGTH, &height);
             imageSize = QSize(width, height);
+            TIFFClose(tiff);
         }
         device()->seek(pos);
         if (imageSize.isValid())

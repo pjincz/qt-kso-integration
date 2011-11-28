@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -72,9 +72,7 @@ QT_BEGIN_NAMESPACE
 
 // The cache limit describes the maximum "junk" in the cache.
 // These are the same defaults as QPixmapCache
-#if defined(Q_OS_SYMBIAN)
-static int cache_limit = 1024 * 1024; // 1048 KB cache limit for symbian
-#elif defined(Q_WS_QWS) || defined(Q_WS_WINCE)
+#if defined(Q_WS_QWS) || defined(Q_WS_WINCE)
 static int cache_limit = 2048 * 1024; // 2048 KB cache limit for embedded
 #else
 static int cache_limit = 10240 * 1024; // 10 MB cache limit for desktop
@@ -93,6 +91,7 @@ public:
 
     QDeclarativePixmapData *data;
     QDeclarativePixmapReader *reader;
+    QSize requestSize;
 
     bool loading;
     int redirectCount;
@@ -366,7 +365,7 @@ void QDeclarativePixmapReader::networkRequestDone(QNetworkReply *reply)
             QByteArray all = reply->readAll();
             QBuffer buff(&all);
             buff.open(QIODevice::ReadOnly);
-            if (!readImage(reply->url(), &buff, &image, &errorString, &readSize, job->data->requestSize)) {
+            if (!readImage(reply->url(), &buff, &image, &errorString, &readSize, job->requestSize)) {
                 error = QDeclarativePixmapReply::Decoding;
             }
         }
@@ -425,7 +424,8 @@ void QDeclarativePixmapReader::processJobs()
                     replies.remove(reply);
                     reply->close();
                 }
-                delete job;
+                // deleteLater, since not owned by this thread
+                job->deleteLater();
             }
             cancelled.clear();
         }
@@ -584,6 +584,7 @@ public:
 
     void unreferencePixmap(QDeclarativePixmapData *);
     void referencePixmap(QDeclarativePixmapData *);
+    void flushCache();
 
 protected:
     virtual void timerEvent(QTimerEvent *);
@@ -682,8 +683,16 @@ void QDeclarativePixmapStore::timerEvent(QTimerEvent *)
     }
 }
 
+/*
+    Remove all unreferenced pixmaps from the cache.
+*/
+void QDeclarativePixmapStore::flushCache()
+{
+    shrinkCache(m_unreferencedCost);
+}
+
 QDeclarativePixmapReply::QDeclarativePixmapReply(QDeclarativePixmapData *d)
-: data(d), reader(0), loading(false), redirectCount(0)
+: data(d), reader(0), requestSize(d->requestSize), loading(false), redirectCount(0)
 {
     if (finishedIndex == -1) {
         finishedIndex = QDeclarativePixmapReply::staticMetaObject.indexOfSignal("finished()");
@@ -958,20 +967,20 @@ QRect QDeclarativePixmap::rect() const
 
 void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url)
 {
-    load(engine, url, QSize(), false);
+    load(engine, url, QSize(), QDeclarativePixmap::Cache);
 }
 
-void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, bool async)
+void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, QDeclarativePixmap::Options options)
 {
-    load(engine, url, QSize(), async);
+    load(engine, url, QSize(), options);
 }
 
 void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, const QSize &size)
 {
-    load(engine, url, size, false);
+    load(engine, url, size, QDeclarativePixmap::Cache);
 }
 
-void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, const QSize &requestSize, bool async)
+void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, const QSize &requestSize, QDeclarativePixmap::Options options)
 {
     if (d) { d->release(); d = 0; }
 
@@ -981,19 +990,20 @@ void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, const
     QHash<QDeclarativePixmapKey, QDeclarativePixmapData *>::Iterator iter = store->m_cache.find(key);
 
     if (iter == store->m_cache.end()) {
-        if (async) {
+        if (options & QDeclarativePixmap::Asynchronous) {
             // pixmaps can only be loaded synchronously
             if (url.scheme() == QLatin1String("image") 
                     && QDeclarativeEnginePrivate::get(engine)->getImageProviderType(url) == QDeclarativeImageProvider::Pixmap) {
-                async = false;
+                options &= ~QDeclarativePixmap::Asynchronous;
             }
         }
 
-        if (!async) {
+        if (!(options & QDeclarativePixmap::Asynchronous)) {
             bool ok = false;
             d = createPixmapDataSync(engine, url, requestSize, &ok);
             if (ok) {
-                d->addToCache();
+                if (options & QDeclarativePixmap::Cache)
+                    d->addToCache();
                 return;
             }
             if (d)  // loadable, but encountered error while loading
@@ -1006,7 +1016,8 @@ void QDeclarativePixmap::load(QDeclarativeEngine *engine, const QUrl &url, const
         QDeclarativePixmapReader *reader = QDeclarativePixmapReader::instance(engine);
 
         d = new QDeclarativePixmapData(url, requestSize);
-        d->addToCache();
+        if (options & QDeclarativePixmap::Cache)
+            d->addToCache();
 
         d->reply = reader->getImage(d);
     } else {
@@ -1071,6 +1082,11 @@ bool QDeclarativePixmap::connectDownloadProgress(QObject *object, int method)
     }
 
     return QMetaObject::connect(d->reply, QDeclarativePixmapReply::downloadProgressIndex, object, method);
+}
+
+void QDeclarativePixmap::flushCache()
+{
+    pixmapStore()->flushCache();
 }
 
 QT_END_NAMESPACE

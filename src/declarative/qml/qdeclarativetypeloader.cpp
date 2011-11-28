@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -44,6 +44,8 @@
 #include <private/qdeclarativeengine_p.h>
 #include <private/qdeclarativecompiler_p.h>
 #include <private/qdeclarativecomponent_p.h>
+#include <private/qdeclarativeglobal_p.h>
+#include <private/qdeclarativedebugtrace_p.h>
 
 #include <QtDeclarative/qdeclarativecomponent.h>
 #include <QtCore/qdebug.h>
@@ -493,6 +495,13 @@ void QDeclarativeDataLoader::load(QDeclarativeDataBlob *blob)
     QString lf = QDeclarativeEnginePrivate::urlToLocalFileOrQrc(blob->m_url);
 
     if (!lf.isEmpty()) {
+        if (!QDeclarative_isFileCaseCorrect(lf)) {
+            QDeclarativeError error;
+            error.setUrl(blob->m_url);
+            error.setDescription(QLatin1String("File name case mismatch"));
+            blob->setError(error);
+            return;
+        }
         QFile file(lf);
         if (file.open(QFile::ReadOnly)) {
             QByteArray data = file.readAll();
@@ -620,7 +629,18 @@ QDeclarativeTypeLoader::~QDeclarativeTypeLoader()
 }
 
 /*!
-Return a QDeclarativeTypeData for \a url.  The QDeclarativeTypeData may be cached.
+\enum QDeclarativeTypeLoader::Option
+
+This enum defines the options that control the way type data is handled.
+
+\value None             The default value, indicating that no other options
+                        are enabled.
+\value PreserveParser   The parser used to handle the type data is preserved
+                        after the data has been parsed.
+*/
+
+/*!
+Returns a QDeclarativeTypeData for the specified \a url.  The QDeclarativeTypeData may be cached.
 */
 QDeclarativeTypeData *QDeclarativeTypeLoader::get(const QUrl &url)
 {
@@ -641,8 +661,10 @@ QDeclarativeTypeData *QDeclarativeTypeLoader::get(const QUrl &url)
 }
 
 /*!
-Return a QDeclarativeTypeData for \a data with the provided base \a url.  The 
+Returns a QDeclarativeTypeData for the given \a data with the provided base \a url.  The 
 QDeclarativeTypeData will not be cached.
+
+The specified \a options control how the loader handles type data.
 */
 QDeclarativeTypeData *QDeclarativeTypeLoader::get(const QByteArray &data, const QUrl &url, Options options)
 {
@@ -711,7 +733,7 @@ void QDeclarativeTypeLoader::clearCache()
 QDeclarativeTypeData::QDeclarativeTypeData(const QUrl &url, QDeclarativeTypeLoader::Options options, 
                                            QDeclarativeTypeLoader *manager)
 : QDeclarativeDataBlob(url, QmlFile), m_options(options), m_typesResolved(false), 
-  m_compiledData(0), m_component(0), m_typeLoader(manager)
+  m_compiledData(0), m_typeLoader(manager)
 {
 }
 
@@ -758,23 +780,6 @@ QDeclarativeCompiledData *QDeclarativeTypeData::compiledData() const
         m_compiledData->addref();
 
     return m_compiledData;
-}
-
-QDeclarativeComponent *QDeclarativeTypeData::component() const
-{
-    if (!m_component) {
-
-        if (m_compiledData) {
-            m_component = new QDeclarativeComponent(typeLoader()->engine(), m_compiledData, -1, -1, 0);
-        } else {
-            m_component = new QDeclarativeComponent(typeLoader()->engine());
-            QDeclarativeComponentPrivate::get(m_component)->url = finalUrl();
-            QDeclarativeComponentPrivate::get(m_component)->state.errors = errors();
-        }
-
-    }
-
-    return m_component;
 }
 
 void QDeclarativeTypeData::registerCallback(TypeDataCallback *callback)
@@ -904,10 +909,12 @@ void QDeclarativeTypeData::downloadProgressChanged(qreal p)
 void QDeclarativeTypeData::compile()
 {
     Q_ASSERT(m_compiledData == 0);
+    QDeclarativeDebugTrace::startRange(QDeclarativeDebugTrace::Compiling);
 
     m_compiledData = new QDeclarativeCompiledData(typeLoader()->engine());
     m_compiledData->url = m_imports.baseUrl();
     m_compiledData->name = m_compiledData->url.toString();
+    QDeclarativeDebugTrace::rangeData(QDeclarativeDebugTrace::Compiling, m_compiledData->name);
 
     QDeclarativeCompiler compiler;
     if (!compiler.compile(typeLoader()->engine(), this, m_compiledData)) {
@@ -915,6 +922,7 @@ void QDeclarativeTypeData::compile()
         m_compiledData->release();
         m_compiledData = 0;
     }
+    QDeclarativeDebugTrace::endRange(QDeclarativeDebugTrace::Compiling);
 }
 
 void QDeclarativeTypeData::resolveTypes()
@@ -1010,6 +1018,8 @@ void QDeclarativeTypeData::resolveTypes()
         }
 
         if (ref.type) {
+            ref.majorVersion = majorVersion;
+            ref.minorVersion = minorVersion;
             foreach (QDeclarativeParser::Object *obj, parserRef->refObjects) {
                // store namespace for DOM
                obj->majorVersion = majorVersion;

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -51,7 +51,6 @@
 #include "qabstractfileengine.h"
 #include "qthreadstorage.h"
 #include <qmath.h>
-#include <private/qpdf_p.h>
 #include <private/qharfbuzz_p.h>
 
 #include "qfontengine_ft_p.h"
@@ -763,8 +762,17 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyphMetrics(QGlyphSet *set, uint glyph
         return g;
 
     int load_flags = FT_LOAD_DEFAULT | default_load_flags;
+    int load_target = default_hint_style == HintLight
+                      ? FT_LOAD_TARGET_LIGHT
+                      : FT_LOAD_TARGET_NORMAL;
+
     if (set->outline_drawing)
         load_flags = FT_LOAD_NO_BITMAP;
+
+    if (default_hint_style == HintNone)
+        load_flags |= FT_LOAD_NO_HINTING;
+    else
+        load_flags |= load_target;
 
     // apply our matrix to this, but note that the metrics will not be affected by this.
     FT_Face face = lockFace();
@@ -910,7 +918,7 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyph(QGlyphSet *set, uint glyph, Glyph
         }
     }
 
-    if (default_hint_style == HintNone)
+    if (default_hint_style == HintNone || set->outline_drawing)
         load_flags |= FT_LOAD_NO_HINTING;
     else
         load_flags |= load_target;
@@ -1196,10 +1204,7 @@ QFontEngine::Properties QFontEngineFT::properties() const
 {
     Properties p = freetype->properties();
     if (p.postscriptName.isEmpty()) {
-        p.postscriptName = fontDef.family.toUtf8();
-#ifndef QT_NO_PRINTER
-        p.postscriptName = QPdf::stripSpecialCharacters(p.postscriptName);
-#endif
+        p.postscriptName = QFontEngine::convertToPostscriptFontFamilyName(fontDef.family.toUtf8());
     }
 
     return freetype->properties();
@@ -1804,10 +1809,12 @@ glyph_metrics_t QFontEngineFT::boundingBox(glyph_t glyph, const QTransform &matr
     } else {
         glyphSet = &defaultGlyphSet;
     }
+    bool needsDelete = false;
     Glyph * g = glyphSet->getGlyph(glyph);
     if (!g) {
         face = lockFace();
         g = loadGlyphMetrics(glyphSet, glyph);
+        needsDelete = true;
     }
 
     if (g) {
@@ -1816,6 +1823,8 @@ glyph_metrics_t QFontEngineFT::boundingBox(glyph_t glyph, const QTransform &matr
         overall.width = g->width;
         overall.height = g->height;
         overall.xoff = g->advance;
+        if (needsDelete)
+            delete g;
     } else {
         int left  = FLOOR(face->glyph->metrics.horiBearingX);
         int right = CEIL(face->glyph->metrics.horiBearingX + face->glyph->metrics.width);

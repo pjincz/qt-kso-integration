@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,6 +48,7 @@
 
 #include <qpair.h>
 
+#include "atom.h"
 #include "node.h"
 
 QT_BEGIN_NAMESPACE
@@ -107,13 +108,6 @@ struct FastSection
 
 };
 
-#if 0
-                const QString& name0 = "",
-                const QString& divClass0 = "",
-                const QString& singularMember0 = "member",
-                const QString& pluralMember0 = "members")
-#endif
-
 class CodeMarker
 {
  public:
@@ -128,12 +122,13 @@ class CodeMarker
     virtual bool recognizeCode(const QString& code) = 0;
     virtual bool recognizeExtension(const QString& ext) = 0;
     virtual bool recognizeLanguage(const QString& lang) = 0;
+    virtual Atom::Type atomType() const = 0;
     virtual QString plainName(const Node *node) = 0;
     virtual QString plainFullName(const Node *node, 
                                   const Node *relative = 0) = 0;
     virtual QString markedUpCode(const QString& code, 
                                  const Node *relative,
-                                 const QString& dirPath) = 0;
+                                 const Location &location) = 0;
     virtual QString markedUpSynopsis(const Node *node, 
                                      const Node *relative,
                                      SynopsisStyle style) = 0;
@@ -160,7 +155,7 @@ class CodeMarker
                                       const Tree* tree,
 		                      const Node* relative,
                                       const Node* self = 0);
-    virtual QStringList macRefsForNode(const Node* node);
+    virtual QStringList macRefsForNode(Node* node);
 
     static void initialize(const Config& config);
     static void terminate();
@@ -170,12 +165,11 @@ class CodeMarker
     static const Node *nodeForString(const QString& string);
     static QString stringForNode(const Node *node);
 
- protected:
-    bool hurryUp() const { return !slow; }
+    QString typified(const QString &string);
 
+ protected:
     virtual QString sortName(const Node *node);
     QString protect(const QString &string);
-    QString typified(const QString &string);
     QString taggedNode(const Node* node);
 #ifdef QDOC_QML
     QString taggedQmlNode(const Node* node);
@@ -190,8 +184,6 @@ class CodeMarker
 
  private:
     QString macName(const Node *parent, const QString &name = QString());
-
-    bool slow;
 
     static QString defaultLang;
     static QList<CodeMarker *> markers;

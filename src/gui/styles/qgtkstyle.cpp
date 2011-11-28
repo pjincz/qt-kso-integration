@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -225,9 +225,8 @@ QPalette QGtkStyle::standardPalette() const
         GtkStyle *style = d->gtkStyle();
         GtkWidget *gtkButton = d->gtkWidget("GtkButton");
         GtkWidget *gtkEntry = d->getTextColorWidget();
-
-        GdkColor gdkBg, gdkBase, gdkText, gdkForeground, gdkSbg, gdkSfg;
-        QColor bg, base, text, fg, highlight, highlightText;
+        GdkColor gdkBg, gdkBase, gdkText, gdkForeground, gdkSbg, gdkSfg, gdkaSbg, gdkaSfg;
+        QColor bg, base, text, fg, highlight, highlightText, inactiveHighlight, inactiveHighlightedTExt;
         gdkBg = style->bg[GTK_STATE_NORMAL];
         gdkForeground = gtkButton->style->fg[GTK_STATE_NORMAL];
 
@@ -237,14 +236,23 @@ QPalette QGtkStyle::standardPalette() const
         gdkText = gtkEntry->style->text[GTK_STATE_NORMAL];
         gdkSbg = gtkEntry->style->base[GTK_STATE_SELECTED];
         gdkSfg = gtkEntry->style->text[GTK_STATE_SELECTED];
+
+        // The ACTIVE base color is really used for inactive windows
+        gdkaSbg = gtkEntry->style->base[GTK_STATE_ACTIVE];
+        gdkaSfg = gtkEntry->style->text[GTK_STATE_ACTIVE];
+
         bg = QColor(gdkBg.red>>8, gdkBg.green>>8, gdkBg.blue>>8);
         text = QColor(gdkText.red>>8, gdkText.green>>8, gdkText.blue>>8);
         fg = QColor(gdkForeground.red>>8, gdkForeground.green>>8, gdkForeground.blue>>8);
         base = QColor(gdkBase.red>>8, gdkBase.green>>8, gdkBase.blue>>8);
         highlight = QColor(gdkSbg.red>>8, gdkSbg.green>>8, gdkSbg.blue>>8);
         highlightText = QColor(gdkSfg.red>>8, gdkSfg.green>>8, gdkSfg.blue>>8);
+        inactiveHighlight = QColor(gdkaSbg.red>>8, gdkaSbg.green>>8, gdkaSbg.blue>>8);
+        inactiveHighlightedTExt = QColor(gdkaSfg.red>>8, gdkaSfg.green>>8, gdkaSfg.blue>>8);
 
         palette.setColor(QPalette::HighlightedText, highlightText);
+
+
         palette.setColor(QPalette::Light, bg.lighter(125));
         palette.setColor(QPalette::Shadow, bg.darker(130));
         palette.setColor(QPalette::Dark, bg.darker(120));
@@ -279,6 +287,10 @@ QPalette QGtkStyle::standardPalette() const
         highlightText.setHsv(highlightText.hue(), 0, highlightText.value(), highlightText.alpha());
         palette.setColor(QPalette::Disabled, QPalette::Highlight, highlight);
         palette.setColor(QPalette::Disabled, QPalette::HighlightedText, highlightText);
+
+        palette.setColor(QPalette::Inactive, QPalette::HighlightedText, inactiveHighlightedTExt);
+        palette.setColor(QPalette::Inactive, QPalette::Highlight, inactiveHighlight);
+
         style = d->gtk_rc_get_style_by_paths(d->gtk_settings_get_default(), "gtk-tooltips", "GtkWindow",
                 d->gtk_window_get_type());
         if (style) {
@@ -791,10 +803,13 @@ void QGtkStyle::drawPrimitive(PrimitiveElement element,
             // ### this mess should move to subcontrolrect
             QRect frameRect = option->rect.adjusted(1, 1, -1, -2);
 
-            if (qobject_cast<const QTabBar*>(widget))
-                frameRect.adjust(-1, 1, 1, 1);
-
-            gtkPainter.paintFocus(NULL, "tab", frameRect, GTK_STATE_ACTIVE, style);
+            if (qobject_cast<const QTabBar*>(widget)) {
+                GtkWidget *gtkNotebook = d->gtkWidget("GtkNotebook");
+                style = gtkPainter.getStyle(gtkNotebook);
+                gtkPainter.paintFocus(gtkNotebook, "tab", frameRect.adjusted(-1, 1, 1, 1), GTK_STATE_ACTIVE, style);
+            } else {
+                gtkPainter.paintFocus(NULL, "tab", frameRect, GTK_STATE_ACTIVE, style);
+            }
         }
         break;
 

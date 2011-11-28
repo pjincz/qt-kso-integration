@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -85,6 +85,9 @@ private slots:
     void rotation();
     void runningTrueBug();
     void nonTransitionBug();
+    void registrationBug();
+    void doubleRegistrationBug();
+    void alwaysRunToEndRestartBug();
 };
 
 #define QTIMED_COMPARE(lhs, rhs) do { \
@@ -791,6 +794,54 @@ void tst_qdeclarativeanimations::nonTransitionBug()
     rectPrivate->setState("free");
     QTest::qWait(300);
     QCOMPARE(mover->x(), qreal(100));
+}
+
+//QTBUG-14042
+void tst_qdeclarativeanimations::registrationBug()
+{
+    QDeclarativeEngine engine;
+
+    QDeclarativeComponent c(&engine, SRCDIR "/data/registrationBug.qml");
+    QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(c.create());
+    QVERIFY(rect != 0);
+    QTRY_COMPARE(rect->property("value"), QVariant(int(100)));
+}
+
+void tst_qdeclarativeanimations::doubleRegistrationBug()
+{
+    QDeclarativeEngine engine;
+
+    QDeclarativeComponent c(&engine, SRCDIR "/data/doubleRegistrationBug.qml");
+    QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(c.create());
+    QVERIFY(rect != 0);
+
+    QDeclarativeAbstractAnimation *anim = rect->findChild<QDeclarativeAbstractAnimation*>("animation");
+    QVERIFY(anim != 0);
+    QTRY_COMPARE(anim->qtAnimation()->state(), QAbstractAnimation::Stopped);
+}
+
+//QTBUG-16736
+void tst_qdeclarativeanimations::alwaysRunToEndRestartBug()
+{
+    QDeclarativeRectangle rect;
+    QDeclarativePropertyAnimation animation;
+    animation.setTarget(&rect);
+    animation.setProperty("x");
+    animation.setTo(200);
+    animation.setDuration(1000);
+    animation.setLoops(-1);
+    animation.setAlwaysRunToEnd(true);
+    QVERIFY(animation.loops() == -1);
+    QVERIFY(animation.alwaysRunToEnd() == true);
+    animation.start();
+    animation.stop();
+    animation.start();
+    animation.stop();
+    QTest::qWait(500);
+    QVERIFY(rect.x() != qreal(200));
+    QTest::qWait(800);
+    QTIMED_COMPARE(rect.x(), qreal(200));
+    QCOMPARE(static_cast<QDeclarativeAbstractAnimation*>(&animation)->qtAnimation()->state(), QAbstractAnimation::Stopped);
 }
 
 QTEST_MAIN(tst_qdeclarativeanimations)

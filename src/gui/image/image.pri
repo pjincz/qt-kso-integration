@@ -28,7 +28,10 @@ HEADERS += \
         image/qpixmapdata_p.h \
         image/qpixmapdatafactory_p.h \
         image/qpixmapfilter_p.h \
-        image/qimagepixmapcleanuphooks_p.h
+        image/qimagepixmapcleanuphooks_p.h \
+        image/qvolatileimage_p.h \
+        image/qvolatileimagedata_p.h \
+        image/qnativeimagehandleprovider_p.h
 
 SOURCES += \
         image/qbitmap.cpp \
@@ -51,7 +54,8 @@ SOURCES += \
         image/qmovie.cpp \
         image/qpixmap_raster.cpp \
         image/qnativeimage.cpp \
-        image/qimagepixmapcleanuphooks.cpp
+        image/qimagepixmapcleanuphooks.cpp \
+        image/qvolatileimage.cpp
 
 win32 {
     SOURCES += image/qpixmap_win.cpp
@@ -68,8 +72,15 @@ else:mac {
     SOURCES += image/qpixmap_mac.cpp
 }
 else:symbian {
-    HEADERS += image/qpixmap_s60_p.h
-    SOURCES += image/qpixmap_s60.cpp
+    HEADERS += image/qpixmap_raster_symbian_p.h
+    SOURCES += image/qpixmap_raster_symbian.cpp
+}
+
+!symbian|contains(S60_VERSION, 3.1)|contains(S60_VERSION, 3.2) {
+    SOURCES += image/qvolatileimagedata.cpp
+}
+else {
+    SOURCES += image/qvolatileimagedata_symbian.cpp
 }
 
 # Built-in image format support

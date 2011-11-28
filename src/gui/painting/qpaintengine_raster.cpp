@@ -1,45 +1,46 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
 #include <QtCore/qglobal.h>
+#include <QtCore/qmutex.h>
 
 #define QT_FT_BEGIN_HEADER
 #define QT_FT_END_HEADER
@@ -1025,9 +1026,10 @@ void QRasterPaintEngine::updateState()
     if (s->dirty & DirtyTransform)
         updateMatrix(s->matrix);
 
-    if (s->dirty & (DirtyPen|DirtyCompositionMode)) {
+    if (s->dirty & (DirtyPen|DirtyCompositionMode|DirtyOpacity)) {
         const QPainter::CompositionMode mode = s->composition_mode;
         s->flags.fast_text = (s->penData.type == QSpanData::Solid)
+                       && s->intOpacity == 256
                        && (mode == QPainter::CompositionMode_Source
                            || (mode == QPainter::CompositionMode_SourceOver
                                && qAlpha(s->penData.solid.color) == 255));
@@ -1051,6 +1053,7 @@ void QRasterPaintEngine::opacityChanged()
     s->fillFlags |= DirtyOpacity;
     s->strokeFlags |= DirtyOpacity;
     s->pixmapFlags |= DirtyOpacity;
+    s->dirty |= DirtyOpacity;
     s->intOpacity = (int) (s->opacity * 256);
 }
 
@@ -1253,7 +1256,7 @@ void QRasterPaintEnginePrivate::updateMatrixData(QSpanData *spanData, const QBru
     Q_Q(QRasterPaintEngine);
     bool bilinear = q->state()->flags.bilinear;
 
-    if (b.d->transform.type() > QTransform::TxNone) { // FALCON: optimise
+    if (b.d->transform.type() > QTransform::TxNone) { // FALCON: optimize
         spanData->setupMatrix(b.transform() * m, bilinear);
     } else {
         if (m.type() <= QTransform::TxTranslate) {
@@ -1360,7 +1363,7 @@ void QRasterPaintEngine::clip(const QVectorPath &path, Qt::ClipOperation op)
     // There are some cases that are not supported by clip(QRect)
     if (op != Qt::UniteClip && (op != Qt::IntersectClip || !s->clip
                                 || s->clip->hasRectClip || s->clip->hasRegionClip)) {
-        if (s->matrix.type() <= QTransform::TxTranslate
+        if (s->matrix.type() <= QTransform::TxScale
             && ((path.shape() == QVectorPath::RectangleHint)
                 || (isRect(points, path.elementCount())
                     && (!types || (types[0] == QPainterPath::MoveToElement
@@ -1372,8 +1375,8 @@ void QRasterPaintEngine::clip(const QVectorPath &path, Qt::ClipOperation op)
 #endif
 
             QRectF r(points[0], points[1], points[4]-points[0], points[5]-points[1]);
-            clip(r.toRect(), op);
-            return;
+            if (setClipRectInDeviceCoords(s->matrix.mapRect(r).toRect(), op))
+                return;
         }
     }
 
@@ -1434,7 +1437,6 @@ void QRasterPaintEngine::clip(const QRect &rect, Qt::ClipOperation op)
     qDebug() << "QRasterPaintEngine::clip(): " << rect << op;
 #endif
 
-    Q_D(QRasterPaintEngine);
     QRasterPaintEngineState *s = state();
 
     if (op == Qt::NoClip) {
@@ -1444,11 +1446,23 @@ void QRasterPaintEngine::clip(const QRect &rect, Qt::ClipOperation op)
         QPaintEngineEx::clip(rect, op);
         return;
 
-    } else if (op == Qt::ReplaceClip || s->clip == 0) {
+    } else if (!setClipRectInDeviceCoords(s->matrix.mapRect(rect), op)) {
+        QPaintEngineEx::clip(rect, op);
+        return;
+    }
+}
+
+
+bool QRasterPaintEngine::setClipRectInDeviceCoords(const QRect &r, Qt::ClipOperation op)
+{
+    Q_D(QRasterPaintEngine);
+    QRect clipRect = r & d->deviceRect;
+    QRasterPaintEngineState *s = state();
+
+    if (op == Qt::ReplaceClip || s->clip == 0) {
 
         // No current clip, hence we intersect with sysclip and be
         // done with it...
-        QRect clipRect = s->matrix.mapRect(rect) & d->deviceRect;
         QRegion clipRegion = systemClip();
         QClipData *clip = new QClipData(d->rasterBuffer->height());
 
@@ -1464,12 +1478,11 @@ void QRasterPaintEngine::clip(const QRect &rect, Qt::ClipOperation op)
         s->clip->enabled = true;
         s->flags.has_clip_ownership = true;
 
-    } else { // intersect clip with current clip
+    } else if (op == Qt::IntersectClip){ // intersect clip with current clip
         QClipData *base = s->clip;
 
         Q_ASSERT(base);
         if (base->hasRectClip || base->hasRegionClip) {
-            QRect clipRect = s->matrix.mapRect(rect) & d->deviceRect;
             if (!s->flags.has_clip_ownership) {
                 s->clip = new QClipData(d->rasterBuffer->height());
                 s->flags.has_clip_ownership = true;
@@ -1480,11 +1493,14 @@ void QRasterPaintEngine::clip(const QRect &rect, Qt::ClipOperation op)
                 s->clip->setClipRegion(base->clipRegion & clipRect);
             s->clip->enabled = true;
         } else {
-            QPaintEngineEx::clip(rect, op);
-            return;
+            return false;
         }
+    } else {
+        return false;
     }
+
     qrasterpaintengine_dirty_clip(d, s);
+    return true;
 }
 
 
@@ -2001,7 +2017,7 @@ void QRasterPaintEngine::fill(const QVectorPath &path, const QBrush &brush)
         ensureState();
         if (s->flags.tx_noshear) {
             d->initializeRasterizer(&s->brushData);
-            // ### Is normalizing really nessesary here?
+            // ### Is normalizing really necessary here?
             const qreal *p = path.points();
             QRectF r = QRectF(p[0], p[1], p[2] - p[0], p[7] - p[1]).normalized();
             if (!r.isEmpty()) {
@@ -3485,7 +3501,15 @@ void QRasterPaintEngine::drawCachedGlyphs(int numGlyphs, const glyph_t *glyphs,
     Q_D(QRasterPaintEngine);
     QRasterPaintEngineState *s = state();
 
-    QFontEngineGlyphCache::Type glyphType = fontEngine->glyphFormat >= 0 ? QFontEngineGlyphCache::Type(fontEngine->glyphFormat) : d->glyphCacheType;
+    QFontEngineGlyphCache::Type glyphType;
+    if (fontEngine->glyphFormat >= 0) {
+        glyphType = QFontEngineGlyphCache::Type(fontEngine->glyphFormat);
+    } else if (s->matrix.type() > QTransform::TxTranslate
+               && d->glyphCacheType == QFontEngineGlyphCache::Raster_RGBMask) {
+        glyphType = QFontEngineGlyphCache::Raster_A8;
+    } else {
+        glyphType = d->glyphCacheType;
+    }
 
     QImageTextureGlyphCache *cache =
         static_cast<QImageTextureGlyphCache *>(fontEngine->glyphCache(0, glyphType, s->matrix));
@@ -3580,10 +3604,8 @@ void QRasterPaintEngine::drawGlyphsS60(const QPointF &p, const QTextItemInt &ti)
         const TUint8 *glyphBitmapBytes;
         TSize glyphBitmapSize;
         fe->getCharacterData(glyphs[i], tmetrics, glyphBitmapBytes, glyphBitmapSize);
-        const glyph_metrics_t metrics = ti.fontEngine->boundingBox(glyphs[i]);
-        const int x = qFloor(positions[i].x + metrics.x + aliasDelta);
-        const int y = qFloor(positions[i].y + metrics.y + aliasDelta);
-
+        const int x = qFloor(positions[i].x + tmetrics.HorizBearingX() + aliasDelta);
+        const int y = qFloor(positions[i].y - tmetrics.HorizBearingY() + aliasDelta);
         alphaPenBlt(glyphBitmapBytes, glyphBitmapSize.iWidth, 8, x, y, glyphBitmapSize.iWidth, glyphBitmapSize.iHeight);
     }
 
@@ -3595,7 +3617,7 @@ void QRasterPaintEngine::drawGlyphsS60(const QPointF &p, const QTextItemInt &ti)
 #endif // Q_OS_SYMBIAN && QT_NO_FREETYPE
 
 /*!
- * Returns true if the rectangle is completly within the current clip
+ * Returns true if the rectangle is completely within the current clip
  * state of the paint engine.
  */
 bool QRasterPaintEnginePrivate::isUnclipped_normalized(const QRect &r) const
@@ -3718,7 +3740,7 @@ void QRasterPaintEngine::drawStaticTextItem(QStaticTextItem *textItem)
     ensureState();
 
     drawCachedGlyphs(textItem->numGlyphs, textItem->glyphs, textItem->glyphPositions,
-                     textItem->fontEngine);
+                     textItem->fontEngine());
 }
 
 /*!
@@ -4108,6 +4130,13 @@ void QRasterPaintEnginePrivate::rasterizeLine_dashed(QLineF line,
     const QPen &pen = s->lastPen;
     const bool squareCap = (pen.capStyle() == Qt::SquareCap);
     const QVector<qreal> pattern = pen.dashPattern();
+
+    qreal patternLength = 0;
+    for (int i = 0; i < pattern.size(); ++i)
+        patternLength += pattern.at(i);
+
+    if (patternLength <= 0)
+        return;
 
     qreal length = line.length();
     Q_ASSERT(length > 0);
@@ -4569,6 +4598,10 @@ void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
     rasterize(outline, callback, (void *)spanData, rasterBuffer);
 }
 
+extern "C" {
+    int q_gray_rendered_spans(QT_FT_Raster raster);
+}
+
 void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
                                           ProcessSpans callback,
                                           void *userData, QRasterBuffer *)
@@ -4633,10 +4666,13 @@ void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
     bool done = false;
     int error;
 
+    int rendered_spans = 0;
+
     while (!done) {
 
         rasterParams.flags |= (QT_FT_RASTER_FLAG_AA | QT_FT_RASTER_FLAG_DIRECT);
         rasterParams.gray_spans = callback;
+        rasterParams.skip_spans = rendered_spans;
         error = qt_ft_grays_raster.raster_render(*grayRaster.data(), &rasterParams);
 
         // Out of memory, reallocate some more and try again...
@@ -4646,6 +4682,8 @@ void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
                 qWarning("QPainter: Rasterization of primitive failed");
                 break;
             }
+
+            rendered_spans += q_gray_rendered_spans(*grayRaster.data());
 
 #if defined(Q_WS_WIN64)
             _aligned_free(rasterPoolBase);
@@ -5360,6 +5398,7 @@ public:
         for (int i = 0; i < stops.size() && i <= 2; i++)
             hash_val += stops[i].second.rgba();
 
+        QMutexLocker lock(&mutex);
         QGradientColorTableHash::const_iterator it = cache.constFind(hash_val);
 
         if (it == cache.constEnd())
@@ -5393,6 +5432,7 @@ protected:
     }
 
     QGradientColorTableHash cache;
+    QMutex mutex;
 };
 
 void QGradientCache::generateGradientColorTable(const QGradient& gradient, uint *colorTable, int size, int opacity) const

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -43,12 +43,12 @@
 // DO NOT EDIT.
 
 static const short keyword_trans[][128] = {
-    {0,0,0,0,0,0,0,0,0,533,530,0,0,0,0,0,
+    {0,0,0,0,0,0,0,0,0,541,538,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-     533,252,531,534,0,38,239,532,25,26,236,234,30,235,27,237,
+     541,252,539,542,0,38,239,540,25,26,236,234,30,235,27,237,
      22,22,22,22,22,22,22,22,22,22,34,41,23,39,24,43,
      0,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
-     8,21,8,8,8,8,8,8,8,8,8,31,535,32,238,8,
+     8,21,8,8,8,8,8,8,8,8,8,31,543,32,238,8,
      0,1,2,3,4,5,6,7,8,9,8,8,10,11,12,13,
      14,8,15,16,17,18,19,20,8,8,8,36,245,37,248,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -190,7 +190,7 @@ static const short keyword_trans[][128] = {
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,42,0,0,0,28,0,
-     538,538,538,538,538,538,538,538,538,538,0,0,0,0,0,0,
+     546,546,546,546,546,546,546,546,546,546,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -349,7 +349,7 @@ static const short keyword_trans[][128] = {
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-     0,0,0,0,0,0,0,0,0,0,537,0,0,0,0,536,
+     0,0,0,0,0,0,0,0,0,0,545,0,0,0,0,544,
      0,0,0,0,0,0,0,0,0,0,0,0,0,258,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -392,7 +392,7 @@ static const short keyword_trans[][128] = {
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,439,388,378,383,364,0,448,0,0,0,0,0,358,
-     370,0,0,436,0,0,0,0,0,0,0,0,0,0,0,0,
+     370,0,530,436,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -983,6 +983,14 @@ static const struct
     {CHARACTER, 0, 84, 528, CHARACTER},
     {CHARACTER, 0, 89, 529, CHARACTER},
     {Q_PRIVATE_PROPERTY_TOKEN, 0, 0, 0, CHARACTER},
+    {CHARACTER, 0, 69, 531, CHARACTER},
+    {CHARACTER, 0, 86, 532, CHARACTER},
+    {CHARACTER, 0, 73, 533, CHARACTER},
+    {CHARACTER, 0, 83, 534, CHARACTER},
+    {CHARACTER, 0, 73, 535, CHARACTER},
+    {CHARACTER, 0, 79, 536, CHARACTER},
+    {CHARACTER, 0, 78, 537, CHARACTER},
+    {Q_REVISION_TOKEN, 0, 0, 0, CHARACTER},
     {NEWLINE, 0, 0, 0, NOTOKEN},
     {QUOTE, 0, 0, 0, NOTOKEN},
     {SINGLEQUOTE, 0, 0, 0, NOTOKEN},

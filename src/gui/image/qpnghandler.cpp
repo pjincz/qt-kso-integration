@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -82,6 +82,41 @@ QT_BEGIN_NAMESPACE
   Never to grayscale.
 */
 
+class QPngHandlerPrivate
+{
+public:
+    enum State {
+        Ready,
+        ReadHeader,
+        ReadingEnd,
+        Error
+    };
+
+    QPngHandlerPrivate(QPngHandler *qq)
+        : gamma(0.0), quality(2), png_ptr(0), info_ptr(0),
+          end_info(0), row_pointers(0), state(Ready), q(qq)
+    { }
+
+    float gamma;
+    int quality;
+    QString description;
+
+    png_struct *png_ptr;
+    png_info *info_ptr;
+    png_info *end_info;
+    png_byte **row_pointers;
+
+    bool readPngHeader();
+    bool readPngImage(QImage *image);
+
+    QImage::Format readImageFormat();
+
+    State state;
+
+    QPngHandler *q;
+};
+
+
 #if defined(Q_C_CALLBACKS)
 extern "C" {
 #endif
@@ -118,7 +153,16 @@ private:
 static
 void CALLBACK_CALL_TYPE iod_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
 {
-    QIODevice *in = (QIODevice *)png_get_io_ptr(png_ptr);
+    QPngHandlerPrivate *d = (QPngHandlerPrivate *)png_get_io_ptr(png_ptr);
+    QIODevice *in = d->q->device();
+
+    if (d->state == QPngHandlerPrivate::ReadingEnd && !in->isSequential() && (in->size() - in->pos()) < 4 && length == 4) {
+        // Workaround for certain malformed PNGs that lack the final crc bytes
+        uchar endcrc[4] = { 0xae, 0x42, 0x60, 0x82 };
+        qMemCopy(data, endcrc, 4);
+        in->seek(in->size());
+        return;
+    }
 
     while (length) {
         int nr = in->read((char*)data, length);
@@ -314,38 +358,6 @@ static void CALLBACK_CALL_TYPE qt_png_warning(png_structp /*png_ptr*/, png_const
 }
 #endif
 
-class QPngHandlerPrivate
-{
-public:
-    enum State {
-        Ready,
-        ReadHeader,
-        Error
-    };
-
-    QPngHandlerPrivate(QPngHandler *qq)
-        : gamma(0.0), quality(2), png_ptr(0), info_ptr(0),
-          end_info(0), row_pointers(0), state(Ready), q(qq)
-    { }
-
-    float gamma;
-    int quality;
-    QString description;
-
-    png_struct *png_ptr;
-    png_info *info_ptr;
-    png_info *end_info;
-    png_byte **row_pointers;
-
-    bool readPngHeader();
-    bool readPngImage(QImage *image);
-
-    QImage::Format readImageFormat();
-
-    State state;
-
-    QPngHandler *q;
-};
 
 /*!
     \internal
@@ -379,7 +391,7 @@ bool Q_INTERNAL_WIN_NO_THROW QPngHandlerPrivate::readPngHeader()
         return false;
     }
 
-    png_set_read_fn(png_ptr, q->device(), iod_read_fn);
+    png_set_read_fn(png_ptr, this, iod_read_fn);
     png_read_info(png_ptr, info_ptr);
 
 #ifndef QT_NO_IMAGE_TEXT
@@ -505,6 +517,7 @@ bool Q_INTERNAL_WIN_NO_THROW QPngHandlerPrivate::readPngImage(QImage *outImage)
     }
 #endif
 
+    state = ReadingEnd;
     png_read_end(png_ptr, end_info);
     png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
     delete [] row_pointers;
@@ -678,33 +691,12 @@ bool QPNGImageWriter::writeImage(const QImage& image, int off_x, int off_y)
     return writeImage(image, -1, QString(), off_x, off_y);
 }
 
-bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image_in, int quality_in, const QString &description,
+bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image, int quality_in, const QString &description,
                                  int off_x_in, int off_y_in)
 {
 #ifdef QT_NO_IMAGE_TEXT
     Q_UNUSED(description);
 #endif
-
-    QImage image;
-    switch (image_in.format()) {
-    case QImage::Format_ARGB32_Premultiplied:
-    case QImage::Format_ARGB4444_Premultiplied:
-    case QImage::Format_ARGB8555_Premultiplied:
-    case QImage::Format_ARGB8565_Premultiplied:
-    case QImage::Format_ARGB6666_Premultiplied:
-        image = image_in.convertToFormat(QImage::Format_ARGB32);
-        break;
-    case QImage::Format_RGB16:
-    case QImage::Format_RGB444:
-    case QImage::Format_RGB555:
-    case QImage::Format_RGB666:
-    case QImage::Format_RGB888:
-        image = image_in.convertToFormat(QImage::Format_RGB32);
-        break;
-    default:
-        image = image_in;
-        break;
-    }
 
     QPoint offset = image.offset();
     int off_x = off_x_in + offset.x();
@@ -712,7 +704,6 @@ bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image_in,
 
     png_structp png_ptr;
     png_infop info_ptr;
-    png_bytep* row_pointers;
 
     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
     if (!png_ptr) {
@@ -743,13 +734,18 @@ bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image_in,
 
     png_set_write_fn(png_ptr, (void*)this, qpiw_write_fn, qpiw_flush_fn);
 
+
+    int color_type = 0;
+    if (image.colorCount())
+        color_type = PNG_COLOR_TYPE_PALETTE;
+    else if (image.hasAlphaChannel())
+        color_type = PNG_COLOR_TYPE_RGB_ALPHA;
+    else
+        color_type = PNG_COLOR_TYPE_RGB;
+
     png_set_IHDR(png_ptr, info_ptr, image.width(), image.height(),
-        image.depth() == 1 ? 1 : 8 /* per channel */,
-        image.depth() == 32
-            ? image.format() == QImage::Format_RGB32
-                ? PNG_COLOR_TYPE_RGB
-                : PNG_COLOR_TYPE_RGB_ALPHA
-            : PNG_COLOR_TYPE_PALETTE, 0, 0, 0);  // also sets #channels
+                 image.depth() == 1 ? 1 : 8, // per channel
+                 color_type, 0, 0, 0);       // sets #channels
 
     if (gamma != 0.0) {
         png_set_gAMA(png_ptr, info_ptr, 1.0/gamma);
@@ -794,8 +790,9 @@ bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image_in,
         png_set_swap_alpha(png_ptr);
     }
 
-    // Qt==ARGB==Big(ARGB)==Little(BGRA)
-    if (QSysInfo::ByteOrder == QSysInfo::LittleEndian) {
+    // Qt==ARGB==Big(ARGB)==Little(BGRA). But RGB888 is RGB regardless
+    if (QSysInfo::ByteOrder == QSysInfo::LittleEndian
+        && image.format() != QImage::Format_RGB888) {
         png_set_bgr(png_ptr);
     }
 
@@ -820,7 +817,7 @@ bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image_in,
     if (image.depth() != 1)
         png_set_packing(png_ptr);
 
-    if (image.format() == QImage::Format_RGB32)
+    if (color_type == PNG_COLOR_TYPE_RGB && image.format() != QImage::Format_RGB888)
         png_set_filler(png_ptr, 0,
             QSysInfo::ByteOrder == QSysInfo::BigEndian ?
                 PNG_FILLER_BEFORE : PNG_FILLER_AFTER);
@@ -841,22 +838,36 @@ bool Q_INTERNAL_WIN_NO_THROW QPNGImageWriter::writeImage(const QImage& image_in,
         png_write_chunk(png_ptr, (png_byte*)"gIFg", data, 4);
     }
 
-    png_uint_32 width;
-    png_uint_32 height;
-    int bit_depth;
-    int color_type;
-    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type,
-        0, 0, 0);
-
-    const uchar *data = (static_cast<const QImage *>(&image))->bits();
-    int bpl = image.bytesPerLine();
-    row_pointers = new png_bytep[height];
-    uint y;
-    for (y=0; y<height; y++) {
-        row_pointers[y] = (png_bytep)(data + y * bpl);
+    int height = image.height();
+    int width = image.width();
+    switch (image.format()) {
+    case QImage::Format_Mono:
+    case QImage::Format_MonoLSB:
+    case QImage::Format_Indexed8:
+    case QImage::Format_RGB32:
+    case QImage::Format_ARGB32:
+    case QImage::Format_RGB888:
+        {
+            png_bytep* row_pointers = new png_bytep[height];
+            for (int y=0; y<height; y++)
+                row_pointers[y] = (png_bytep)image.constScanLine(y);
+            png_write_image(png_ptr, row_pointers);
+            delete [] row_pointers;
+        }
+        break;
+    default:
+        {
+            QImage::Format fmt = image.hasAlphaChannel() ? QImage::Format_ARGB32 : QImage::Format_RGB32;
+            QImage row;
+            png_bytep row_pointers[1];
+            for (int y=0; y<height; y++) {
+                row = image.copy(0, y, width, 1).convertToFormat(fmt);
+                row_pointers[0] = png_bytep(row.constScanLine(0));
+                png_write_rows(png_ptr, row_pointers, 1);
+            }
+        }
+        break;
     }
-    png_write_image(png_ptr, row_pointers);
-    delete [] row_pointers;
 
     png_write_end(png_ptr, info_ptr);
     frames_written++;

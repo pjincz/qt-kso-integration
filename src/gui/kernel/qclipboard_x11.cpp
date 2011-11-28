@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -132,7 +132,7 @@ void setupOwner()
     requestor = new QWidget(0);
     requestor->createWinId();
     requestor->setObjectName(QLatin1String("internal clipboard requestor"));
-    // We dont need this internal widgets to appear in QApplication::topLevelWidgets()
+    // We don't need this internal widgets to appear in QApplication::topLevelWidgets()
     if (QWidgetPrivate::allWidgets) {
         QWidgetPrivate::allWidgets->remove(owner);
         QWidgetPrivate::allWidgets->remove(requestor);
@@ -595,7 +595,7 @@ static inline int maxSelectionIncr(Display *dpy)
 { return XMaxRequestSize(dpy) > 65536 ? 65536*4 : XMaxRequestSize(dpy)*4 - 100; }
 
 bool QX11Data::clipboardReadProperty(Window win, Atom property, bool deleteProperty,
-                                     QByteArray *buffer, int *size, Atom *type, int *format, bool nullterm)
+                                     QByteArray *buffer, int *size, Atom *type, int *format)
 {
     int           maxsize = maxSelectionIncr(display);
     ulong  bytes_left; // bytes_after
@@ -641,13 +641,13 @@ bool QX11Data::clipboardReadProperty(Window win, Atom property, bool deletePrope
         break;
     }
 
-    int newSize = proplen + (nullterm ? 1 : 0);
+    int newSize = proplen;
     buffer->resize(newSize);
 
     bool ok = (buffer->size() == newSize);
     VDEBUG("QClipboard: read_property(): buffer resized to %d", buffer->size());
 
-    if (ok) {
+    if (ok && newSize) {
         // could allocate buffer
 
         while (bytes_left) {
@@ -683,23 +683,19 @@ bool QX11Data::clipboardReadProperty(Window win, Atom property, bool deletePrope
             XTextProperty textprop;
             textprop.encoding = *type;
             textprop.format = *format;
-            textprop.nitems = length;
+            textprop.nitems = buffer_offset;
             textprop.value = (unsigned char *) buffer->data();
 
             char **list_ret = 0;
             int count;
             if (XmbTextPropertyToTextList(display, &textprop, &list_ret,
                          &count) == Success && count && list_ret) {
-                offset = strlen(list_ret[0]);
-                buffer->resize(offset + (nullterm ? 1 : 0));
+                offset = buffer_offset = strlen(list_ret[0]);
+                buffer->resize(offset);
                 memcpy(buffer->data(), list_ret[0], offset);
             }
             if (list_ret) XFreeStringList(list_ret);
         }
-
-        // zero-terminate (for text)
-        if (nullterm)
-            buffer->data()[buffer_offset] = '\0';
     }
 
     // correct size, not 0-term.
@@ -742,7 +738,7 @@ QByteArray QX11Data::clipboardReadIncrementalProperty(Window win, Atom property,
         if (event.xproperty.atom != property ||
              event.xproperty.state != PropertyNewValue)
             continue;
-        if (X11->clipboardReadProperty(win, property, true, &tmp_buf, &length, 0, 0, false)) {
+        if (X11->clipboardReadProperty(win, property, true, &tmp_buf, &length, 0, 0)) {
             if (length == 0) {                // no more data, we're done
                 if (nullterm) {
                     buf.resize(offset+1);
@@ -773,7 +769,7 @@ QByteArray QX11Data::clipboardReadIncrementalProperty(Window win, Atom property,
     delete requestor;
     requestor = new QWidget(0);
     requestor->setObjectName(QLatin1String("internal clipboard requestor"));
-    // We dont need this internal widget to appear in QApplication::topLevelWidgets()
+    // We don't need this internal widget to appear in QApplication::topLevelWidgets()
     if (QWidgetPrivate::allWidgets)
         QWidgetPrivate::allWidgets->remove(requestor);
 
@@ -836,7 +832,7 @@ static Atom send_selection(QClipboardData *d, Atom target, Window window, Atom p
                             ATOM(INCR), 32, PropModeReplace, (uchar *) &bytes, 1);
 
             (void)new QClipboardINCRTransaction(window, property, atomFormat, dataFormat, data, increment);
-            return ATOM(INCR);
+            return property;
         }
 
         // make sure we can perform the XChangeProperty in a single request
@@ -1070,7 +1066,7 @@ bool QClipboard::event(QEvent *e)
                 QByteArray multi_data;
                 if (req->property == XNone
                     || !X11->clipboardReadProperty(req->requestor, req->property, false, &multi_data,
-                                                   0, &multi_type, &multi_format, 0)
+                                                   0, &multi_type, &multi_format)
                     || multi_format != 32) {
                     // MULTIPLE property not formatted correctly
                     XSendEvent(dpy, req->requestor, False, NoEventMask, &event);
@@ -1292,7 +1288,7 @@ QByteArray QClipboardWatcher::getDataInFormat(Atom fmtatom) const
     Atom   type;
     XSelectInput(dpy, win, PropertyChangeMask);
 
-    if (X11->clipboardReadProperty(win, ATOM(_QT_SELECTION), true, &buf, 0, &type, 0, false)) {
+    if (X11->clipboardReadProperty(win, ATOM(_QT_SELECTION), true, &buf, 0, &type, 0)) {
         if (type == ATOM(INCR)) {
             int nbytes = buf.size() >= 4 ? *((int*)buf.data()) : 0;
             buf = X11->clipboardReadIncrementalProperty(win, ATOM(_QT_SELECTION), nbytes, false);

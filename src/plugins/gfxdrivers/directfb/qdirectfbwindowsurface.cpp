@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -55,7 +55,6 @@ QT_BEGIN_NAMESPACE
 
 QDirectFBWindowSurface::QDirectFBWindowSurface(DFBSurfaceFlipFlags flip, QDirectFBScreen *scr)
     : QDirectFBPaintDevice(scr)
-    , sibling(0)
 #ifndef QT_NO_DIRECTFB_WM
     , dfbWindow(0)
 #endif
@@ -75,7 +74,6 @@ QDirectFBWindowSurface::QDirectFBWindowSurface(DFBSurfaceFlipFlags flip, QDirect
 
 QDirectFBWindowSurface::QDirectFBWindowSurface(DFBSurfaceFlipFlags flip, QDirectFBScreen *scr, QWidget *widget)
     : QWSWindowSurface(widget), QDirectFBPaintDevice(scr)
-    , sibling(0)
 #ifndef QT_NO_DIRECTFB_WM
     , dfbWindow(0)
 #endif
@@ -123,7 +121,7 @@ void QDirectFBWindowSurface::raise()
 
 IDirectFBWindow *QDirectFBWindowSurface::directFBWindow() const
 {
-    return (dfbWindow ? dfbWindow : (sibling ? sibling->dfbWindow : 0));
+    return dfbWindow;
 }
 
 void QDirectFBWindowSurface::createWindow(const QRect &rect)
@@ -287,17 +285,40 @@ void QDirectFBWindowSurface::setGeometry(const QRect &rect)
 
 QByteArray QDirectFBWindowSurface::permanentState() const
 {
-    QByteArray state(sizeof(this), 0);
-    *reinterpret_cast<const QDirectFBWindowSurface**>(state.data()) = this;
+    QByteArray state(sizeof(SurfaceFlags) + sizeof(DFBWindowID), 0);
+    char *ptr = state.data();
+    SurfaceFlags flags = surfaceFlags();
+    memcpy(ptr, &flags, sizeof(SurfaceFlags));
+    ptr += sizeof(SurfaceFlags);
+    DFBWindowID did = (DFBWindowID)(-1);
+    if (dfbWindow)
+        dfbWindow->GetID(dfbWindow, &did);
+    memcpy(ptr, &did, sizeof(DFBWindowID));
     return state;
 }
 
 void QDirectFBWindowSurface::setPermanentState(const QByteArray &state)
 {
-    if (state.size() == sizeof(this)) {
-        sibling = *reinterpret_cast<QDirectFBWindowSurface *const*>(state.constData());
-        Q_ASSERT(sibling);
-        setSurfaceFlags(sibling->surfaceFlags());
+    const char *ptr = state.constData();
+    IDirectFBDisplayLayer *layer = screen->dfbDisplayLayer();
+    SurfaceFlags flags;
+    memcpy(&flags, ptr, sizeof(SurfaceFlags));
+
+    setSurfaceFlags(flags);
+    ptr += sizeof(SurfaceFlags);
+    DFBWindowID id;
+    memcpy(&id, ptr, sizeof(DFBWindowID));
+    if (dfbSurface)
+        dfbSurface->Release(dfbSurface);
+    if (id != (DFBWindowID)-1) {
+        IDirectFBWindow *dw;
+        layer->GetWindow(layer, id, &dw);
+        if (dw->GetSurface(dw, &dfbSurface) != DFB_OK)
+                dfbSurface = 0;
+        dw->Release(dw);
+    }
+    else {
+        dfbSurface = 0;
     }
 }
 
@@ -344,9 +365,13 @@ void QDirectFBWindowSurface::flush(QWidget *widget, const QRegion &region,
     if (!win)
         return;
 
+#if !defined(QT_NO_QWS_PROXYSCREEN) && !defined(QT_NO_GRAPHICSVIEW)
     QWExtra *extra = qt_widget_private(widget)->extraData();
     if (extra && extra->proxyWidget)
         return;
+#else
+    Q_UNUSED(widget);
+#endif
 
     const quint8 windowOpacity = quint8(win->windowOpacity() * 0xff);
     const QRect windowGeometry = geometry();
@@ -380,10 +405,17 @@ void QDirectFBWindowSurface::flush(QWidget *widget, const QRegion &region,
     flushPending = false;
 }
 
-void QDirectFBWindowSurface::beginPaint(const QRegion &)
+void QDirectFBWindowSurface::beginPaint(const QRegion &region)
 {
     if (!engine) {
         engine = new QDirectFBPaintEngine(this);
+    }
+
+    if (dfbSurface) {
+        const QWidget *win = window();
+        if (win && win->testAttribute(Qt::WA_NoSystemBackground)) {
+            QDirectFBScreen::solidFill(dfbSurface, Qt::transparent, region);
+        }
     }
     flushPending = true;
 }
@@ -397,8 +429,6 @@ void QDirectFBWindowSurface::endPaint(const QRegion &)
 
 IDirectFBSurface *QDirectFBWindowSurface::directFBSurface() const
 {
-    if (!dfbSurface && sibling && sibling->dfbSurface)
-        return sibling->dfbSurface;
     return dfbSurface;
 }
 
@@ -406,11 +436,8 @@ IDirectFBSurface *QDirectFBWindowSurface::directFBSurface() const
 IDirectFBSurface *QDirectFBWindowSurface::surfaceForWidget(const QWidget *widget, QRect *rect) const
 {
     Q_ASSERT(widget);
-    if (!dfbSurface) {
-        if (sibling && (!sibling->sibling || sibling->dfbSurface))
-            return sibling->surfaceForWidget(widget, rect);
+    if (!dfbSurface)
         return 0;
-    }
     QWidget *win = window();
     Q_ASSERT(win);
     if (rect) {

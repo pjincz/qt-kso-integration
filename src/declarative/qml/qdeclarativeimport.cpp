@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -50,6 +50,10 @@
 #include <private/qdeclarativeglobal_p.h>
 #include <private/qdeclarativetypenamecache_p.h>
 #include <private/qdeclarativeengine_p.h>
+
+#ifdef Q_OS_SYMBIAN
+#include "private/qcore_symbian_p.h"
+#endif
 
 QT_BEGIN_NAMESPACE
 
@@ -351,7 +355,11 @@ bool QDeclarativeImportsPrivate::importExtension(const QString &absoluteFilePath
 {
     QFile file(absoluteFilePath);
     QString filecontent;
-    if (file.open(QFile::ReadOnly)) {
+    if (!QDeclarative_isFileCaseCorrect(absoluteFilePath)) {
+        if (errorString)
+            *errorString = QDeclarativeImportDatabase::tr("cannot load module \"%1\": File name case mismatch for \"%2\"").arg(uri).arg(absoluteFilePath);
+        return false;
+    } else if (file.open(QFile::ReadOnly)) {
         filecontent = QString::fromUtf8(file.readAll());
         if (qmlImportTrace())
             qDebug().nospace() << "QDeclarativeImports(" << qPrintable(base.toString()) << "::importExtension: "
@@ -374,7 +382,13 @@ bool QDeclarativeImportsPrivate::importExtension(const QString &absoluteFilePath
         foreach (const QDeclarativeDirParser::Plugin &plugin, qmldirParser.plugins()) {
 
             QString resolvedFilePath = database->resolvePlugin(dir, plugin.path, plugin.name);
-
+#if defined(QT_LIBINFIX) && defined(Q_OS_SYMBIAN)
+            if (resolvedFilePath.isEmpty()) {
+                // In case of libinfixed build, attempt to load libinfixed version, too.
+                QString infixedPluginName = plugin.name + QLatin1String(QT_LIBINFIX);
+                resolvedFilePath = database->resolvePlugin(dir, plugin.path, infixedPluginName);
+            }
+#endif
             if (!resolvedFilePath.isEmpty()) {
                 if (!database->importPlugin(resolvedFilePath, uri, errorString)) {
                     if (errorString)
@@ -411,8 +425,18 @@ QString QDeclarativeImportsPrivate::resolvedUri(const QString &dir_arg, QDeclara
             break;
         }
     }
+
+    stableRelativePath.replace(QLatin1Char('\\'), QLatin1Char('/'));
+
+    // remove optional versioning in dot notation from uri
+    int lastSlash = stableRelativePath.lastIndexOf(QLatin1Char('/'));
+    if (lastSlash >= 0) {
+        int versionDot = stableRelativePath.indexOf(QLatin1Char('.'), lastSlash);
+        if (versionDot >= 0)
+            stableRelativePath = stableRelativePath.left(versionDot);
+    }
+
     stableRelativePath.replace(QLatin1Char('/'), QLatin1Char('.'));
-    stableRelativePath.replace(QLatin1Char('\\'), QLatin1Char('.'));
     return stableRelativePath;
 }
 
@@ -433,41 +457,84 @@ bool QDeclarativeImportsPrivate::add(const QDeclarativeDirComponents &qmldircomp
     }
 
     QString url = uri;
+    bool versionFound = false;
     if (importType == QDeclarativeScriptParser::Import::Library) {
         url.replace(QLatin1Char('.'), QLatin1Char('/'));
         bool found = false;
         QString dir;
 
 
-        foreach (const QString &p, database->fileImportPath) {
-            dir = p+QLatin1Char('/')+url;
+        // step 1: search for extension with fully encoded version number
+        if (vmaj >= 0 && vmin >= 0) {
+            foreach (const QString &p, database->fileImportPath) {
+                dir = p+QLatin1Char('/')+url;
 
-            QFileInfo fi(dir+QLatin1String("/qmldir"));
-            const QString absoluteFilePath = fi.absoluteFilePath();
+                QFileInfo fi(dir+QString(QLatin1String(".%1.%2")).arg(vmaj).arg(vmin)+QLatin1String("/qmldir"));
+                const QString absoluteFilePath = fi.absoluteFilePath();
 
-            if (fi.isFile()) {
-                found = true;
+                if (fi.isFile()) {
+                    found = true;
 
-                url = QUrl::fromLocalFile(fi.absolutePath()).toString();
-                uri = resolvedUri(dir, database);
-                if (!importExtension(absoluteFilePath, uri, database, &qmldircomponents, errorString))
-                    return false;
-                break;
+                    url = QUrl::fromLocalFile(fi.absolutePath()).toString();
+                    uri = resolvedUri(dir, database);
+                    if (!importExtension(absoluteFilePath, uri, database, &qmldircomponents, errorString))
+                        return false;
+                    break;
+                }
+            }
+        }
+        // step 2: search for extension with encoded version major
+        if (vmaj >= 0 && vmin >= 0) {
+            foreach (const QString &p, database->fileImportPath) {
+                dir = p+QLatin1Char('/')+url;
+
+                QFileInfo fi(dir+QString(QLatin1String(".%1")).arg(vmaj)+QLatin1String("/qmldir"));
+                const QString absoluteFilePath = fi.absoluteFilePath();
+
+                if (fi.isFile()) {
+                    found = true;
+
+                    url = QUrl::fromLocalFile(fi.absolutePath()).toString();
+                    uri = resolvedUri(dir, database);
+                    if (!importExtension(absoluteFilePath, uri, database, &qmldircomponents, errorString))
+                        return false;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            // step 3: search for extension without version number
+
+            foreach (const QString &p, database->fileImportPath) {
+                dir = p+QLatin1Char('/')+url;
+
+                QFileInfo fi(dir+QLatin1String("/qmldir"));
+                const QString absoluteFilePath = fi.absoluteFilePath();
+
+                if (fi.isFile()) {
+                    found = true;
+
+                    url = QUrl::fromLocalFile(fi.absolutePath()).toString();
+                    uri = resolvedUri(dir, database);
+                    if (!importExtension(absoluteFilePath, uri, database, &qmldircomponents, errorString))
+                        return false;
+                    break;
+                }
             }
         }
 
-        if (!found) {
-            found = QDeclarativeMetaType::isModule(uri.toUtf8(), vmaj, vmin);
-            if (!found) {
-                if (errorString) {
-                    bool anyversion = QDeclarativeMetaType::isModule(uri.toUtf8(), -1, -1);
-                    if (anyversion)
-                        *errorString = QDeclarativeImportDatabase::tr("module \"%1\" version %2.%3 is not installed").arg(uri_arg).arg(vmaj).arg(vmin);
-                    else
-                        *errorString = QDeclarativeImportDatabase::tr("module \"%1\" is not installed").arg(uri_arg);
-                }
-                return false;
+        if (QDeclarativeMetaType::isModule(uri.toUtf8(), vmaj, vmin))
+            versionFound = true;
+
+        if (!versionFound && qmldircomponents.isEmpty()) {
+            if (errorString) {
+                bool anyversion = QDeclarativeMetaType::isModule(uri.toUtf8(), -1, -1);
+                if (anyversion)
+                    *errorString = QDeclarativeImportDatabase::tr("module \"%1\" version %2.%3 is not installed").arg(uri_arg).arg(vmaj).arg(vmin);
+                else
+                    *errorString = QDeclarativeImportDatabase::tr("module \"%1\" is not installed").arg(uri_arg);
             }
+            return false;
         }
     } else {
 
@@ -512,7 +579,7 @@ bool QDeclarativeImportsPrivate::add(const QDeclarativeDirComponents &qmldircomp
             url.chop(1);
     }
 
-    if (vmaj > -1 && vmin > -1 && !qmldircomponents.isEmpty()) {
+    if (!versionFound && vmaj > -1 && vmin > -1 && !qmldircomponents.isEmpty()) {
         QList<QDeclarativeDirParser::Component>::ConstIterator it = qmldircomponents.begin();
         int lowest_maj = INT_MAX;
         int lowest_min = INT_MAX;
@@ -646,6 +713,7 @@ bool QDeclarativeImportedNamespace::find(const QByteArray& type, int *vmajor, in
 /*!
 \class QDeclarativeImportDatabase
 \brief The QDeclarativeImportDatabase class manages the QML imports for a QDeclarativeEngine.
+\internal
 */
 QDeclarativeImportDatabase::QDeclarativeImportDatabase(QDeclarativeEngine *e)
 : engine(e)
@@ -654,8 +722,32 @@ QDeclarativeImportDatabase::QDeclarativeImportDatabase(QDeclarativeEngine *e)
 
     // Search order is applicationDirPath(), $QML_IMPORT_PATH, QLibraryInfo::ImportsPath
 
-    addImportPath(QLibraryInfo::location(QLibraryInfo::ImportsPath));
+    QString installImportsPath =  QLibraryInfo::location(QLibraryInfo::ImportsPath);
 
+#if defined(Q_OS_SYMBIAN)
+    // Append imports path for all available drives in Symbian
+    if (installImportsPath.at(1) != QChar(QLatin1Char(':'))) {
+        QString tempPath = installImportsPath;
+        if (tempPath.at(tempPath.length() - 1) != QDir::separator()) {
+            tempPath += QDir::separator();
+        }
+        RFs& fs = qt_s60GetRFs();
+        TPtrC tempPathPtr(reinterpret_cast<const TText*> (tempPath.constData()));
+        TFindFile finder(fs);
+        TInt err = finder.FindByDir(tempPathPtr, tempPathPtr);
+        while (err == KErrNone) {
+            QString foundDir(reinterpret_cast<const QChar *>(finder.File().Ptr()),
+                             finder.File().Length());
+            foundDir = QDir(foundDir).canonicalPath();
+            addImportPath(foundDir);
+            err = finder.Find();
+        }
+    } else {
+        addImportPath(installImportsPath);
+    }
+#else
+    addImportPath(installImportsPath);
+#endif
     // env import paths
     QByteArray envImportPath = qgetenv("QML_IMPORT_PATH");
     if (!envImportPath.isEmpty()) {
@@ -836,23 +928,33 @@ QString QDeclarativeImportDatabase::resolvePlugin(const QDir &qmldirPath, const 
 #endif
 }
 
+/*!
+    \internal
+*/
 QStringList QDeclarativeImportDatabase::pluginPathList() const
 {
     return filePluginPath;
 }
 
+/*!
+    \internal
+*/
 void QDeclarativeImportDatabase::setPluginPathList(const QStringList &paths)
 {
     filePluginPath = paths;
 }
 
+/*!
+    \internal
+*/
 void QDeclarativeImportDatabase::addPluginPath(const QString& path)
 {
     if (qmlImportTrace())
         qDebug().nospace() << "QDeclarativeImportDatabase::addPluginPath: " << path;
 
     QUrl url = QUrl(path);
-    if (url.isRelative() || url.scheme() == QLatin1String("file")) {
+    if (url.isRelative() || url.scheme() == QLatin1String("file")
+            || (url.scheme().length() == 1 && QFile::exists(path)) ) {  // windows path
         QDir dir = QDir(path);
         filePluginPath.prepend(dir.canonicalPath());
     } else {
@@ -860,6 +962,9 @@ void QDeclarativeImportDatabase::addPluginPath(const QString& path)
     }
 }
 
+/*!
+    \internal
+*/
 void QDeclarativeImportDatabase::addImportPath(const QString& path)
 {
     if (qmlImportTrace())
@@ -871,7 +976,8 @@ void QDeclarativeImportDatabase::addImportPath(const QString& path)
     QUrl url = QUrl(path);
     QString cPath;
 
-    if (url.isRelative() || url.scheme() == QLatin1String("file")) {
+    if (url.isRelative() || url.scheme() == QLatin1String("file")
+            || (url.scheme().length() == 1 && QFile::exists(path)) ) {  // windows path
         QDir dir = QDir(path);
         cPath = dir.canonicalPath();
     } else {
@@ -884,17 +990,25 @@ void QDeclarativeImportDatabase::addImportPath(const QString& path)
         fileImportPath.prepend(cPath);
 }
 
+/*!
+    \internal
+*/
 QStringList QDeclarativeImportDatabase::importPathList() const
 {
     return fileImportPath;
 }
 
+/*!
+    \internal
+*/
 void QDeclarativeImportDatabase::setImportPathList(const QStringList &paths)
 {
     fileImportPath = paths;
 }
 
-
+/*!
+    \internal
+*/
 bool QDeclarativeImportDatabase::importPlugin(const QString &filePath, const QString &uri, QString *errorString)
 {
     if (qmlImportTrace())
@@ -913,6 +1027,11 @@ bool QDeclarativeImportDatabase::importPlugin(const QString &filePath, const QSt
     }
 
     if (!engineInitialized || !typesRegistered) {
+        if (!QDeclarative_isFileCaseCorrect(absoluteFilePath)) {
+            if (errorString) 
+                *errorString = tr("File name case mismatch for \"%2\"").arg(absoluteFilePath);
+            return false;
+        }
         QPluginLoader loader(absoluteFilePath);
 
         if (!loader.load()) {

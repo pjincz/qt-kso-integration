@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -44,36 +44,67 @@
 #include "qwidget_p.h"
 #include "qt_s60_p.h"
 #include <w32std.h>
-
-#include "hal.h"
-#include "hal_data.h"
+#if defined(Q_SYMBIAN_SUPPORTS_MULTIPLE_SCREENS)
+#include <graphics/displaycontrol.h>
+#endif
 
 QT_BEGIN_NAMESPACE
 
+extern int qt_symbian_create_desktop_on_screen;
+
+class QSingleDesktopWidget : public QWidget
+{
+public:
+    QSingleDesktopWidget();
+    ~QSingleDesktopWidget();
+};
+
+QSingleDesktopWidget::QSingleDesktopWidget()
+    : QWidget(0, Qt::Desktop)
+{
+}
+
+QSingleDesktopWidget::~QSingleDesktopWidget()
+{
+    const QObjectList &childList = children();
+    for (int i = childList.size(); i > 0 ;) {
+        --i;
+        childList.at(i)->setParent(0);
+    }
+}
+
 class QDesktopWidgetPrivate : public QWidgetPrivate
 {
-
 public:
     QDesktopWidgetPrivate();
     ~QDesktopWidgetPrivate();
-
     static void init(QDesktopWidget *that);
     static void cleanup();
+    static void init_sys();
 
     static int screenCount;
     static int primaryScreen;
 
     static QVector<QRect> *rects;
     static QVector<QRect> *workrects;
+    static QVector<QWidget *> *screens;
 
     static int refcount;
+
+#if defined(Q_SYMBIAN_SUPPORTS_MULTIPLE_SCREENS)
+    static MDisplayControl *displayControl;
+#endif
 };
 
 int QDesktopWidgetPrivate::screenCount = 1;
 int QDesktopWidgetPrivate::primaryScreen = 0;
 QVector<QRect> *QDesktopWidgetPrivate::rects = 0;
 QVector<QRect> *QDesktopWidgetPrivate::workrects = 0;
+QVector<QWidget *> *QDesktopWidgetPrivate::screens = 0;
 int QDesktopWidgetPrivate::refcount = 0;
+#if defined(Q_SYMBIAN_SUPPORTS_MULTIPLE_SCREENS)
+MDisplayControl *QDesktopWidgetPrivate::displayControl = 0;
+#endif
 
 QDesktopWidgetPrivate::QDesktopWidgetPrivate()
 {
@@ -88,25 +119,55 @@ QDesktopWidgetPrivate::~QDesktopWidgetPrivate()
 
 void QDesktopWidgetPrivate::init(QDesktopWidget *that)
 {
-    Q_UNUSED(that);
-//    int screenCount=0;
+    // Note that on S^3 devices the screen count retrieved via RWsSession
+    // will always be 2 but the width and height for screen number 1 will
+    // be 0 as long as TV-out is not connected.
+    //
+    // On the other hand a valid size for screen 1 will be reported even
+    // after the cable is disconnected. In order to overcome this, we use
+    // MDisplayControl::NumberOfResolutions() to check if the display is
+    // valid or not.
 
-    // ### TODO: Implement proper multi-display support
-	QDesktopWidgetPrivate::screenCount = 1;
-//    if (HAL::Get(0, HALData::EDisplayNumberOfScreens, screenCount) == KErrNone)
-//        QDesktopWidgetPrivate::screenCount = screenCount;
-//    else
-//        QDesktopWidgetPrivate::screenCount = 0;
+    screenCount = S60->screenCount();
+#if defined(Q_SYMBIAN_SUPPORTS_MULTIPLE_SCREENS)
+    if (displayControl) {
+        if (displayControl->NumberOfResolutions() < 1)
+            screenCount = 1;
+    }
+#endif
+    if (screenCount < 1) {
+        qWarning("No screen available");
+        screenCount = 1;
+    }
 
     rects = new QVector<QRect>();
     workrects = new QVector<QRect>();
+    screens = new QVector<QWidget *>();
 
-    rects->resize(QDesktopWidgetPrivate::screenCount);
-    workrects->resize(QDesktopWidgetPrivate::screenCount);
+    rects->resize(screenCount);
+    workrects->resize(screenCount);
+    screens->resize(screenCount);
 
-    (*rects)[0].setRect(0, 0, S60->screenWidthInPixels, S60->screenHeightInPixels);
-    QRect wr = qt_TRect2QRect(static_cast<CEikAppUi*>(S60->appUi())->ClientRect());
-    (*workrects)[0].setRect(wr.x(), wr.y(), wr.width(), wr.height());
+    for (int i = 0; i < screenCount; ++i) {
+        // All screens will have a position of (0, 0) as there is no true virtual desktop
+        // or pointer event support for multiple screens on Symbian.
+        QRect r(0, 0,
+            S60->screenWidthInPixelsForScreen[i], S60->screenHeightInPixelsForScreen[i]);
+        // Stop here if empty and ignore this screen.
+        if (r.isEmpty()) {
+            screenCount = i;
+            break;
+        }
+        (*rects)[i] = r;
+        QRect wr;
+        if (i == 0)
+            wr = qt_TRect2QRect(S60->clientRect());
+        else
+            wr = rects->at(i);
+        (*workrects)[i].setRect(wr.x(), wr.y(), wr.width(), wr.height());
+        (*screens)[i] = 0;
+    }
+    (*screens)[0] = that;
 }
 
 void QDesktopWidgetPrivate::cleanup()
@@ -115,6 +176,29 @@ void QDesktopWidgetPrivate::cleanup()
     rects = 0;
     delete workrects;
     workrects = 0;
+    if (screens) {
+        // First item is the QDesktopWidget so skip it.
+        for (int i = 1; i < screens->count(); ++i)
+            delete screens->at(i);
+    }
+    delete screens;
+    screens = 0;
+}
+
+void QDesktopWidgetPrivate::init_sys()
+{
+#if defined(Q_SYMBIAN_SUPPORTS_MULTIPLE_SCREENS)
+    if (S60->screenCount() > 1) {
+        CWsScreenDevice *dev = S60->screenDevice(1);
+        if (dev) {
+            displayControl = static_cast<MDisplayControl *>(
+                        dev->GetInterface(MDisplayControl::ETypeId));
+            if (displayControl) {
+                displayControl->EnableDisplayChangeEvents(ETrue);
+            }
+        }
+    }
+#endif
 }
 
 
@@ -122,6 +206,7 @@ QDesktopWidget::QDesktopWidget()
     : QWidget(*new QDesktopWidgetPrivate, 0, Qt::Desktop)
 {
     setObjectName(QLatin1String("desktop"));
+    QDesktopWidgetPrivate::init_sys();
     QDesktopWidgetPrivate::init(this);
 }
 
@@ -131,7 +216,7 @@ QDesktopWidget::~QDesktopWidget()
 
 bool QDesktopWidget::isVirtualDesktop() const
 {
-    return true;
+    return false;
 }
 
 int QDesktopWidget::primaryScreen() const
@@ -145,9 +230,23 @@ int QDesktopWidget::numScreens() const
     return QDesktopWidgetPrivate::screenCount;
 }
 
-QWidget *QDesktopWidget::screen(int /* screen */)
+static inline QWidget *newSingleDesktopWidget(int screen)
 {
-    return this;
+    qt_symbian_create_desktop_on_screen = screen;
+    QWidget *w = new QSingleDesktopWidget;
+    qt_symbian_create_desktop_on_screen = -1;
+    return w;
+}
+
+QWidget *QDesktopWidget::screen(int screen)
+{
+    Q_D(QDesktopWidget);
+    if (screen < 0 || screen >= d->screenCount)
+        screen = d->primaryScreen;
+    if (!d->screens->at(screen)
+        || d->screens->at(screen)->windowType() != Qt::Desktop)
+        (*d->screens)[screen] = newSingleDesktopWidget(screen);
+    return (*d->screens)[screen];
 }
 
 const QRect QDesktopWidget::availableGeometry(int screen) const
@@ -168,14 +267,19 @@ const QRect QDesktopWidget::screenGeometry(int screen) const
     return d->rects->at(screen);
 }
 
-int QDesktopWidget::screenNumber(const QWidget * /* widget */) const
+int QDesktopWidget::screenNumber(const QWidget *widget) const
 {
-    return QDesktopWidgetPrivate::primaryScreen;
+    Q_D(const QDesktopWidget);
+    return widget
+        ? S60->screenNumberForWidget(widget)
+        : d->primaryScreen;
 }
 
-int QDesktopWidget::screenNumber(const QPoint & /* point */) const
+int QDesktopWidget::screenNumber(const QPoint &point) const
 {
-    return QDesktopWidgetPrivate::primaryScreen;
+    Q_UNUSED(point);
+    Q_D(const QDesktopWidget);
+    return d->primaryScreen;
 }
 
 void QDesktopWidget::resizeEvent(QResizeEvent *)
@@ -202,6 +306,10 @@ void QDesktopWidget::resizeEvent(QResizeEvent *)
         QRect newrect = d->workrects->at(j);
         if (oldrect != newrect)
             emit workAreaResized(j);
+    }
+
+    if (oldscreencount != d->screenCount) {
+        emit screenCountChanged(d->screenCount);
     }
 }
 

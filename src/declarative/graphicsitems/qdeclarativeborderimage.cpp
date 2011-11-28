@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -149,6 +149,20 @@ QT_BEGIN_NAMESPACE
     \sa Image, AnimatedImage
  */
 
+/*!
+    \qmlproperty bool BorderImage::asynchronous
+
+    Specifies that images on the local filesystem should be loaded
+    asynchronously in a separate thread.  The default value is
+    false, causing the user interface thread to block while the
+    image is loaded.  Setting \a asynchronous to true is useful where
+    maintaining a responsive user interface is more desirable
+    than having images immediately visible.
+
+    Note that this property is only valid for images read from the
+    local filesystem.  Images loaded via a network resource (e.g. HTTP)
+    are always loaded asynchonously.
+*/
 QDeclarativeBorderImage::QDeclarativeBorderImage(QDeclarativeItem *parent)
   : QDeclarativeImageBase(*(new QDeclarativeBorderImagePrivate), parent)
 {
@@ -200,6 +214,25 @@ QDeclarativeBorderImage::~QDeclarativeBorderImage()
 */
 
 /*!
+    \qmlproperty bool BorderImage::cache
+    \since QtQuick 1.1
+
+    Specifies whether the image should be cached. The default value is
+    true. Setting \a cache to false is useful when dealing with large images,
+    to make sure that they aren't cached at the expense of small 'ui element' images.
+*/
+
+/*!
+    \qmlproperty bool BorderImage::mirror
+    \since QtQuick 1.1
+
+    This property holds whether the image should be horizontally inverted
+    (effectively displaying a mirrored image).
+
+    The default value is false.
+*/
+
+/*!
     \qmlproperty url BorderImage::source
 
     This property holds the URL that refers to the source image.
@@ -215,16 +248,28 @@ QDeclarativeBorderImage::~QDeclarativeBorderImage()
     image \c picture.png:
 
     \qml
-    border.left: 10
-    border.top: 10
-    border.bottom: 10
-    border.right: 10
-    source: picture.png
+    BorderImage {
+        border.left: 10
+        border.top: 10
+        border.bottom: 10
+        border.right: 10
+        source: "picture.png"
+    }
     \endqml
 
     The URL may be absolute, or relative to the URL of the component.
 
     \sa QDeclarativeImageProvider
+*/
+
+/*!
+    \qmlproperty QSize BorderImage::sourceSize
+
+    This property holds the actual width and height of the loaded image.
+
+    In BorderImage, this property is read-only.
+
+    \sa Image::sourceSize
 */
 void QDeclarativeBorderImage::setSource(const QUrl &url)
 {
@@ -255,7 +300,7 @@ void QDeclarativeBorderImage::load()
     }
 
     if (d->url.isEmpty()) {
-        d->pix.clear();
+        d->pix.clear(this);
         d->status = Null;
         setImplicitWidth(0);
         setImplicitHeight(0);
@@ -290,7 +335,13 @@ void QDeclarativeBorderImage::load()
             }
         } else {
 
-            d->pix.load(qmlEngine(this), d->url, d->async);
+            QDeclarativePixmap::Options options;
+            if (d->async)
+                options |= QDeclarativePixmap::Asynchronous;
+            if (d->cache)
+                options |= QDeclarativePixmap::Cache;
+            d->pix.clear(this);
+            d->pix.load(qmlEngine(this), d->url, options);
 
             if (d->pix.isLoading()) {
                 d->pix.connectFinished(this, SLOT(requestFinished()));
@@ -310,6 +361,7 @@ void QDeclarativeBorderImage::load()
                 d->progress = 1.0;
                 emit statusChanged(d->status);
                 emit progressChanged(d->progress);
+                requestFinished();
                 update();
             }
         }
@@ -337,7 +389,10 @@ void QDeclarativeBorderImage::load()
     the bottom of the image:
 
     \qml
-    border.bottom: 10
+    BorderImage {
+        border.bottom: 10
+        // ...
+    }
     \endqml
 
     The border lines can also be specified using a
@@ -361,6 +416,8 @@ QDeclarativeScaleGrid *QDeclarativeBorderImage::border()
     \o BorderImage.Repeat - Tile the image until there is no more space. May crop the last image.
     \o BorderImage.Round - Like Repeat, but scales the images down to ensure that the last image is not cropped.
     \endlist
+
+    The default tile mode for each property is BorderImage.Stretch.
 */
 QDeclarativeBorderImage::TileMode QDeclarativeBorderImage::horizontalTileMode() const
 {
@@ -411,7 +468,13 @@ void QDeclarativeBorderImage::setGridScaledImage(const QDeclarativeGridScaledIma
 
         d->sciurl = d->url.resolved(QUrl(sci.pixmapUrl()));
 
-        d->pix.load(qmlEngine(this), d->sciurl, d->async);
+        QDeclarativePixmap::Options options;
+        if (d->async)
+            options |= QDeclarativePixmap::Asynchronous;
+        if (d->cache)
+            options |= QDeclarativePixmap::Cache;
+        d->pix.clear(this);
+        d->pix.load(qmlEngine(this), d->sciurl, options);
 
         if (d->pix.isLoading()) {
             static int thisRequestProgress = -1;
@@ -463,6 +526,9 @@ void QDeclarativeBorderImage::requestFinished()
     setImplicitWidth(impsize.width());
     setImplicitHeight(impsize.height());
 
+    if (d->sourcesize.width() != d->pix.width() || d->sourcesize.height() != d->pix.height())
+        emit sourceSizeChanged();
+
     d->progress = 1.0;
     emit statusChanged(d->status);
     emit progressChanged(1.0);
@@ -507,22 +573,47 @@ void QDeclarativeBorderImage::doUpdate()
 void QDeclarativeBorderImage::paint(QPainter *p, const QStyleOptionGraphicsItem *, QWidget *)
 {
     Q_D(QDeclarativeBorderImage);
-    if (d->pix.isNull())
+    if (d->pix.isNull() || d->width() <= 0.0 || d->height() <= 0.0)
         return;
 
     bool oldAA = p->testRenderHint(QPainter::Antialiasing);
     bool oldSmooth = p->testRenderHint(QPainter::SmoothPixmapTransform);
+    QTransform oldTransform;
     if (d->smooth)
         p->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform, d->smooth);
+    if (d->mirror) {
+        oldTransform = p->transform();
+        QTransform mirror;
+        mirror.translate(d->width(), 0).scale(-1, 1.0);
+        p->setWorldTransform(mirror * oldTransform);
+    }
 
     const QDeclarativeScaleGrid *border = d->getScaleGrid();
-    QMargins margins(border->left(), border->top(), border->right(), border->bottom());
+    int left = border->left();
+    int right = border->right();
+    qreal borderWidth = left + right;
+    if (borderWidth > 0.0 && d->width() < borderWidth) {
+        qreal diff = borderWidth - d->width() - 1;
+        left -= qRound(diff * qreal(left) / borderWidth);
+        right -= qRound(diff * qreal(right) / borderWidth);
+    }
+    int top = border->top();
+    int bottom = border->bottom();
+    qreal borderHeight = top + bottom;
+    if (borderHeight > 0.0 && d->height() < borderHeight) {
+        qreal diff = borderHeight - d->height() - 1;
+        top -= qRound(diff * qreal(top) / borderHeight);
+        bottom -= qRound(diff * qreal(bottom) / borderHeight);
+    }
+    QMargins margins(left, top, right, bottom);
     QTileRules rules((Qt::TileRule)d->horizontalTileMode, (Qt::TileRule)d->verticalTileMode);
     qDrawBorderPixmap(p, QRect(0, 0, (int)d->width(), (int)d->height()), margins, d->pix, d->pix.rect(), margins, rules);
     if (d->smooth) {
         p->setRenderHint(QPainter::Antialiasing, oldAA);
         p->setRenderHint(QPainter::SmoothPixmapTransform, oldSmooth);
     }
+    if (d->mirror)
+        p->setWorldTransform(oldTransform);
 }
 
 QT_END_NAMESPACE

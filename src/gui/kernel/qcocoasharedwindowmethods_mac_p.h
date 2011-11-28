@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -89,6 +89,8 @@ QT_END_NAMESPACE
     QWidget *widget = [self QT_MANGLE_NAMESPACE(qt_qwidget)];
     if (!widget)
         return NO; // This should happen only for qt_root_win
+    if (QApplicationPrivate::isBlockedByModal(widget))
+        return NO;
 
     bool isToolTip = (widget->windowType() == Qt::ToolTip);
     bool isPopup = (widget->windowType() == Qt::Popup);
@@ -100,6 +102,8 @@ QT_END_NAMESPACE
     QWidget *widget = [self QT_MANGLE_NAMESPACE(qt_qwidget)];
     if (!widget)
         return NO; // This should happen only for qt_root_win
+    if ([self isSheet])
+        return NO;
 
     bool isToolTip = (widget->windowType() == Qt::ToolTip);
     bool isPopup = (widget->windowType() == Qt::Popup);
@@ -153,6 +157,20 @@ QT_END_NAMESPACE
     [NSApp terminate:sender];
 }
 
+- (void)setLevel:(NSInteger)windowLevel
+{
+    // Cocoa will upon activating/deactivating applications level modal
+    // windows up and down, regardsless of any explicit set window level.
+    // To ensure that modal stays-on-top dialogs actually stays on top after
+    // the application is activated (and therefore stacks in front of
+    // other stays-on-top windows), we need to add this little special-case override:
+    QWidget *widget = [[QT_MANGLE_NAMESPACE(QCocoaWindowDelegate) sharedDelegate] qt_qwidgetForWindow:self];
+    if (widget && widget->isModal() && (widget->windowFlags() & Qt::WindowStaysOnTopHint))
+        [super setLevel:NSPopUpMenuWindowLevel];
+    else
+        [super setLevel:windowLevel];
+}
+
 - (void)sendEvent:(NSEvent *)event
 {
     if ([event type] == NSApplicationDefined) {
@@ -182,7 +200,7 @@ QT_END_NAMESPACE
     bool handled = false;
     // sometimes need to redirect mouse events to the popup.
     QWidget *popup = qAppInstance()->activePopupWidget();
-    if (popup) {
+    if (popup && popup != widget) {
         switch([event type])
         {
         case NSLeftMouseDown:
@@ -309,7 +327,7 @@ QT_END_NAMESPACE
 
     QWidget *target = [self dragTargetHitTest:sender];
     if (!target)
-        return [super draggingEntered:sender];
+        return NSDragOperationNone;
     if (target->testAttribute(Qt::WA_DropSiteRegistered) == false)
         return NSDragOperationNone;
 
@@ -321,7 +339,7 @@ QT_END_NAMESPACE
 {
     QWidget *target = [self dragTargetHitTest:sender];
     if (!target)
-        return [super draggingUpdated:sender];
+        return NSDragOperationNone;
 
     if (target == *currentDragTarget()) {
         // The drag continues to move over the widget that we have sendt
@@ -345,7 +363,7 @@ QT_END_NAMESPACE
 {
     QWidget *target = [self dragTargetHitTest:sender];
     if (!target)
-        return [super draggingExited:sender];
+        return;
 
     if (*currentDragTarget()) {
         [reinterpret_cast<NSView *>((*currentDragTarget())->winId()) draggingExited:sender];
@@ -357,7 +375,7 @@ QT_END_NAMESPACE
 {
     QWidget *target = [self dragTargetHitTest:sender];
     if (!target)
-        return [super performDragOperation:sender];
+        return NO;
 
     BOOL dropResult = NO;
     if (*currentDragTarget()) {

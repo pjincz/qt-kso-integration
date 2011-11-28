@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -83,27 +83,28 @@ public:
 
     \section1 Example Usage
 
-    \beginfloatright
-    \inlineimage flipable.gif
-    \endfloat
-
     The following example shows a Flipable item that flips whenever it is
     clicked, rotating about the y-axis.
 
-    The \l Rotation element is used to specify the angle and axis of the flip.
-    When \c flipped is true, the item changes to the "back" state, where
-    the angle is changed to 180 degrees to produce the flipping effect. 
+    This flipable item has a \c flipped boolean property that is toggled
+    whenever the MouseArea within the flipable is clicked. When
+    \c flipped is true, the item changes to the "back" state; in this
+    state, the \c angle of the \l Rotation item is changed to 180
+    degrees to produce the flipping effect. When \c flipped is false, the
+    item reverts to the default state, in which the \c angle value is 0.
 
-    \clearfloat
-    \snippet doc/src/snippets/declarative/flipable/flipable-snippet.qml 0
+    \snippet doc/src/snippets/declarative/flipable/flipable.qml 0
 
-    The \l Transition creates the animation that changes the angle over the
-    duration of one second. When the item changes between its "back" and
+    \image flipable.gif
+
+    The \l Transition creates the animation that changes the angle over
+    four seconds. When the item changes between its "back" and
     default states, the NumberAnimation animates the angle between
     its old and new values.
 
-    See the \l {QML States} and \l {QML Animation} documentation for more
-    details on state changes and how animations work within transitions.
+    See \l {QML States} for details on state changes and the default
+    state, and \l {QML Animation and Transitions} for more information on how
+    animations work within transitions.
 
     \sa {declarative/ui-components/flipable}{Flipable example}
 */
@@ -141,6 +142,7 @@ void QDeclarativeFlipable::setFront(QGraphicsObject *front)
     d->front->setParentItem(this);
     if (Back == d->current)
         d->front->setOpacity(0.);
+    emit frontChanged();
 }
 
 QGraphicsObject *QDeclarativeFlipable::back()
@@ -164,6 +166,7 @@ void QDeclarativeFlipable::setBack(QGraphicsObject *back)
             this, SLOT(retransformBack()));
     connect(back, SIGNAL(heightChanged()),
             this, SLOT(retransformBack()));
+    emit backChanged();
 }
 
 void QDeclarativeFlipable::retransformBack()
@@ -176,8 +179,8 @@ void QDeclarativeFlipable::retransformBack()
 /*!
   \qmlproperty enumeration Flipable::side
 
-  The side of the Flippable currently visible. Possible values are \c
-  Flippable.Front and \c Flippable.Back.
+  The side of the Flipable currently visible. Possible values are \c
+  Flipable.Front and \c Flipable.Back.
 */
 QDeclarativeFlipable::Side QDeclarativeFlipable::side() const
 {

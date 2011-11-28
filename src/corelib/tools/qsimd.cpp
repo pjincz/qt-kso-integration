@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -135,7 +135,7 @@ static inline uint detectProcessorFeatures()
 #if defined(QT_HAVE_IWMMXT)
     // runtime detection only available when running as a previlegied process
     features = IWMMXT;
-#elif defined(QT_HAVE_NEON)
+#elif defined(QT_ALWAYS_HAVE_NEON)
     features = NEON;
 #endif
 
@@ -285,8 +285,14 @@ static inline uint detectProcessorFeatures()
     uint features = MMX|SSE|SSE2|CMOV;
     uint feature_result = 0;
 
-#if defined(Q_CC_GNU)
-    long tmp;
+#if defined (Q_OS_WIN64)
+    {
+       int info[4];
+       __cpuid(info, 1);
+       feature_result = info[2];
+    }
+#elif defined(Q_CC_GNU)
+    quint64 tmp;
     asm ("xchg %%rbx, %1\n"
          "cpuid\n"
          "xchg %%rbx, %1\n"
@@ -294,12 +300,6 @@ static inline uint detectProcessorFeatures()
         : "a" (1)
         : "%edx"
         );
-#elif defined (Q_OS_WIN64)
-    {
-       int info[4];
-       __cpuid(info, 1);
-       feature_result = info[2];
-    }
 #endif
 
     if (feature_result & (1u))

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDBus module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -70,6 +70,17 @@ QT_BEGIN_NAMESPACE
 
 static bool isDebugging;
 #define qDBusDebug              if (!::isDebugging); else qDebug
+
+Q_GLOBAL_STATIC_WITH_ARGS(const QString, orgFreedesktopDBusString, (QLatin1String(DBUS_SERVICE_DBUS)))
+
+static inline QString dbusServiceString()
+{ return *orgFreedesktopDBusString(); }
+static inline QString dbusInterfaceString()
+{
+    // it's the same string, but just be sure
+    Q_ASSERT(*orgFreedesktopDBusString() == QLatin1String(DBUS_INTERFACE_DBUS));
+    return *orgFreedesktopDBusString();
+}
 
 static inline QDebug operator<<(QDebug dbg, const QThread *th)
 {
@@ -541,20 +552,22 @@ bool QDBusConnectionPrivate::handleMessage(const QDBusMessage &amsg)
         (*(*list)[i])(amsg);
     }
 
+    if (!ref)
+        return false;
+
     switch (amsg.type()) {
     case QDBusMessage::SignalMessage:
         handleSignal(amsg);
-        return true;
-        break;
+        // if there are any other filters in this DBusConnection,
+        // let them see the signal too
+        return false;
     case QDBusMessage::MethodCallMessage:
         handleObjectCall(amsg);
         return true;
     case QDBusMessage::ReplyMessage:
     case QDBusMessage::ErrorMessage:
-        return false;           // we don't handle those here
     case QDBusMessage::InvalidMessage:
-        Q_ASSERT_X(false, "QDBusConnection", "Invalid message found when processing");
-        break;
+        return false;           // we don't handle those here
     }
 
     return false;
@@ -702,6 +715,8 @@ static int findSlot(const QMetaObject *mo, const QByteArray &name, int flags,
     return -1;
 }
 
+static QDBusCallDeliveryEvent * const DIRECT_DELIVERY = (QDBusCallDeliveryEvent *)1;
+
 QDBusCallDeliveryEvent* QDBusConnectionPrivate::prepareReply(QDBusConnectionPrivate *target,
                                                              QObject *object, int idx,
                                                              const QList<int> &metaTypes,
@@ -725,6 +740,8 @@ QDBusCallDeliveryEvent* QDBusConnectionPrivate::prepareReply(QDBusConnectionPriv
 
     // we can deliver
     // prepare for the call
+    if (target == object)
+        return DIRECT_DELIVERY;
     return new QDBusCallDeliveryEvent(QDBusConnection(target), idx, target, msg, metaTypes);
 }
 
@@ -739,6 +756,12 @@ void QDBusConnectionPrivate::activateSignal(const QDBusConnectionPrivate::Signal
     // Slots can optionally have one final parameter that is a QDBusMessage
     // Slots receive read-only copies of the message (i.e., pass by value or by const-ref)
     QDBusCallDeliveryEvent *call = prepareReply(this, hook.obj, hook.midx, hook.params, msg);
+    if (call == DIRECT_DELIVERY) {
+        // short-circuit delivery
+        Q_ASSERT(this == hook.obj);
+        deliverCall(this, 0, msg, hook.params, hook.midx);
+        return;
+    }
     if (call)
         postEventToThread(ActivateSignalAction, hook.obj, call);
 }
@@ -790,7 +813,7 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags, const QDBu
         ++cacheIt;
     if (cacheIt == slotCache.hash.constEnd() || cacheIt.key() != cacheKey)
     {
-        // not cached, analyse the meta object
+        // not cached, analyze the meta object
         const QMetaObject *mo = object->metaObject();
         QByteArray memberName = msg.member().toUtf8();
 
@@ -962,6 +985,14 @@ QDBusConnectionPrivate::QDBusConnectionPrivate(QObject *p)
     QDBusMetaTypeId::init();
 
     rootNode.flags = 0;
+
+    // prepopulate watchedServices:
+    // we know that the owner of org.freedesktop.DBus is itself
+    watchedServices.insert(dbusServiceString(), WatchedServiceData(dbusServiceString(), 1));
+
+    // prepopulate matchRefCounts:
+    // we know that org.freedesktop.DBus will never change owners
+    matchRefCounts.insert("type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameOwnerChanged',arg0='org.freedesktop.DBus'", 1);
 }
 
 QDBusConnectionPrivate::~QDBusConnectionPrivate()
@@ -1188,11 +1219,11 @@ void QDBusConnectionPrivate::relaySignal(QObject *obj, const QMetaObject *mo, in
     q_dbus_message_unref(msg);
 }
 
-void QDBusConnectionPrivate::_q_serviceOwnerChanged(const QString &name,
-                                                    const QString &oldOwner, const QString &newOwner)
+void QDBusConnectionPrivate::serviceOwnerChangedNoLock(const QString &name,
+                                                       const QString &oldOwner, const QString &newOwner)
 {
     Q_UNUSED(oldOwner);
-    QDBusWriteLocker locker(UpdateSignalHookOwnerAction, this);
+//    QDBusWriteLocker locker(UpdateSignalHookOwnerAction, this);
     WatchedServicesHash::Iterator it = watchedServices.find(name);
     if (it == watchedServices.end())
         return;
@@ -1646,43 +1677,34 @@ void QDBusConnectionPrivate::setConnection(DBusConnection *dbc, const QDBusError
     connection = dbc;
     mode = ClientMode;
 
+    const char *service = q_dbus_bus_get_unique_name(connection);
+    Q_ASSERT(service);
+    baseService = QString::fromUtf8(service);
+
     q_dbus_connection_set_exit_on_disconnect(connection, false);
     q_dbus_connection_set_watch_functions(connection, qDBusAddWatch, qDBusRemoveWatch,
                                           qDBusToggleWatch, this, 0);
     q_dbus_connection_set_timeout_functions(connection, qDBusAddTimeout, qDBusRemoveTimeout,
                                             qDBusToggleTimeout, this, 0);
     q_dbus_connection_set_dispatch_status_function(connection, qDBusUpdateDispatchStatus, this, 0);
-
-    // Initialize the match rules
-    // We want all messages that have us as destination
-    // signals don't have destinations, but connectSignal() takes care of them
-    const char *service = q_dbus_bus_get_unique_name(connection);
-    if (service) {
-        QVarLengthArray<char, 56> filter;
-        filter.append("destination='", 13);
-        filter.append(service, qstrlen(service));
-        filter.append("\'\0", 2);
-
-        QDBusErrorInternal error;
-        q_dbus_bus_add_match(connection, filter.constData(), error);
-        if (handleError(error)) {
-            closeConnection();
-            return;
-        }
-
-        baseService = QString::fromUtf8(service);
-    } else {
-        qWarning("QDBusConnectionPrivate::setConnection: Unable to get base service");
-    }
-
-    QString busService = QLatin1String(DBUS_SERVICE_DBUS);
-    connectSignal(busService, QString(), QString(), QLatin1String("NameAcquired"), QStringList(), QString(),
-                  this, SLOT(registerService(QString)));
-    connectSignal(busService, QString(), QString(), QLatin1String("NameLost"), QStringList(), QString(),
-                  this, SLOT(unregisterService(QString)));
-
-
     q_dbus_connection_add_filter(connection, qDBusSignalFilter, this, 0);
+
+    // Initialize the hooks for the NameAcquired and NameLost signals
+    // we don't use connectSignal here because we don't need the rules to be sent to the bus
+    // the bus will always send us these two signals
+    SignalHook hook;
+    hook.service = dbusServiceString();
+    hook.path.clear(); // no matching
+    hook.obj = this;
+    hook.params << QMetaType::Void << QVariant::String; // both functions take a QString as parameter and return void
+
+    hook.midx = staticMetaObject.indexOfSlot("registerServiceNoLock(QString)");
+    Q_ASSERT(hook.midx != -1);
+    signalHooks.insert(QLatin1String("NameAcquired:" DBUS_INTERFACE_DBUS), hook);
+
+    hook.midx = staticMetaObject.indexOfSlot("unregisterServiceNoLock(QString)");
+    Q_ASSERT(hook.midx != -1);
+    signalHooks.insert(QLatin1String("NameLost:" DBUS_INTERFACE_DBUS), hook);
 
     qDBusDebug() << this << ": connected successfully";
 
@@ -2052,31 +2074,20 @@ void QDBusConnectionPrivate::connectSignal(const QString &key, const SignalHook 
 
     if (connection) {
         qDBusDebug("Adding rule: %s", hook.matchRule.constData());
-        QDBusErrorInternal error;
-        q_dbus_bus_add_match(connection, hook.matchRule, error);
-        if (!!error) {
-            QDBusError qerror = error;
-            qWarning("QDBusConnectionPrivate::connectSignal: received error from D-Bus server "
-                     "while connecting signal to %s::%s: %s (%s)",
-                     hook.obj->metaObject()->className(),
-                     hook.obj->metaObject()->method(hook.midx).signature(),
-                     qPrintable(qerror.name()), qPrintable(qerror.message()));
-            Q_ASSERT(false);
-        } else {
-            // Successfully connected the signal
-            // Do we need to watch for this name?
-            if (shouldWatchService(hook.service)) {
-                WatchedServicesHash::mapped_type &data = watchedServices[hook.service];
-                if (++data.refcount == 1) {
-                    // we need to watch for this service changing
-                    QString dbusServerService = QLatin1String(DBUS_SERVICE_DBUS);
-                    connectSignal(dbusServerService, QString(), QLatin1String(DBUS_INTERFACE_DBUS),
-                                  QLatin1String("NameOwnerChanged"), QStringList() << hook.service, QString(),
-                                  this, SLOT(_q_serviceOwnerChanged(QString,QString,QString)));
-                    data.owner = getNameOwnerNoCache(hook.service);
-                    qDBusDebug() << this << "Watching service" << hook.service << "for owner changes (current owner:"
-                            << data.owner << ")";
-                }
+        q_dbus_bus_add_match(connection, hook.matchRule, NULL);
+
+        // Successfully connected the signal
+        // Do we need to watch for this name?
+        if (shouldWatchService(hook.service)) {
+            WatchedServicesHash::mapped_type &data = watchedServices[hook.service];
+            if (++data.refcount == 1) {
+                // we need to watch for this service changing
+                connectSignal(dbusServiceString(), QString(), dbusInterfaceString(),
+                              QLatin1String("NameOwnerChanged"), QStringList() << hook.service, QString(),
+                              this, SLOT(serviceOwnerChangedNoLock(QString,QString,QString)));
+                data.owner = getNameOwnerNoCache(hook.service);
+                qDBusDebug() << this << "Watching service" << hook.service << "for owner changes (current owner:"
+                             << data.owner << ")";
             }
         }
     }
@@ -2149,8 +2160,7 @@ QDBusConnectionPrivate::disconnectSignal(SignalHookHash::Iterator &it)
         if (sit != watchedServices.end()) {
             if (--sit.value().refcount == 0) {
                 watchedServices.erase(sit);
-                QString dbusServerService = QLatin1String(DBUS_SERVICE_DBUS);
-                disconnectSignal(dbusServerService, QString(), QLatin1String(DBUS_INTERFACE_DBUS),
+                disconnectSignal(dbusServiceString(), QString(), dbusInterfaceString(),
                               QLatin1String("NameOwnerChanged"), QStringList() << hook.service, QString(),
                               this, SLOT(_q_serviceOwnerChanged(QString,QString,QString)));
             }
@@ -2272,8 +2282,8 @@ QString QDBusConnectionPrivate::getNameOwner(const QString& serviceName)
 
 QString QDBusConnectionPrivate::getNameOwnerNoCache(const QString &serviceName)
 {
-    QDBusMessage msg = QDBusMessage::createMethodCall(QLatin1String(DBUS_SERVICE_DBUS),
-            QLatin1String(DBUS_PATH_DBUS), QLatin1String(DBUS_INTERFACE_DBUS),
+    QDBusMessage msg = QDBusMessage::createMethodCall(dbusServiceString(),
+            QLatin1String(DBUS_PATH_DBUS), dbusInterfaceString(),
             QLatin1String("GetNameOwner"));
     QDBusMessagePrivate::setParametersValidated(msg, true);
     msg << serviceName;
@@ -2334,12 +2344,22 @@ QDBusConnectionPrivate::findMetaObject(const QString &service, const QString &pa
 void QDBusConnectionPrivate::registerService(const QString &serviceName)
 {
     QDBusWriteLocker locker(RegisterServiceAction, this);
+    registerServiceNoLock(serviceName);
+}
+
+void QDBusConnectionPrivate::registerServiceNoLock(const QString &serviceName)
+{
     serviceNames.append(serviceName);
 }
 
 void QDBusConnectionPrivate::unregisterService(const QString &serviceName)
 {
     QDBusWriteLocker locker(UnregisterServiceAction, this);
+    unregisterServiceNoLock(serviceName);
+}
+
+void QDBusConnectionPrivate::unregisterServiceNoLock(const QString &serviceName)
+{
     serviceNames.removeAll(serviceName);
 }
 

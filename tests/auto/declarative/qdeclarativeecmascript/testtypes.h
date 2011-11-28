@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -60,17 +60,18 @@ class MyQmlAttachedObject : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(int value READ value CONSTANT)
-    Q_PROPERTY(int value2 READ value2 WRITE setValue2)
+    Q_PROPERTY(int value2 READ value2 WRITE setValue2 NOTIFY value2Changed)
 public:
     MyQmlAttachedObject(QObject *parent) : QObject(parent), m_value2(0) {}
 
     int value() const { return 19; }
     int value2() const { return m_value2; }
-    void setValue2(int v) { m_value2 = v; }
+    void setValue2(int v) { if (m_value2 == v) return; m_value2 = v; emit value2Changed(); }
 
     void emitMySignal() { emit mySignal(); }
 
 signals:
+    void value2Changed();
     void mySignal();
 
 private:
@@ -92,7 +93,7 @@ class MyQmlObject : public QObject
     Q_PROPERTY(QDeclarativeListProperty<QObject> objectListProperty READ objectListProperty CONSTANT)
     Q_PROPERTY(int resettableProperty READ resettableProperty WRITE setResettableProperty RESET resetProperty)
     Q_PROPERTY(QRegExp regExp READ regExp WRITE setRegExp)
-    Q_PROPERTY(int nonscriptable READ nonscriptable WRITE setNonscriptable SCRIPTABLE false);
+    Q_PROPERTY(int nonscriptable READ nonscriptable WRITE setNonscriptable SCRIPTABLE false)
 
 public:
     MyQmlObject(): myinvokableObject(0), m_methodCalled(false), m_methodIntCalled(false), m_object(0), m_value(0), m_resetProperty(13) {}
@@ -152,13 +153,19 @@ public:
     MyQmlObject *myinvokableObject;
     Q_INVOKABLE MyQmlObject *returnme() { return this; }
 
+    struct MyType {
+        int value;
+    };
+    QVariant variant() const { return m_variant; }
+    
 signals:
     void basicSignal();
-    void argumentSignal(int a, QString b, qreal c);
+    void argumentSignal(int a, QString b, qreal c, MyEnum2 d, Qt::MouseButtons e);
     void stringChanged();
     void objectChanged();
     void anotherBasicSignal();
     void thirdBasicSignal();
+    void signalWithUnknownType(const MyQmlObject::MyType &arg);
 
 public slots:
     void deleteMe() { delete this; }
@@ -166,6 +173,7 @@ public slots:
     void method(int a) { if(a == 163) m_methodIntCalled = true; }
     void setString(const QString &s) { m_string = s; }
     void myinvokable(MyQmlObject *o) { myinvokableObject = o; }
+    void variantMethod(const QVariant &v) { m_variant = v; }
 
 private:
     friend class tst_qdeclarativeecmascript;
@@ -178,6 +186,7 @@ private:
     int m_value;
     int m_resetProperty;
     QRegExp m_regExp;
+    QVariant m_variant;
 };
 
 QML_DECLARE_TYPEINFO(MyQmlObject, QML_HAS_ATTACHED_PROPERTIES)
@@ -562,8 +571,27 @@ signals:
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS(MyTypeObject::MyFlags)
 
+class MyDerivedObject : public MyTypeObject
+{
+    Q_OBJECT
+public:
+    Q_INVOKABLE bool intProperty() const {
+        return true;
+    }
+};
+
 Q_DECLARE_METATYPE(QScriptValue);
-class MyInvokableObject : public QObject
+class MyInvokableBaseObject : public QObject
+{
+    Q_OBJECT
+public:
+    inline ~MyInvokableBaseObject() = 0;
+
+    Q_INVOKABLE inline void method_inherited(int a);
+    Q_INVOKABLE inline void method_overload();
+};
+
+class MyInvokableObject : public MyInvokableBaseObject
 {
     Q_OBJECT
     Q_ENUMS(TestEnum)
@@ -599,15 +627,35 @@ public:
     
     Q_INVOKABLE void method_overload(int a) { invoke(16); m_actuals << a; }
     Q_INVOKABLE void method_overload(int a, int b) { invoke(17); m_actuals << a << b; }
+    Q_INVOKABLE void method_overload(QString a) { invoke(18); m_actuals << a; }
 
-    Q_INVOKABLE void method_with_enum(TestEnum e) { invoke(18); m_actuals << (int)e; }
+    Q_INVOKABLE void method_with_enum(TestEnum e) { invoke(19); m_actuals << (int)e; }
+
+    Q_INVOKABLE int method_default(int a, int b = 19) { invoke(20); m_actuals << a << b; return b; }
+
+    Q_INVOKABLE void method_QVariant(QVariant a, QVariant b = QVariant()) { invoke(21); m_actuals << a << b; }
 
 private:
+    friend class MyInvokableBaseObject;
     void invoke(int idx) { if (m_invoked != -1) m_invokedError = true; m_invoked = idx;}
     int m_invoked;
     bool m_invokedError;
     QVariantList m_actuals;
 };
+
+MyInvokableBaseObject::~MyInvokableBaseObject() {}
+
+void MyInvokableBaseObject::method_inherited(int a)
+{
+    static_cast<MyInvokableObject *>(this)->invoke(-3);
+    static_cast<MyInvokableObject *>(this)->m_actuals << a;
+}
+
+// This is a hidden overload of the MyInvokableObject::method_overload() method
+void MyInvokableBaseObject::method_overload()
+{
+    static_cast<MyInvokableObject *>(this)->invoke(-2);
+}
 
 class NumberAssignment : public QObject
 {
@@ -698,6 +746,168 @@ class OverrideDefaultPropertyObject : public DefaultPropertyExtendedObject
 public:
     OverrideDefaultPropertyObject() {}
 };
+
+class MyRevisionedBaseClassRegistered : public QObject
+{
+Q_OBJECT
+    Q_PROPERTY(qreal propA READ propA WRITE setPropA NOTIFY propAChanged)
+    Q_PROPERTY(qreal propB READ propB WRITE setPropB NOTIFY propBChanged REVISION 1)
+
+public:
+    MyRevisionedBaseClassRegistered() : m_pa(1), m_pb(2) {}
+
+    qreal propA() const { return m_pa; }
+    void setPropA(qreal p) {
+        if (p != m_pa) {
+            m_pa = p;
+            emit propAChanged();
+        }
+    }
+    qreal propB() const { return m_pb; }
+    void setPropB(qreal p) {
+        if (p != m_pb) {
+            m_pb = p;
+            emit propBChanged();
+        }
+    }
+
+    Q_INVOKABLE void methodA() { }
+    Q_INVOKABLE Q_REVISION(1) void methodB() { }
+
+signals:
+    void propAChanged();
+    void propBChanged();
+
+    void signalA();
+    Q_REVISION(1) void signalB();
+
+protected:
+    qreal m_pa;
+    qreal m_pb;
+};
+
+class MyRevisionedBaseClassUnregistered : public MyRevisionedBaseClassRegistered
+{
+Q_OBJECT
+    Q_PROPERTY(qreal propC READ propC WRITE setPropC NOTIFY propCChanged)
+    Q_PROPERTY(qreal propD READ propD WRITE setPropD NOTIFY propDChanged REVISION 1)
+
+public:
+    MyRevisionedBaseClassUnregistered() : m_pc(1), m_pd(2) {}
+
+    qreal propC() const { return m_pc; }
+    void setPropC(qreal p) {
+        if (p != m_pc) {
+            m_pc = p;
+            emit propCChanged();
+        }
+    }
+    qreal propD() const { return m_pd; }
+    void setPropD(qreal p) {
+        if (p != m_pd) {
+            m_pd = p;
+            emit propDChanged();
+        }
+    }
+
+    Q_INVOKABLE void methodC() { }
+    Q_INVOKABLE Q_REVISION(1) void methodD() { }
+
+signals:
+    void propCChanged();
+    void propDChanged();
+
+    void signalC();
+    Q_REVISION(1) void signalD();
+
+protected:
+    qreal m_pc;
+    qreal m_pd;
+};
+
+class MyRevisionedClass : public MyRevisionedBaseClassUnregistered
+{
+    Q_OBJECT
+    Q_PROPERTY(qreal prop1 READ prop1 WRITE setProp1 NOTIFY prop1Changed)
+    Q_PROPERTY(qreal prop2 READ prop2 WRITE setProp2 NOTIFY prop2Changed REVISION 1)
+
+public:
+    MyRevisionedClass() {}
+
+    qreal prop1() const { return m_p1; }
+    void setProp1(qreal p) {
+        if (p != m_p1) {
+            m_p1 = p;
+            emit prop1Changed();
+        }
+    }
+    qreal prop2() const { return m_p2; }
+    void setProp2(qreal p) {
+        if (p != m_p2) {
+            m_p2 = p;
+            emit prop2Changed();
+        }
+    }
+
+    Q_INVOKABLE void method1() { }
+    Q_INVOKABLE Q_REVISION(1) void method2() { }
+
+signals:
+    void prop1Changed();
+    void prop2Changed();
+
+    void signal1();
+    Q_REVISION(1) void signal2();
+
+protected:
+    qreal m_p1;
+    qreal m_p2;
+};
+
+class MyRevisionedSubclass : public MyRevisionedClass
+{
+    Q_OBJECT
+    Q_PROPERTY(qreal prop3 READ prop3 WRITE setProp3 NOTIFY prop3Changed)
+    Q_PROPERTY(qreal prop4 READ prop4 WRITE setProp4 NOTIFY prop4Changed REVISION 1)
+
+public:
+    MyRevisionedSubclass() : m_p3(3), m_p4(4) {}
+
+    qreal prop3() const { return m_p3; }
+    void setProp3(qreal p) {
+        if (p != m_p3) {
+            m_p3 = p;
+            emit prop3Changed();
+        }
+    }
+    qreal prop4() const { return m_p4; }
+    void setProp4(qreal p) {
+        if (p != m_p4) {
+            m_p4 = p;
+            emit prop4Changed();
+        }
+    }
+
+    Q_INVOKABLE void method3() { }
+    Q_INVOKABLE Q_REVISION(1) void method4() { }
+
+signals:
+    void prop3Changed();
+    void prop4Changed();
+
+    void signal3();
+    Q_REVISION(1) void signal4();
+
+protected:
+    qreal m_p3;
+    qreal m_p4;
+};
+
+QML_DECLARE_TYPE(MyRevisionedBaseClassRegistered)
+QML_DECLARE_TYPE(MyRevisionedBaseClassUnregistered)
+QML_DECLARE_TYPE(MyRevisionedClass)
+QML_DECLARE_TYPE(MyRevisionedSubclass)
+Q_DECLARE_METATYPE(MyQmlObject::MyType)
 
 void registerTypes();
 

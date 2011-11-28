@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -74,7 +74,7 @@ SessionWidget::SessionWidget(const QNetworkConfiguration &config, QWidget *paren
             this, SLOT(closeSession()));
     connect(stopSessionButton, SIGNAL(clicked()),
             this, SLOT(stopSession()));
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6)
+#ifdef MAEMO_UI
     connect(deleteSessionButton, SIGNAL(clicked()),
             this, SLOT(deleteSession()));
 #endif
@@ -94,7 +94,7 @@ void SessionWidget::timerEvent(QTimerEvent *e)
     }
 }
 
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6)
+#ifdef MAEMO_UI
 void SessionWidget::deleteSession()
 {
     delete this;

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -53,6 +53,7 @@
 #include <qscrollbar.h>
 #include <qprogressbar.h>
 #include <qtoolbutton.h>
+#include <qtoolbar.h>
 
 #include <qplastiquestyle.h>
 #include <qwindowsstyle.h>
@@ -146,6 +147,7 @@ private slots:
     void pixelMetric();
     void progressBarChangeStyle();
     void defaultFont();
+    void testDrawingShortcuts();
 private:
     void lineUpLayoutTest(QStyle *);
     QWidget *testWidget;
@@ -270,6 +272,18 @@ void tst_QStyle::drawItemPixmap()
 
     QPixmap p(QString(SRCDIR) + "/task_25863.png", "PNG");
     QPixmap actualPix = QPixmap::grabWidget(testWidget);
+
+#ifdef Q_OS_SYMBIAN
+    // QPixmap cannot be assumed to be exactly same, unless it is created from exactly same content.
+    // In Symbian, pixmap format might get "optimized" depending on how QPixmap is created.
+    // Therefore, force the content to specific format and compare QImages.
+    // Then re-create the QPixmaps and compare those.
+    QImage i1 = p.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    p = QPixmap::fromImage(i1);
+    QImage i2 = actualPix.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    actualPix = QPixmap::fromImage(i2);
+    QVERIFY(i1 == i2);
+#endif
     QVERIFY(pixmapsAreEqual(&actualPix,&p));
     testWidget->hide();
 }
@@ -411,6 +425,13 @@ void tst_QStyle::testWindowsStyle()
     QWindowsStyle wstyle;
     testAllFunctions(&wstyle);
     lineUpLayoutTest(&wstyle);
+
+    // Tests drawing indeterminate progress with 0 size: QTBUG-15973
+    QStyleOptionProgressBar pb;
+    pb.rect = QRect(0,0,-9,0);
+    QPixmap surface(QSize(200, 200));
+    QPainter painter(&surface);
+    wstyle.drawControl(QStyle::CE_ProgressBar, &pb, &painter, 0);
 }
 
 void tst_QStyle::testWindowsXPStyle()
@@ -779,6 +800,55 @@ void tst_QStyle::defaultFont()
     button.show();
     qApp->processEvents();
     qApp->setFont(defaultFont);
+}
+
+class DrawTextStyle : public QProxyStyle
+{
+    Q_OBJECT
+public:
+    DrawTextStyle(QStyle *base = 0) : QProxyStyle(), alignment(0) { setBaseStyle(base); }
+    void drawItemText(QPainter *painter, const QRect &rect,
+                              int flags, const QPalette &pal, bool enabled,
+                              const QString &text, QPalette::ColorRole textRole = QPalette::NoRole) const
+    {
+        DrawTextStyle *that = (DrawTextStyle *)this;
+        that->alignment = flags;
+        QProxyStyle::drawItemText(painter, rect, flags, pal, enabled, text, textRole);
+    }
+    int alignment;
+};
+
+void tst_QStyle::testDrawingShortcuts()
+{
+    {   
+        QWidget w;
+        QToolButton *tb = new QToolButton(&w);
+        tb->setText("&abc");
+        DrawTextStyle *dts = new DrawTextStyle;
+        w.show();
+        tb->setStyle(dts);
+        QPixmap::grabWidget(tb);
+        QStyleOptionToolButton sotb;
+        sotb.initFrom(tb);
+        bool showMnemonic = dts->styleHint(QStyle::SH_UnderlineShortcut, &sotb, tb);
+        QVERIFY(dts->alignment & (showMnemonic ? Qt::TextShowMnemonic : Qt::TextHideMnemonic));
+        delete dts;
+    }
+    {
+        QToolBar w;
+        QToolButton *tb = new QToolButton(&w);
+        tb->setText("&abc");
+        DrawTextStyle *dts = new DrawTextStyle;
+        w.addWidget(tb);
+        w.show();
+        tb->setStyle(dts);
+        QPixmap::grabWidget(tb);
+        QStyleOptionToolButton sotb;
+        sotb.initFrom(tb);
+        bool showMnemonic = dts->styleHint(QStyle::SH_UnderlineShortcut, &sotb, tb);
+        QVERIFY(dts->alignment & (showMnemonic ? Qt::TextShowMnemonic : Qt::TextHideMnemonic));
+        delete dts;
+     }   
 }
 
 QTEST_MAIN(tst_QStyle)

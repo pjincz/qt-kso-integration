@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the qmake application of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -303,7 +303,8 @@ void Win32MakefileGenerator::processVars()
 
     // TARGET_VERSION_EXT will be used to add a version number onto the target name
     if (project->values("TARGET_VERSION_EXT").isEmpty()
-        && !project->values("VER_MAJ").isEmpty())
+        && !project->values("VER_MAJ").isEmpty()
+        && project->values("QMAKE_SYMBIAN_SHLIB").isEmpty())
         project->values("TARGET_VERSION_EXT").append(project->values("VER_MAJ").first());
 
     if(project->isEmpty("QMAKE_COPY_FILE"))
@@ -331,16 +332,43 @@ void Win32MakefileGenerator::processVars()
     if(!(*libDir_it).isEmpty())
         (*libDir_it) = Option::fixPathToTargetOS((*libDir_it), false, false);
     }
+
+    if (project->values("TEMPLATE").contains("app")) {
+        project->values("QMAKE_CFLAGS") += project->values("QMAKE_CFLAGS_APP");
+        project->values("QMAKE_CXXFLAGS") += project->values("QMAKE_CXXFLAGS_APP");
+        project->values("QMAKE_LFLAGS") += project->values("QMAKE_LFLAGS_APP");
+    } else if (project->values("TEMPLATE").contains("lib") && project->isActiveConfig("dll")) {
+        if(!project->isActiveConfig("plugin") || !project->isActiveConfig("plugin_no_share_shlib_cflags")) {
+            project->values("QMAKE_CFLAGS") += project->values("QMAKE_CFLAGS_SHLIB");
+            project->values("QMAKE_CXXFLAGS") += project->values("QMAKE_CXXFLAGS_SHLIB");
+        }
+        if (project->isActiveConfig("plugin")) {
+            project->values("QMAKE_CFLAGS") += project->values("QMAKE_CFLAGS_PLUGIN");
+            project->values("QMAKE_CXXFLAGS") += project->values("QMAKE_CXXFLAGS_PLUGIN");
+            project->values("QMAKE_LFLAGS") += project->values("QMAKE_LFLAGS_PLUGIN");
+        } else {
+            project->values("QMAKE_LFLAGS") += project->values("QMAKE_LFLAGS_SHLIB");
+        }
+    }
 }
 
 void Win32MakefileGenerator::fixTargetExt()
 {
-    if (!project->values("QMAKE_APP_FLAG").isEmpty())
+    if (project->isEmpty("QMAKE_EXTENSION_STATICLIB"))
+        project->values("QMAKE_EXTENSION_STATICLIB").append("lib");
+    if (project->isEmpty("QMAKE_EXTENSION_SHLIB"))
+        project->values("QMAKE_EXTENSION_SHLIB").append("dll");
+
+    if (!project->values("QMAKE_APP_FLAG").isEmpty()) {
         project->values("TARGET_EXT").append(".exe");
-    else if (project->isActiveConfig("shared"))
-        project->values("TARGET_EXT").append(project->first("TARGET_VERSION_EXT") + ".dll");
-    else
-        project->values("TARGET_EXT").append(".lib");
+    } else if (project->isActiveConfig("shared")) {
+        project->values("TARGET_EXT").append(project->first("TARGET_VERSION_EXT") + "."
+                + project->first("QMAKE_EXTENSION_SHLIB"));
+        project->values("TARGET").first() = project->first("QMAKE_PREFIX_SHLIB") + project->first("TARGET");
+    } else {
+        project->values("TARGET_EXT").append("." + project->first("QMAKE_EXTENSION_STATICLIB"));
+        project->values("TARGET").first() = project->first("QMAKE_PREFIX_STATICLIB") + project->first("TARGET");
+    }
 }
 
 void Win32MakefileGenerator::processRcFileVar()
@@ -646,7 +674,7 @@ void Win32MakefileGenerator::writeStandardParts(QTextStream &t)
 
     t << "DIST          = " << varList("DISTFILES") << endl;
     t << "QMAKE_TARGET  = " << var("QMAKE_ORIG_TARGET") << endl;
-    // The comment is important to maintain variable compatability with Unix
+    // The comment is important to maintain variable compatibility with Unix
     // Makefiles, while not interpreting a trailing-slash as a linebreak
     t << "DESTDIR        = " << escapeFilePath(destDir) << " #avoid trailing-slash linebreak" << endl;
     t << "TARGET         = " << escapeFilePath(target) << endl;
@@ -662,10 +690,10 @@ void Win32MakefileGenerator::writeStandardParts(QTextStream &t)
     if(project->isActiveConfig("shared") && !project->values("DLLDESTDIR").isEmpty()) {
         QStringList dlldirs = project->values("DLLDESTDIR");
         for (QStringList::Iterator dlldir = dlldirs.begin(); dlldir != dlldirs.end(); ++dlldir) {
-            t << "\n\t" << "-$(COPY_FILE) \"$(DESTDIR_TARGET)\" " << Option::fixPathToTargetOS(*dlldir, false);
+            t << "\t" << "-$(COPY_FILE) \"$(DESTDIR_TARGET)\" " << Option::fixPathToTargetOS(*dlldir, false) << endl;
         }
     }
-    t << endl << endl;
+    t << endl;
 
     writeRcFilePart(t);
 

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -60,14 +60,17 @@ QT_BEGIN_NAMESPACE
 
     Example:
     \qml
-    Rectangle { border.width: 2; border.color: "red" ... }
+    Rectangle {
+        border.width: 2
+        border.color: "red"
+    }
     \endqml
 */
 
 void QDeclarativePen::setColor(const QColor &c)
 {
     _color = c;
-    _valid = _color.alpha() ? true : false;
+    _valid = (_color.alpha() && _width >= 1) ? true : false;
     emit penChanged();
 }
 
@@ -77,7 +80,7 @@ void QDeclarativePen::setWidth(int w)
         return;
 
     _width = w;
-    _valid = (_width < 1) ? false : true;
+    _valid = (_color.alpha() && _width >= 1) ? true : false;
     emit penChanged();
 }
 
@@ -131,9 +134,9 @@ void QDeclarativeGradientStop::updateGradient()
 
     \section1 Example Usage
 
-    \beginfloatright
+    \div {class="float-right"}
     \inlineimage qml-gradient.png
-    \endfloat
+    \enddiv
 
     The following example declares a \l Rectangle item with a gradient starting
     with red, blending to yellow at one third of the height of the rectangle,
@@ -217,9 +220,9 @@ void QDeclarativeGradient::doUpdate()
 
     \section1 Example Usage
 
-    \beginfloatright
+    \div {class="float-right"}
     \inlineimage declarative-rect.png
-    \endfloat
+    \enddiv
 
     The following example shows the effects of some of the common properties on a
     Rectangle item, which in this case is used to create a square:
@@ -260,15 +263,18 @@ void QDeclarativeRectangle::doUpdate()
 
     A width of 1 creates a thin line. For no line, use a width of 0 or a transparent color.
 
+    \note The width of the rectangle's border does not affect the geometry of the
+    rectangle itself or its position relative to other items if anchors are used.
+
     If \c border.width is an odd number, the rectangle is painted at a half-pixel offset to retain
-    border smoothness. Also, the border is rendered evenly on either side of the 
+    border smoothness. Also, the border is rendered evenly on either side of the
     rectangle's boundaries, and the spare pixel is rendered to the right and below the
-    rectangle (as documented for QRect rendering). This can cause unintended effects if 
+    rectangle (as documented for QRect rendering). This can cause unintended effects if
     \c border.width is 1 and the rectangle is \l{Item::clip}{clipped} by a parent item:
 
-    \beginfloatright
+    \div {class="float-right"}
     \inlineimage rect-border-width.png
-    \endfloat
+    \enddiv
 
     \snippet doc/src/snippets/declarative/rectangle/rect-border-width.qml 0
 
@@ -290,9 +296,9 @@ QDeclarativePen *QDeclarativeRectangle::border()
     This property allows for the construction of simple vertical gradients.
     Other gradients may by formed by adding rotation to the rectangle.
 
-    \beginfloatleft
+    \div {class="float-left"}
     \inlineimage declarative-rect_gradient.png
-    \endfloat
+    \enddiv
 
     \snippet doc/src/snippets/declarative/rectangle/rectangle-gradient.qml rectangles
     \clearfloat
@@ -358,9 +364,9 @@ void QDeclarativeRectangle::setRadius(qreal radius)
 
     The default color is white.
 
-    \beginfloatright
+    \div {class="float-right"}
     \inlineimage rect-color.png
-    \endfloat
+    \enddiv
 
     The following example shows rectangles with colors specified
     using hexadecimal and named color notation:
@@ -417,6 +423,10 @@ void QDeclarativeRectangle::generateRoundedRect()
                 p.drawRoundedRect(QRectF(qreal(pw)/2+1, qreal(pw)/2+1, d->rectImage.width()-(pw+1), d->rectImage.height()-(pw+1)), d->radius, d->radius);
             else
                 p.drawRoundedRect(QRectF(qreal(pw)/2, qreal(pw)/2, d->rectImage.width()-pw, d->rectImage.height()-pw), d->radius, d->radius);
+
+            // end painting before inserting pixmap
+            // to pixmap cache to avoid a deep copy
+            p.end();
             QPixmapCache::insert(key, d->rectImage);
         }
     }
@@ -451,6 +461,10 @@ void QDeclarativeRectangle::generateBorderedRect()
                 p.drawRect(QRectF(qreal(pw)/2+1, qreal(pw)/2+1, d->rectImage.width()-(pw+1), d->rectImage.height()-(pw+1)));
             else
                 p.drawRect(QRectF(qreal(pw)/2, qreal(pw)/2, d->rectImage.width()-pw, d->rectImage.height()-pw));
+
+            // end painting before inserting pixmap
+            // to pixmap cache to avoid a deep copy
+            p.end();
             QPixmapCache::insert(key, d->rectImage);
         }
     }
@@ -459,6 +473,8 @@ void QDeclarativeRectangle::generateBorderedRect()
 void QDeclarativeRectangle::paint(QPainter *p, const QStyleOptionGraphicsItem *, QWidget *)
 {
     Q_D(QDeclarativeRectangle);
+    if (width() <= 0 || height() <= 0)
+        return;
     if (d->radius > 0 || (d->pen && d->pen->isValid())
         || (d->gradient && d->gradient->gradient()) ) {
         drawRect(*p);
@@ -477,7 +493,8 @@ void QDeclarativeRectangle::drawRect(QPainter &p)
 {
     Q_D(QDeclarativeRectangle);
     if ((d->gradient && d->gradient->gradient())
-        || d->radius > width()/2 || d->radius > height()/2) {
+        || d->radius > width()/2 || d->radius > height()/2
+        || width() < 3 || height() < 3) {
         // XXX This path is still slower than the image path
         // Image path won't work for gradients or invalid radius though
         bool oldAA = p.testRenderHint(QPainter::Antialiasing);
@@ -526,6 +543,12 @@ void QDeclarativeRectangle::drawRect(QPainter &p)
         int yOffset = (d->rectImage.height()-1)/2;
         Q_ASSERT(d->rectImage.width() == 2*xOffset + 1);
         Q_ASSERT(d->rectImage.height() == 2*yOffset + 1);
+
+        // check whether we've eliminated the center completely
+        if (2*xOffset > width()+pw)
+            xOffset = (width()+pw)/2;
+        if (2*yOffset > height()+pw)
+            yOffset = (height()+pw)/2;
 
         QMargins margins(xOffset, yOffset, xOffset, yOffset);
         QTileRules rules(Qt::StretchTile, Qt::StretchTile);

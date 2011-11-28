@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,12 +48,14 @@
 #include "qabstractnetworkcache.h"
 
 #include "QtNetwork/qnetworksession.h"
+#include "QtNetwork/private/qsharednetworksession_p.h"
 
 #include "qnetworkaccesshttpbackend_p.h"
 #include "qnetworkaccessftpbackend_p.h"
 #include "qnetworkaccessfilebackend_p.h"
 #include "qnetworkaccessdatabackend_p.h"
 #include "qnetworkaccessdebugpipebackend_p.h"
+#include "qnetworkaccesscachebackend_p.h"
 #include "qfilenetworkreply_p.h"
 
 #include "QtCore/qbuffer.h"
@@ -914,7 +916,7 @@ QNetworkAccessManager::NetworkAccessibility QNetworkAccessManager::networkAccess
     device will be uploaded to the server; in that case, data must be open for
     reading and must remain valid until the finished() signal is emitted for this reply.
 
-    \note This feature is currently available for HTTP only.
+    \note This feature is currently available for HTTP(S) only.
 
     \sa get(), post(), put(), deleteResource()
 */
@@ -944,6 +946,22 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
 {
     Q_D(QNetworkAccessManager);
 
+    // 4.7 only hotfix fast path for data:// URLs
+    // In 4.8 this is solved with QNetworkReplyDataImpl and will work there
+    // This hotfix is done for not needing a QNetworkSession for data://
+    if ((op == QNetworkAccessManager::GetOperation || op == QNetworkAccessManager::HeadOperation)
+             && (req.url().scheme() == QLatin1String("data"))) {
+        QNetworkReplyImpl *reply = new QNetworkReplyImpl(this);
+        QNetworkReplyImplPrivate *priv = reply->d_func();
+        priv->manager = this;
+        priv->backend = new QNetworkAccessDataBackend();
+        priv->backend->manager = this->d_func();
+        priv->backend->setParent(reply);
+        priv->backend->reply = priv;
+        priv->setup(op, req, outgoingData);
+        return reply;
+    }
+
     // fast path for GET on file:// URLs
     // Also if the scheme is empty we consider it a file.
     // The QNetworkAccessFileBackend will right now only be used for PUT
@@ -952,6 +970,26 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
              || req.url().scheme() == QLatin1String("qrc")
              || req.url().scheme().isEmpty())) {
         return new QFileNetworkReply(this, req, op);
+    }
+
+    // A request with QNetworkRequest::AlwaysCache does not need any bearer management
+    QNetworkRequest::CacheLoadControl mode =
+        static_cast<QNetworkRequest::CacheLoadControl>(
+            req.attribute(QNetworkRequest::CacheLoadControlAttribute,
+                              QNetworkRequest::PreferNetwork).toInt());
+    if (mode == QNetworkRequest::AlwaysCache
+        && (op == QNetworkAccessManager::GetOperation
+        || op == QNetworkAccessManager::HeadOperation)) {
+        // FIXME Implement a QNetworkReplyCacheImpl instead, see QTBUG-15106
+        QNetworkReplyImpl *reply = new QNetworkReplyImpl(this);
+        QNetworkReplyImplPrivate *priv = reply->d_func();
+        priv->manager = this;
+        priv->backend = new QNetworkAccessCacheBackend();
+        priv->backend->manager = this->d_func();
+        priv->backend->setParent(reply);
+        priv->backend->reply = priv;
+        priv->setup(op, req, outgoingData);
+        return reply;
     }
 
 #ifndef QT_NO_BEARERMANAGEMENT
@@ -1009,16 +1047,8 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
     priv->manager = this;
 
     // second step: fetch cached credentials
-    if (static_cast<QNetworkRequest::LoadControl>
-        (request.attribute(QNetworkRequest::AuthenticationReuseAttribute,
-                           QNetworkRequest::Automatic).toInt()) == QNetworkRequest::Automatic) {
-        QNetworkAuthenticationCredential *cred = d->fetchCachedCredentials(url);
-        if (cred) {
-            url.setUserName(cred->user);
-            url.setPassword(cred->password);
-            priv->urlForLastAuthentication = url;
-        }
-    }
+    // This is not done for the time being, we should use signal emissions to request
+    // the credentials from cache.
 
     // third step: find a backend
     priv->backend = d->findBackend(op, request);
@@ -1031,12 +1061,14 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
         priv->backend->setParent(reply);
         priv->backend->reply = priv;
     }
-    // fourth step: setup the reply
-    priv->setup(op, request, outgoingData);
 
 #ifndef QT_NO_OPENSSL
     reply->setSslConfiguration(request.sslConfiguration());
 #endif
+
+    // fourth step: setup the reply
+    priv->setup(op, request, outgoingData);
+
     return reply;
 }
 
@@ -1100,7 +1132,9 @@ void QNetworkAccessManagerPrivate::authenticationRequired(QNetworkAccessBackend 
 
     // don't try the cache for the same URL twice in a row
     // being called twice for the same URL means the authentication failed
-    if (url != backend->reply->urlForLastAuthentication) {
+    // also called when last URL is empty, e.g. on first call
+    if (backend->reply->urlForLastAuthentication.isEmpty()
+            || url != backend->reply->urlForLastAuthentication) {
         QNetworkAuthenticationCredential *cred = fetchCachedCredentials(url, authenticator);
         if (cred) {
             authenticator->setUser(cred->user);
@@ -1110,9 +1144,14 @@ void QNetworkAccessManagerPrivate::authenticationRequired(QNetworkAccessBackend 
         }
     }
 
+    // if we emit a signal here in synchronous mode, the user might spin
+    // an event loop, which might recurse and lead to problems
+    if (backend->isSynchronous())
+        return;
+
     backend->reply->urlForLastAuthentication = url;
     emit q->authenticationRequired(backend->reply->q_func(), authenticator);
-    addCredentials(url, authenticator);
+    cacheCredentials(url, authenticator);
 }
 
 #ifndef QT_NO_NETWORKPROXY
@@ -1129,7 +1168,7 @@ void QNetworkAccessManagerPrivate::proxyAuthenticationRequired(QNetworkAccessBac
     // possible solution: some tracking inside the authenticator
     //      or a new function proxyAuthenticationSucceeded(true|false)
     if (proxy != backend->reply->lastProxyAuthentication) {
-        QNetworkAuthenticationCredential *cred = fetchCachedCredentials(proxy);
+        QNetworkAuthenticationCredential *cred = fetchCachedProxyCredentials(proxy);
         if (cred) {
             authenticator->setUser(cred->user);
             authenticator->setPassword(cred->password);
@@ -1137,12 +1176,17 @@ void QNetworkAccessManagerPrivate::proxyAuthenticationRequired(QNetworkAccessBac
         }
     }
 
+    // if we emit a signal here in synchronous mode, the user might spin
+    // an event loop, which might recurse and lead to problems
+    if (backend->isSynchronous())
+        return;
+
     backend->reply->lastProxyAuthentication = proxy;
     emit q->proxyAuthenticationRequired(proxy, authenticator);
-    addCredentials(proxy, authenticator);
+    cacheProxyCredentials(proxy, authenticator);
 }
 
-void QNetworkAccessManagerPrivate::addCredentials(const QNetworkProxy &p,
+void QNetworkAccessManagerPrivate::cacheProxyCredentials(const QNetworkProxy &p,
                                                   const QAuthenticator *authenticator)
 {
     Q_ASSERT(authenticator);
@@ -1179,7 +1223,7 @@ void QNetworkAccessManagerPrivate::addCredentials(const QNetworkProxy &p,
 }
 
 QNetworkAuthenticationCredential *
-QNetworkAccessManagerPrivate::fetchCachedCredentials(const QNetworkProxy &p,
+QNetworkAccessManagerPrivate::fetchCachedProxyCredentials(const QNetworkProxy &p,
                                                      const QAuthenticator *authenticator)
 {
     QNetworkProxy proxy = p;
@@ -1231,7 +1275,7 @@ QList<QNetworkProxy> QNetworkAccessManagerPrivate::queryProxy(const QNetworkProx
 }
 #endif
 
-void QNetworkAccessManagerPrivate::addCredentials(const QUrl &url,
+void QNetworkAccessManagerPrivate::cacheCredentials(const QUrl &url,
                                                   const QAuthenticator *authenticator)
 {
     Q_ASSERT(authenticator);
@@ -1311,11 +1355,8 @@ void QNetworkAccessManagerPrivate::createSession(const QNetworkConfiguration &co
 
     initializeSession = false;
 
-    if (networkSession)
-        delete networkSession;
-
     if (!config.isValid()) {
-        networkSession = 0;
+        networkSession.clear();
         online = false;
 
         if (networkAccessible == QNetworkAccessManager::NotAccessible)
@@ -1326,18 +1367,13 @@ void QNetworkAccessManagerPrivate::createSession(const QNetworkConfiguration &co
         return;
     }
 
-    networkSession = new QNetworkSession(config, q);
+    networkSession = QSharedNetworkSessionManager::getSession(config);
 
-    QObject::connect(networkSession, SIGNAL(opened()), q, SIGNAL(networkSessionConnected()));
-    QObject::connect(networkSession, SIGNAL(closed()), q, SLOT(_q_networkSessionClosed()));
-    QObject::connect(networkSession, SIGNAL(stateChanged(QNetworkSession::State)),
-                     q, SLOT(_q_networkSessionStateChanged(QNetworkSession::State)));
-    QObject::connect(networkSession, SIGNAL(newConfigurationActivated()),
-                     q, SLOT(_q_networkSessionNewConfigurationActivated()));
-    QObject::connect(networkSession,
-                     SIGNAL(preferredConfigurationChanged(QNetworkConfiguration,bool)),
-                     q,
-                     SLOT(_q_networkSessionPreferredConfigurationChanged(QNetworkConfiguration,bool)));
+    QObject::connect(networkSession.data(), SIGNAL(opened()), q, SIGNAL(networkSessionConnected()), Qt::QueuedConnection);
+    //QueuedConnection is used to avoid deleting the networkSession inside its closed signal
+    QObject::connect(networkSession.data(), SIGNAL(closed()), q, SLOT(_q_networkSessionClosed()), Qt::QueuedConnection);
+    QObject::connect(networkSession.data(), SIGNAL(stateChanged(QNetworkSession::State)),
+                     q, SLOT(_q_networkSessionStateChanged(QNetworkSession::State)), Qt::QueuedConnection);
 
     _q_networkSessionStateChanged(networkSession->state());
 }
@@ -1347,32 +1383,16 @@ void QNetworkAccessManagerPrivate::_q_networkSessionClosed()
     if (networkSession) {
         networkConfiguration = networkSession->configuration().identifier();
 
-        networkSession->deleteLater();
-        networkSession = 0;
+        networkSession.clear();
     }
-}
-
-void QNetworkAccessManagerPrivate::_q_networkSessionNewConfigurationActivated()
-{
-    Q_Q(QNetworkAccessManager);
-
-    if (networkSession) {
-        networkSession->accept();
-
-        emit q->networkSessionConnected();
-    }
-}
-
-void QNetworkAccessManagerPrivate::_q_networkSessionPreferredConfigurationChanged(const QNetworkConfiguration &, bool)
-{
-    if (networkSession)
-        networkSession->migrate();
 }
 
 void QNetworkAccessManagerPrivate::_q_networkSessionStateChanged(QNetworkSession::State state)
 {
     Q_Q(QNetworkAccessManager);
 
+    if (state == QNetworkSession::Connected)
+        emit q->networkSessionConnected();
     if (online) {
         if (state != QNetworkSession::Connected && state != QNetworkSession::Roaming) {
             online = false;

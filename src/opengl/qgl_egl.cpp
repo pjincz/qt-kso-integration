@@ -1,44 +1,45 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
+#include <QtCore/qdebug.h>
 #include <QtOpenGL/qgl.h>
 #include <QtOpenGL/qglpixelbuffer.h>
 #include "qgl_p.h"
@@ -88,7 +89,7 @@ void qt_eglproperties_set_glformat(QEglProperties& eglProperties, const QGLForma
     // put in the list before 32-bit configs. So, to make sure 16-bit is preffered over 32-bit,
     // we must set the red/green/blue sizes to zero. This has an unfortunate consequence that
     // if the application sets the red/green/blue size to 5/6/5 on the QGLFormat, they will
-    // probably get a 32-bit config, even when there's an RGB565 config avaliable. Oh well.
+    // probably get a 32-bit config, even when there's an RGB565 config available. Oh well.
 
     // Now normalize the values so -1 becomes 0
     redSize   = redSize   > 0 ? redSize   : 0;
@@ -143,6 +144,7 @@ void qt_glformat_from_eglconfig(QGLFormat& format, const EGLConfig config)
     format.setRgba(true);            // EGL doesn't support colour index rendering
     format.setStereo(false);         // EGL doesn't support stereo buffers
     format.setAccumBufferSize(0);    // EGL doesn't support accululation buffers
+    format.setDoubleBuffer(true);    // We don't support single buffered EGL contexts
 
     // Clear the EGL error state because some of the above may
     // have errored out because the attribute is not applicable
@@ -194,6 +196,7 @@ void QGLContext::makeCurrent()
                 // PowerVR MBX/SGX chips needs to clear all buffers when starting to render
                 // a new frame, otherwise there will be a performance penalty to pay for
                 // each frame.
+                qDebug() << "Found SGX/MBX driver, enabling FullClearOnEveryFrame";
                 d->workaround_needsFullClearOnEveryFrame = true;
 
                 // Older PowerVR SGX drivers (like the one in the N900) have a
@@ -201,8 +204,31 @@ void QGLContext::makeCurrent()
                 // or GL_ALPHA texture bound to an FBO. The only way to
                 // identify that driver is to check the EGL version number for it.
                 const char *egl_version = eglQueryString(d->eglContext->display(), EGL_VERSION);
-                if (egl_version && strstr(egl_version, "1.3"))
+
+                if (egl_version && strstr(egl_version, "1.3")) {
+                    qDebug() << "Found v1.3 driver, enabling brokenFBOReadBack";
                     d->workaround_brokenFBOReadBack = true;
+                } else if (egl_version && strstr(egl_version, "1.4")) {
+                    qDebug() << "Found v1.4 driver, enabling brokenTexSubImage";
+                    d->workaround_brokenTexSubImage = true;
+
+                    // this is a bit complicated; 1.4 version SGX drivers from
+                    // Nokia have fixed the brokenFBOReadBack problem, but
+                    // official drivers from TI haven't, meaning that things
+                    // like the beagleboard are broken unless we hack around it
+                    // - but at the same time, we want to not reduce performance
+                    // by not enabling this elsewhere.
+                    //
+                    // so, let's check for a Nokia-specific addon, and only
+                    // enable if it isn't present.
+                    // (see MeeGo bug #5616)
+                    if (!QEgl::hasExtension("EGL_NOK_image_shared")) {
+                        // no Nokia extension, this is probably a standard SGX
+                        // driver, so enable the workaround
+                        qDebug() << "Found non-Nokia v1.4 driver, enabling brokenFBOReadBack";
+                        d->workaround_brokenFBOReadBack = true;
+                    }
+                }
             }
         }
     }
@@ -275,12 +301,12 @@ EGLSurface QGLContextPrivate::eglSurfaceForDevice() const
     return eglSurface;
 }
 
-void QGLContextPrivate::swapRegion(const QRegion *region)
+void QGLContextPrivate::swapRegion(const QRegion &region)
 {
     if (!valid || !eglContext)
         return;
 
-    eglContext->swapBuffersRegion2NOK(eglSurfaceForDevice(), region);
+    eglContext->swapBuffersRegion2NOK(eglSurfaceForDevice(), &region);
 }
 
 void QGLWidget::setMouseTracking(bool enable)

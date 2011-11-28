@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -95,6 +95,7 @@
 #include "private/qhostinfo_p.h"
 
 #include "../network-settings.h"
+#include "../../shared/util.h"
 
 Q_DECLARE_METATYPE(QAbstractSocket::SocketError)
 Q_DECLARE_METATYPE(QAbstractSocket::SocketState)
@@ -201,6 +202,9 @@ private slots:
     void proxyFactory_data();
     void proxyFactory();
 
+    void qtbug14268_peek();
+
+
 protected slots:
     void nonBlockingIMAP_hostFound();
     void nonBlockingIMAP_connected();
@@ -219,6 +223,8 @@ protected slots:
     void proxyAuthenticationRequired(const QNetworkProxy &, QAuthenticator *auth);
 
 private:
+    QByteArray expectedReplyIMAP();
+    void fetchExpectedReplyIMAP();
     QTcpSocket *newSocket() const;
     QTcpSocket *nonBlockingIMAP_socket;
     QStringList nonBlockingIMAP_data;
@@ -229,6 +235,8 @@ private:
     qint64 expectedLength;
     bool readingBody;
     QTime timer;
+
+    QByteArray expectedReplyIMAP_cached;
 
     mutable int proxyAuthCalled;
 
@@ -250,6 +258,41 @@ enum ProxyTests {
 };
 
 int tst_QTcpSocket::loopLevel = 0;
+
+class SocketPair: public QObject
+{
+    Q_OBJECT
+public:
+    QTcpSocket *endPoints[2];
+
+    SocketPair(QObject *parent = 0)
+        : QObject(parent)
+    {
+        endPoints[0] = endPoints[1] = 0;
+    }
+
+    bool create()
+    {
+        QTcpServer server;
+        server.listen();
+
+        QTcpSocket *active = new QTcpSocket(this);
+        active->connectToHost("127.0.0.1", server.serverPort());
+
+        if (!active->waitForConnected(1000))
+            return false;
+
+        if (!server.waitForNewConnection(1000))
+            return false;
+
+        QTcpSocket *passive = server.nextPendingConnection();
+        passive->setParent(this);
+
+        endPoints[0] = active;
+        endPoints[1] = passive;
+        return true;
+    }
+};
 
 tst_QTcpSocket::tst_QTcpSocket()
 {
@@ -275,7 +318,7 @@ void tst_QTcpSocket::initTestCase_data()
 
     QTest::newRow("WithHttpProxy") << true << int(HttpProxy) << false;
     QTest::newRow("WithHttpProxyBasicAuth") << true << int(HttpProxy | AuthBasic) << false;
-    QTest::newRow("WithHttpProxyNtlmAuth") << true << int(HttpProxy | AuthNtlm) << false;
+//    QTest::newRow("WithHttpProxyNtlmAuth") << true << int(HttpProxy | AuthNtlm) << false;
 
 #ifndef QT_NO_OPENSSL
     QTest::newRow("WithoutProxy SSL") << false << 0 << true;
@@ -284,7 +327,7 @@ void tst_QTcpSocket::initTestCase_data()
 
     QTest::newRow("WithHttpProxy SSL") << true << int(HttpProxy) << true;
     QTest::newRow("WithHttpProxyBasicAuth SSL") << true << int(HttpProxy | AuthBasic) << true;
-    QTest::newRow("WithHttpProxyNtlmAuth SSL") << true << int(HttpProxy | AuthNtlm) << true;
+//    QTest::newRow("WithHttpProxyNtlmAuth SSL") << true << int(HttpProxy | AuthNtlm) << true;
 #endif
 }
 
@@ -620,8 +663,6 @@ void tst_QTcpSocket::nonBlockingIMAP()
 
     // Read greeting
     QVERIFY(!nonBlockingIMAP_data.isEmpty());
-//    QCOMPARE(nonBlockingIMAP_data.at(0).toLatin1().constData(),
-//            "* OK fluke Cyrus IMAP4 v2.2.12 server ready\r\n");
     QCOMPARE(nonBlockingIMAP_data.at(0).left(4).toLatin1().constData(), "* OK");
     nonBlockingIMAP_data.clear();
 
@@ -749,6 +790,36 @@ void tst_QTcpSocket::delayedClose()
     delete socket;
 }
 
+
+//----------------------------------------------------------------------------------
+
+QByteArray tst_QTcpSocket::expectedReplyIMAP()
+{
+    if (expectedReplyIMAP_cached.isEmpty()) {
+        fetchExpectedReplyIMAP();
+    }
+
+    return expectedReplyIMAP_cached;
+}
+
+// Figure out how the current IMAP server responds
+void tst_QTcpSocket::fetchExpectedReplyIMAP()
+{
+    QTcpSocket *socket = newSocket();
+    socket->connectToHost(QtNetworkSettings::serverName(), 143);
+    QVERIFY2(socket->waitForConnected(10000), qPrintable(socket->errorString()));
+    QVERIFY2(socket->state() == QTcpSocket::ConnectedState, qPrintable(socket->errorString()));
+
+    QTRY_VERIFY(socket->canReadLine());
+
+    QByteArray greeting = socket->readLine();
+    delete socket;
+
+    QVERIFY2(QtNetworkSettings::compareReplyIMAP(greeting), greeting.constData());
+
+    expectedReplyIMAP_cached = greeting;
+}
+
 //----------------------------------------------------------------------------------
 
 void tst_QTcpSocket::partialRead()
@@ -759,8 +830,8 @@ void tst_QTcpSocket::partialRead()
     QVERIFY(socket->state() == QTcpSocket::ConnectedState);
     char buf[512];
 
-//    QByteArray greeting = "* OK fluke Cyrus IMAP4 v2.2.12 server ready";
-    QByteArray greeting = "* OK [CAPABILITY IMAP4rev1 UIDPLUS CHILDREN NAMESPACE";
+    QByteArray greeting = expectedReplyIMAP();
+    QVERIFY(!greeting.isEmpty());
 
     for (int i = 0; i < 10; i += 2) {
         while (socket->bytesAvailable() < 2)
@@ -783,8 +854,8 @@ void tst_QTcpSocket::unget()
     QVERIFY(socket->state() == QTcpSocket::ConnectedState);
     char buf[512];
 
-//    QByteArray greeting = "* OK fluke Cyrus IMAP4 v2.2.12 server ready";
-    QByteArray greeting = "* OK [CAPABILITY IMAP4rev1 UIDPLUS CHILDREN NAMESPACE";
+    QByteArray greeting = expectedReplyIMAP();
+    QVERIFY(!greeting.isEmpty());
 
     for (int i = 0; i < 10; i += 2) {
         while (socket->bytesAvailable() < 2)
@@ -1206,13 +1277,17 @@ void tst_QTcpSocket::readLine()
         QVERIFY(socket->waitForReadyRead(10000));
 
     char buffer[1024];
-    int expectedReplySize = QtNetworkSettings::expectedReplyIMAP().size();
-    Q_ASSERT(expectedReplySize >= 3);
-    QCOMPARE(socket->readLine(buffer, sizeof(buffer)), qint64(expectedReplySize));
 
-    QCOMPARE((int) buffer[expectedReplySize-2], (int) '\r');
-    QCOMPARE((int) buffer[expectedReplySize-1], (int) '\n');
-    QCOMPARE((int) buffer[expectedReplySize], (int) '\0');
+    qint64 linelen = socket->readLine(buffer, sizeof(buffer));
+    QVERIFY(linelen >= 3);
+    QVERIFY(linelen < 1024);
+
+    QByteArray reply = QByteArray::fromRawData(buffer, linelen);
+    QCOMPARE((int) buffer[linelen-2], (int) '\r');
+    QCOMPARE((int) buffer[linelen-1], (int) '\n');
+    QCOMPARE((int) buffer[linelen],   (int) '\0');
+
+    QVERIFY2(QtNetworkSettings::compareReplyIMAP(reply), reply.constData());
 
     QCOMPARE(socket->write("1 NOOP\r\n"), qint64(8));
 
@@ -1244,13 +1319,11 @@ void tst_QTcpSocket::readLine()
 void tst_QTcpSocket::readLineString()
 {
     QTcpSocket *socket = newSocket();
-//    QByteArray expected("* OK fluke Cyrus IMAP4 v2.2.12 server ready\r\n");
-    QByteArray expected("* OK [CAPABILITY IMAP4 IMAP4rev1 LITERAL+ ID STARTTLS LOGINDISABLED] qt-test-server.qt-test-net Cyrus IMAP4 v2.3.11-Mandriva-RPM-2.3.11-6mdv2008.1 server ready\r\n");
     socket->connectToHost(QtNetworkSettings::serverName(), 143);
     QVERIFY(socket->waitForReadyRead(10000));
 
     QByteArray arr = socket->readLine();
-    QCOMPARE(arr, QtNetworkSettings::expectedReplyIMAP());
+    QVERIFY2(QtNetworkSettings::compareReplyIMAP(arr), arr.constData());
 
     delete socket;
 }
@@ -1418,8 +1491,11 @@ void tst_QTcpSocket::atEnd()
     QVERIFY(!stream.atEnd());
     QString greeting = stream.readLine();
     QVERIFY(stream.atEnd());
-//    QCOMPARE(greeting, QString("220 (vsFTPd 2.0.4)"));
-    QCOMPARE(greeting, QString("220 (vsFTPd 2.0.5)"));
+
+    // Test server must use some vsFTPd 2.x.x version
+    QVERIFY2(greeting.length() == sizeof("220 (vsFTPd 2.x.x)")-1, qPrintable(greeting));
+    QVERIFY2(greeting.startsWith("220 (vsFTPd 2."), qPrintable(greeting));
+    QVERIFY2(greeting.endsWith(")"), qPrintable(greeting));
 
     delete socket;
 }
@@ -1484,7 +1560,8 @@ void tst_QTcpSocket::socketInAThread()
         TestThread thread;
         thread.start();
         QVERIFY(thread.wait(15000));
-        QCOMPARE(thread.data(), QtNetworkSettings::expectedReplyFtp());
+        QByteArray data = thread.data();
+        QVERIFY2(QtNetworkSettings::compareReplyFtp(data), data.constData());
     }
 }
 
@@ -1504,9 +1581,13 @@ void tst_QTcpSocket::socketsInThreads()
         QVERIFY(thread3.wait(15000));
         QVERIFY(thread1.wait(15000));
 
-        QCOMPARE(thread1.data(),QtNetworkSettings::expectedReplyFtp());
-        QCOMPARE(thread2.data(),QtNetworkSettings::expectedReplyFtp());
-        QCOMPARE(thread3.data(),QtNetworkSettings::expectedReplyFtp());
+        QByteArray data1 = thread1.data();
+        QByteArray data2 = thread2.data();
+        QByteArray data3 = thread3.data();
+
+        QVERIFY2(QtNetworkSettings::compareReplyFtp(data1), data1.constData());
+        QVERIFY2(QtNetworkSettings::compareReplyFtp(data2), data2.constData());
+        QVERIFY2(QtNetworkSettings::compareReplyFtp(data3), data3.constData());
     }
 }
 
@@ -1808,7 +1889,7 @@ void tst_QTcpSocket::readyReadSignalsAfterWaitForReadyRead()
     QCOMPARE(readyReadSpy.count(), 1);
 
     QString s = socket->readLine();
-    QCOMPARE(s.toLatin1().constData(), QtNetworkSettings::expectedReplyIMAP().constData());
+    QVERIFY2(QtNetworkSettings::compareReplyIMAP(s.toLatin1()), s.toLatin1().constData());
     QCOMPARE(socket->bytesAvailable(), qint64(0));
 
     QCoreApplication::instance()->processEvents();
@@ -2466,6 +2547,40 @@ void tst_QTcpSocket::proxyFactory()
 
     delete socket;
 }
+
+// there is a similar test inside tst_qtcpserver that uses the event loop instead
+void tst_QTcpSocket::qtbug14268_peek()
+{
+    QFETCH_GLOBAL(bool, setProxy);
+    if (setProxy)
+        return;
+
+    SocketPair socketPair;
+    QVERIFY(socketPair.create());
+    QTcpSocket *outgoing = socketPair.endPoints[0];
+    QTcpSocket *incoming = socketPair.endPoints[1];
+
+    QVERIFY(incoming->state() == QTcpSocket::ConnectedState);
+    QVERIFY(outgoing->state() == QTcpSocket::ConnectedState);
+
+    outgoing->write("abc\n");
+    QVERIFY(outgoing->waitForBytesWritten(2000));
+    QVERIFY(incoming->waitForReadyRead(2000));
+    QVERIFY(incoming->peek(128*1024) == QByteArray("abc\n"));
+
+    outgoing->write("def\n");
+    QVERIFY(outgoing->waitForBytesWritten(2000));
+    QVERIFY(incoming->waitForReadyRead(2000));
+    QVERIFY(incoming->peek(128*1024) == QByteArray("abc\ndef\n"));
+
+    outgoing->write("ghi\n");
+    QVERIFY(outgoing->waitForBytesWritten(2000));
+    QVERIFY(incoming->waitForReadyRead(2000));
+    QVERIFY(incoming->peek(128*1024) == QByteArray("abc\ndef\nghi\n"));
+
+    QVERIFY(incoming->read(128*1024) == QByteArray("abc\ndef\nghi\n"));
+}
+
 
 
 QTEST_MAIN(tst_QTcpSocket)

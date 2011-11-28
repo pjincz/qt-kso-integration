@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -2794,32 +2794,74 @@ void QWidgetPrivate::transferChildren()
 #ifdef QT_MAC_USE_COCOA
 void QWidgetPrivate::setSubWindowStacking(bool set)
 {
+    // After hitting too many unforeseen bugs trying to put Qt on top of the cocoa child
+    // window API, we have decided to revert this behaviour as much as we can. We
+    // therefore now only allow child windows to exist for children of modal dialogs.
+    static bool use_behaviour_qt473 = !qgetenv("QT_MAC_USE_CHILDWINDOWS").isEmpty();
+
+    // This will set/remove a visual relationship between parent and child on screen.
+    // The reason for doing this is to ensure that a child always stacks infront of
+    // its parent. Unfortunatly is turns out that [NSWindow addChildWindow] has
+    // several unwanted side-effects, one of them being the moving of a child when
+    // moving the parent, which we choose to accept. A way tougher side-effect is
+    // that Cocoa will hide the parent if you hide the child. And in the case of
+    // a tool window, since it will normally hide when you deactivate the
+    // application, Cocoa will hide the parent upon deactivate as well. The result often
+    // being no more visible windows on screen. So, to make a long story short, we only
+    // allow parent-child relationships between windows that both are either a plain window
+    // or a dialog.
+
     Q_Q(QWidget);
-    if (!q->isWindow() || !q->testAttribute(Qt::WA_WState_Created))
+    if (!q->isWindow())
+        return;
+    NSWindow *qwin = [qt_mac_nativeview_for(q) window];
+    if (!qwin)
+        return;
+    Qt::WindowType qtype = q->windowType();
+    if (set && !(qtype == Qt::Window || qtype == Qt::Dialog))
+        return;
+    if (set && ![qwin isVisible])
         return;
 
     if (QWidget *parent = q->parentWidget()) {
-        if (parent->testAttribute(Qt::WA_WState_Created)) {
+        if (NSWindow *pwin = [qt_mac_nativeview_for(parent) window]) {
             if (set) {
-                if (parent->isVisible()) {
-                    NSWindow *childwin = qt_mac_window_for(q);
-                    [qt_mac_window_for(parent) addChildWindow:childwin ordered:NSWindowAbove];
+                Qt::WindowType ptype = parent->window()->windowType();
+                if ([pwin isVisible]
+                    && (ptype == Qt::Window || ptype == Qt::Dialog)
+                    && ![qwin parentWindow]
+                    && (use_behaviour_qt473 || parent->windowModality() == Qt::ApplicationModal)) {
+                    NSInteger level = [qwin level];
+                    [pwin addChildWindow:qwin ordered:NSWindowAbove];
+                    if ([qwin level] < level)
+                        [qwin setLevel:level];
                 }
             } else {
-                [qt_mac_window_for(parent) removeChildWindow:qt_mac_window_for(q)];
+                [pwin removeChildWindow:qwin];
             }
         }
     }
 
-    QList<QWidget *> widgets = q->findChildren<QWidget *>();
+    // Only set-up child windows for q if q is modal:
+    if (set && !use_behaviour_qt473 && q->windowModality() != Qt::ApplicationModal)
+        return;
+
+    QObjectList widgets = q->children();
     for (int i=0; i<widgets.size(); ++i) {
-        QWidget *child = widgets.at(i);
-        if (child->isWindow() && child->testAttribute(Qt::WA_WState_Created) && child->isVisibleTo(q)) {
-            if (set) {
-                NSWindow *childwin = qt_mac_window_for(child);
-                [qt_mac_window_for(q) addChildWindow:childwin ordered:NSWindowAbove];
-            } else {
-                [qt_mac_window_for(q) removeChildWindow:qt_mac_window_for(child)];
+        QWidget *child = qobject_cast<QWidget *>(widgets.at(i));
+        if (child && child->isWindow()) {
+            if (NSWindow *cwin = [qt_mac_nativeview_for(child) window]) {
+                if (set) {
+                    Qt::WindowType ctype = child->window()->windowType();
+                    if ([cwin isVisible] && (ctype == Qt::Window || ctype == Qt::Dialog) && ![cwin parentWindow]) {
+                        NSInteger level = [cwin level];
+                        [qwin addChildWindow:cwin ordered:NSWindowAbove];
+                        if ([cwin level] < level)
+                            [cwin setLevel:level];
+                    }
+                } else {
+                    [qwin removeChildWindow:qt_mac_window_for(child)];
+                }
             }
         }
     }
@@ -3442,7 +3484,6 @@ void QWidgetPrivate::show_sys()
 #else
             // sync the opacity value back (in case of a fade).
             [window setAlphaValue:q->windowOpacity()];
-            setSubWindowStacking(true);
 
             QWidget *top = 0;
             if (QApplicationPrivate::tryModalHelper(q, &top)) {
@@ -3461,6 +3502,7 @@ void QWidgetPrivate::show_sys()
                         [modalWin orderFront:window];
                 }
             }
+            setSubWindowStacking(true);
 #endif
             if (q->windowType() == Qt::Popup) {
 			    if (q->focusWidget())
@@ -4392,6 +4434,11 @@ void QWidgetPrivate::setGeometry_sys_helper(int x, int y, int w, int h, bool isM
 
     QPoint oldp = q->pos();
     QSize  olds = q->size();
+    // Apply size restrictions, applicable for Windows & Widgets.
+    if (QWExtra *extra = extraData()) {
+        w = qBound(extra->minw, w, extra->maxw);
+        h = qBound(extra->minh, h, extra->maxh);
+    }
     const bool isResize = (olds != QSize(w, h));
 
     if (!realWindow && !isResize && QPoint(x, y) == oldp)
@@ -4401,13 +4448,6 @@ void QWidgetPrivate::setGeometry_sys_helper(int x, int y, int w, int h, bool isM
         data.window_state = data.window_state & ~Qt::WindowMaximized;
 
     const bool visible = q->isVisible();
-    // Apply size restrictions, applicable for Windows & Widgets.
-    if (QWExtra *extra = extraData()) {
-        w = qMin(w, extra->maxw);
-        h = qMin(h, extra->maxh);
-        w = qMax(w, extra->minw);
-        h = qMax(h, extra->minh);
-    }
     data.crect = QRect(x, y, w, h);
 
     if (realWindow) {

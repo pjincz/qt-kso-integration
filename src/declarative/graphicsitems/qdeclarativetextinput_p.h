@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -43,7 +43,7 @@
 #define QDECLARATIVETEXTINPUT_H
 
 #include "private/qdeclarativetext_p.h"
-#include "private/qdeclarativepainteditem_p.h"
+#include "private/qdeclarativeimplicitsizeitem_p.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QIntValidator>
@@ -58,23 +58,23 @@ QT_MODULE(Declarative)
 
 class QDeclarativeTextInputPrivate;
 class QValidator;
-class Q_AUTOTEST_EXPORT QDeclarativeTextInput : public QDeclarativePaintedItem
+class Q_AUTOTEST_EXPORT QDeclarativeTextInput : public QDeclarativeImplicitSizePaintedItem
 {
     Q_OBJECT
     Q_ENUMS(HAlignment)
     Q_ENUMS(EchoMode)
+    Q_ENUMS(SelectionMode)
 
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
     Q_PROPERTY(QColor color READ color WRITE setColor NOTIFY colorChanged)
     Q_PROPERTY(QColor selectionColor READ selectionColor WRITE setSelectionColor NOTIFY selectionColorChanged)
     Q_PROPERTY(QColor selectedTextColor READ selectedTextColor WRITE setSelectedTextColor NOTIFY selectedTextColorChanged)
     Q_PROPERTY(QFont font READ font WRITE setFont NOTIFY fontChanged)
-    Q_PROPERTY(HAlignment horizontalAlignment READ hAlign WRITE setHAlign NOTIFY horizontalAlignmentChanged)
-
+    Q_PROPERTY(HAlignment horizontalAlignment READ hAlign WRITE setHAlign RESET resetHAlign NOTIFY horizontalAlignmentChanged)
     Q_PROPERTY(bool readOnly READ isReadOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(bool cursorVisible READ isCursorVisible WRITE setCursorVisible NOTIFY cursorVisibleChanged)
     Q_PROPERTY(int cursorPosition READ cursorPosition WRITE setCursorPosition NOTIFY cursorPositionChanged)
-    Q_PROPERTY(QRect cursorRectangle READ cursorRectangle NOTIFY cursorPositionChanged)
+    Q_PROPERTY(QRect cursorRectangle READ cursorRectangle NOTIFY cursorRectangleChanged)
     Q_PROPERTY(QDeclarativeComponent *cursorDelegate READ cursorDelegate WRITE setCursorDelegate NOTIFY cursorDelegateChanged)
     Q_PROPERTY(int selectionStart READ selectionStart NOTIFY selectionStartChanged)
     Q_PROPERTY(int selectionEnd READ selectionEnd NOTIFY selectionEndChanged)
@@ -85,7 +85,7 @@ class Q_AUTOTEST_EXPORT QDeclarativeTextInput : public QDeclarativePaintedItem
     Q_PROPERTY(QValidator* validator READ validator WRITE setValidator NOTIFY validatorChanged)
 #endif
     Q_PROPERTY(QString inputMask READ inputMask WRITE setInputMask NOTIFY inputMaskChanged)
-    Q_PROPERTY(Qt::InputMethodHints inputMethodHints READ inputMethodHints WRITE setInputMethodHints)
+    Q_PROPERTY(Qt::InputMethodHints inputMethodHints READ imHints WRITE setIMHints)
 
     Q_PROPERTY(bool acceptableInput READ hasAcceptableInput NOTIFY acceptableInputChanged)
     Q_PROPERTY(EchoMode echoMode READ echoMode WRITE setEchoMode NOTIFY echoModeChanged)
@@ -94,6 +94,9 @@ class Q_AUTOTEST_EXPORT QDeclarativeTextInput : public QDeclarativePaintedItem
     Q_PROPERTY(QString displayText READ displayText NOTIFY displayTextChanged)
     Q_PROPERTY(bool autoScroll READ autoScroll WRITE setAutoScroll NOTIFY autoScrollChanged)
     Q_PROPERTY(bool selectByMouse READ selectByMouse WRITE setSelectByMouse NOTIFY selectByMouseChanged)
+    Q_PROPERTY(SelectionMode mouseSelectionMode READ mouseSelectionMode WRITE setMouseSelectionMode NOTIFY mouseSelectionModeChanged REVISION 1)
+    Q_PROPERTY(bool canPaste READ canPaste NOTIFY canPasteChanged REVISION 1)
+    Q_PROPERTY(bool inputMethodComposing READ isInputMethodComposing NOTIFY inputMethodComposingChanged REVISION 1)
 
 public:
     QDeclarativeTextInput(QDeclarativeItem* parent=0);
@@ -112,10 +115,22 @@ public:
         AlignHCenter = Qt::AlignHCenter
     };
 
+    enum SelectionMode {
+        SelectCharacters,
+        SelectWords
+    };
+
+    enum CursorPosition {
+        CursorBetweenCharacters,
+        CursorOnCharacter
+    };
+
     //Auxilliary functions needed to control the TextInput from QML
     Q_INVOKABLE int positionAt(int x) const;
+    Q_INVOKABLE Q_REVISION(1) int positionAt(int x, CursorPosition position) const;
     Q_INVOKABLE QRectF positionToRectangle(int pos) const;
     Q_INVOKABLE void moveCursorSelection(int pos);
+    Q_INVOKABLE Q_REVISION(1) void moveCursorSelection(int pos, SelectionMode mode);
 
     Q_INVOKABLE void openSoftwareInputPanel();
     Q_INVOKABLE void closeSoftwareInputPanel();
@@ -137,6 +152,8 @@ public:
 
     HAlignment hAlign() const;
     void setHAlign(HAlignment align);
+    void resetHAlign();
+    HAlignment effectiveHAlign() const;
 
     bool isReadOnly() const;
     void setReadOnly(bool);
@@ -184,16 +201,26 @@ public:
     bool selectByMouse() const;
     void setSelectByMouse(bool);
 
+    SelectionMode mouseSelectionMode() const;
+    void setMouseSelectionMode(SelectionMode mode);
+
     bool hasAcceptableInput() const;
 
     void drawContents(QPainter *p,const QRect &r);
     QVariant inputMethodQuery(Qt::InputMethodQuery property) const;
 
     QRectF boundingRect() const;
+    bool canPaste() const;
+
+    bool isInputMethodComposing() const;
+
+    Qt::InputMethodHints imHints() const;
+    void setIMHints(Qt::InputMethodHints hints);
 
 Q_SIGNALS:
     void textChanged();
     void cursorPositionChanged();
+    void cursorRectangleChanged();
     void selectionStartChanged();
     void selectionEndChanged();
     void selectedTextChanged();
@@ -216,6 +243,9 @@ Q_SIGNALS:
     void activeFocusOnPressChanged(bool activeFocusOnPress);
     void autoScrollChanged(bool autoScroll);
     void selectByMouseChanged(bool selectByMouse);
+    Q_REVISION(1) void mouseSelectionModeChanged(SelectionMode mode);
+    Q_REVISION(1) void canPasteChanged();
+    Q_REVISION(1) void inputMethodComposingChanged();
 
 protected:
     virtual void geometryChanged(const QRectF &newGeometry,
@@ -225,6 +255,7 @@ protected:
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event);
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event);
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event);
+    bool sceneEvent(QEvent *event);
     void keyPressEvent(QKeyEvent* ev);
     void inputMethodEvent(QInputMethodEvent *);
     bool event(QEvent *e);
@@ -234,6 +265,8 @@ public Q_SLOTS:
     void selectAll();
     void selectWord();
     void select(int start, int end);
+    Q_REVISION(1) void deselect();
+    Q_REVISION(1) bool isRightToLeft(int start, int end);
 #ifndef QT_NO_CLIPBOARD
     void cut();
     void copy();
@@ -245,9 +278,10 @@ private Q_SLOTS:
     void q_textChanged();
     void selectionChanged();
     void createCursor();
-    void moveCursor();
     void cursorPosChanged();
+    void updateCursorRectangle();
     void updateRect(const QRect &r = QRect());
+    void q_canPasteChanged();
 
 private:
     Q_DECLARE_PRIVATE_D(QGraphicsItem::d_ptr.data(), QDeclarativeTextInput)

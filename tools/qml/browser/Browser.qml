@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -44,7 +44,7 @@ import Qt.labs.folderlistmodel 1.0
 
 Rectangle {
     id: root
-    property bool keyPressed: false
+    property bool showFocusHighlight: false
     property variant folders: folders1
     property variant view: view1
     width: 320
@@ -95,6 +95,19 @@ Rectangle {
         view.focus = true;
         folders.folder = path;
     }
+    function keyPressed(key) {
+        switch (key) {
+            case Qt.Key_Up:
+            case Qt.Key_Down:
+            case Qt.Key_Left:
+            case Qt.Key_Right:
+                root.showFocusHighlight = true;
+            break;
+            default:
+                // do nothing
+            break;
+        }
+    }
 
     Component {
         id: folderDelegate
@@ -113,6 +126,7 @@ Rectangle {
             Rectangle {
                 id: highlight; visible: false
                 anchors.fill: parent
+                color: palette.highlight
                 gradient: Gradient {
                     GradientStop { id: t1; position: 0.0; color: palette.highlight }
                     GradientStop { id: t2; position: 1.0; color: Qt.lighter(palette.highlight) }
@@ -128,12 +142,16 @@ Rectangle {
                 text: fileName
                 anchors.leftMargin: 54
                 font.pixelSize: 32
-                color: (wrapper.ListView.isCurrentItem && root.keyPressed) ? palette.highlightedText : palette.windowText
+                color: (wrapper.ListView.isCurrentItem && root.showFocusHighlight) ? palette.highlightedText : palette.windowText
                 elide: Text.ElideRight
             }
             MouseArea {
                 id: mouseRegion
                 anchors.fill: parent
+                onPressed: {
+                    root.showFocusHighlight = false;
+                    wrapper.ListView.view.currentIndex = index;
+                }
                 onClicked: { if (folders == wrapper.ListView.view.model) launch() }
             }
             states: [
@@ -155,7 +173,15 @@ Rectangle {
         width: parent.width
         model: folders1
         delegate: folderDelegate
-        highlight: Rectangle { color: palette.highlight; visible: root.keyPressed && view1.count != 0 }
+        highlight: Rectangle {
+            color: palette.highlight
+            visible: root.showFocusHighlight && view1.count != 0
+            gradient: Gradient {
+                GradientStop { id: t1; position: 0.0; color: palette.highlight }
+                GradientStop { id: t2; position: 1.0; color: Qt.lighter(palette.highlight) }
+            }
+            width: view1.currentItem == null ? 0 : view1.currentItem.width
+        }
         highlightMoveSpeed: 1000
         pressDelay: 100
         focus: true
@@ -186,7 +212,7 @@ Rectangle {
                 NumberAnimation { properties: "x"; duration: 250 }
             }
         ]
-        Keys.onPressed: { root.keyPressed = true; }
+        Keys.onPressed: root.keyPressed(event.key)
     }
 
     ListView {
@@ -197,7 +223,15 @@ Rectangle {
         width: parent.width
         model: folders2
         delegate: folderDelegate
-        highlight: Rectangle { color: palette.highlight; visible: root.keyPressed && view2.count != 0 }
+        highlight: Rectangle {
+            color: palette.highlight
+            visible: root.showFocusHighlight && view2.count != 0
+            gradient: Gradient {
+                GradientStop { id: t1; position: 0.0; color: palette.highlight }
+                GradientStop { id: t2; position: 1.0; color: Qt.lighter(palette.highlight) }
+            }
+            width: view1.currentItem == null ? 0 : view1.currentItem.width
+        }
         highlightMoveSpeed: 1000
         pressDelay: 100
         states: [
@@ -225,11 +259,11 @@ Rectangle {
                 NumberAnimation { properties: "x"; duration: 250 }
             }
         ]
-        Keys.onPressed: { root.keyPressed = true; }
+        Keys.onPressed: root.keyPressed(event.key)
     }
 
     Keys.onPressed: {
-        root.keyPressed = true;
+        root.keyPressed(event.key);
         if (event.key == Qt.Key_Return || event.key == Qt.Key_Select || event.key == Qt.Key_Right) {
             view.currentItem.launch();
             event.accepted = true;

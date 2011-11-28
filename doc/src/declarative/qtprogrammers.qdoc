@@ -1,26 +1,26 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the documentation of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:FDL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in a
-** written agreement between you and Nokia.
-**
 ** GNU Free Documentation License
 ** Alternatively, this file may be used under the terms of the GNU Free
 ** Documentation License version 1.3 as published by the Free Software
-** Foundation and appearing in the file included in the packaging of this
-** file.
+** Foundation and appearing in the file included in the packaging of
+** this file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms
+** and conditions contained in a signed written agreement between you
+** and Nokia.
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -30,9 +30,7 @@
 \target qtprogrammers
 \title QML for Qt Programmers
 
-\section1 Overview
-
-While QML does not require Qt knowledge to use, if you \e are already familar with Qt,
+While QML does not require Qt knowledge to use, if you \e are already familiar with Qt,
 much of your knowledge is directly relevant to learning and using QML. Of course,
 an application with a UI defined in QML also uses Qt for all the non-UI logic.
 
@@ -48,7 +46,8 @@ QML provides direct access to the following concepts from Qt:
  \o Qt models - used directly in data binding (QAbstractItemModel)
 \endlist
 
-Qt knowledge is \e required for \l {Extending QML in C++}, and also for \l{Integrating QML with existing Qt UI code}.
+Qt knowledge is \e required for \l {Extending QML Functionalities using C++},
+and also for \l{Integrating QML Code with existing Qt UI code}.
 
 \section1 QML Items compared with QWidgets
 
@@ -103,7 +102,7 @@ So, to implement your reusable button, you would simply build a QML component.
 
 Parent widgets each provide a generic way to interface to one or more arbitrary other widgets.
 A QTabWidget provides an interface to multiple "pages", one of which is visible at any time,
-and a mechnism for selecting among them (the QTabBar). A QScollArea provides scrollbars around
+and a mechanism for selecting among them (the QTabBar). A QScrollArea provides scrollbars around
 a widget that is otherwise too large to fit in available space.
 
 Nearly all such components can be created directly in QML. Only a few cases
@@ -115,7 +114,7 @@ needs to be divided up into pages.
 
 A significant difference in the parenting concept with QML compare to QWidgets
 is that while child items are positioned relative to their parents,
-there is no requirement that they be wholy contained ("clipped") to
+there is no requirement that they be wholly contained ("clipped") to
 the parent (although the clipped property of the child Item does allow
 this where it is needed).
 This difference has rather far-reaching consequences, for example:

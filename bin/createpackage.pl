@@ -1,41 +1,41 @@
 #!/usr/bin/perl
 #############################################################################
 ##
-## Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+## Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ## All rights reserved.
 ## Contact: Nokia Corporation (qt-info@nokia.com)
 ##
 ## This file is part of the S60 port of the Qt Toolkit.
 ##
 ## $QT_BEGIN_LICENSE:LGPL$
-## Commercial Usage
-## Licensees holding valid Qt Commercial licenses may use this file in
-## accordance with the Qt Commercial License Agreement provided with the
-## Software or, alternatively, in accordance with the terms contained in
-## a written agreement between you and Nokia.
-##
 ## GNU Lesser General Public License Usage
-## Alternatively, this file may be used under the terms of the GNU Lesser
-## General Public License version 2.1 as published by the Free Software
-## Foundation and appearing in the file LICENSE.LGPL included in the
-## packaging of this file.  Please review the following information to
-## ensure the GNU Lesser General Public License version 2.1 requirements
-## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+## This file may be used under the terms of the GNU Lesser General Public
+## License version 2.1 as published by the Free Software Foundation and
+## appearing in the file LICENSE.LGPL included in the packaging of this
+## file. Please review the following information to ensure the GNU Lesser
+## General Public License version 2.1 requirements will be met:
+## http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 ##
 ## In addition, as a special exception, Nokia gives you certain additional
-## rights.  These rights are described in the Nokia Qt LGPL Exception
+## rights. These rights are described in the Nokia Qt LGPL Exception
 ## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 ##
 ## GNU General Public License Usage
-## Alternatively, this file may be used under the terms of the GNU
-## General Public License version 3.0 as published by the Free Software
-## Foundation and appearing in the file LICENSE.GPL included in the
-## packaging of this file.  Please review the following information to
-## ensure the GNU General Public License version 3.0 requirements will be
-## met: http://www.gnu.org/copyleft/gpl.html.
+## Alternatively, this file may be used under the terms of the GNU General
+## Public License version 3.0 as published by the Free Software Foundation
+## and appearing in the file LICENSE.GPL included in the packaging of this
+## file. Please review the following information to ensure the GNU General
+## Public License version 3.0 requirements will be met:
+## http://www.gnu.org/copyleft/gpl.html.
 ##
-## If you have questions regarding the use of this file, please contact
-## Nokia at qt-info@nokia.com.
+## Other Usage
+## Alternatively, this file may be used in accordance with the terms and
+## conditions contained in a signed written agreement between you and Nokia.
+##
+##
+##
+##
+##
 ## $QT_END_LICENSE$
 ##
 #############################################################################
@@ -82,6 +82,8 @@ Where supported options are as follows:
      [-s|stub]               = Generates stub sis for ROM.
      [-n|sisname <name>]     = Specifies the final sis name.
      [-g|gcce-is-armv5]      = Convert gcce platform to armv5.
+     [-d|dont-patch]         = Skip automatic patching of capabilities and pkg file if default certificate
+                               is used. Instead non-self-signable capabilities just cause warnings.
 Where parameters are as follows:
      templatepkg             = Name of .pkg file template
      target                  = Either debug or release
@@ -127,6 +129,7 @@ my $stub = "";
 my $signed_sis_name = "";
 my $onlyUnsigned = "";
 my $convertGcce = "";
+my $dontPatchCaps = "";
 
 unless (GetOptions('i|install' => \$install,
                    'p|preprocess' => \$preprocessonly,
@@ -135,12 +138,20 @@ unless (GetOptions('i|install' => \$install,
                    'o|only-unsigned' => \$onlyUnsigned,
                    's|stub' => \$stub,
                    'n|sisname=s' => \$signed_sis_name,
-                   'g|gcce-is-armv5' => \$convertGcce,)) {
+                   'g|gcce-is-armv5' => \$convertGcce,
+                   'd|dont-patch' => \$dontPatchCaps,)) {
     Usage();
 }
 
 my $epocroot = $ENV{EPOCROOT};
-$epocroot =~ s,[\\/]$,,x;
+my $epocToolsDir = "";
+if ($epocroot ne "") {
+    $epocroot =~ s,\\,/,g;
+    if ($epocroot =~ m,[^/]$,) {
+        $epocroot = $epocroot."/";
+    }
+    $epocToolsDir = "${epocroot}epoc32/tools/";
+}
 
 my $certfilepath = abs_path(dirname($certfile));
 
@@ -227,21 +238,21 @@ my $certpath = File::Spec->catdir($scriptpath, File::Spec->updir(), "src/s60inst
 
 # Check some pre-conditions and print error messages if needed.
 unless (length($templatepkg)) {
-    print "\nError: Template PKG filename is not defined!\n";
+    print "\nERROR: Template PKG filename is not defined!\n";
     Usage();
 }
 
 # Check template exist
 stat($templatepkg);
 unless( -e _ ) {
-    print "\nError: Package description file '$templatepkg' does not exist!\n";
+    print "\nERROR: Package description file '$templatepkg' does not exist!\n";
     Usage();
 }
 
 # Check certifcate preconditions and set default certificate variables if needed
 if (length($certificate)) {
     unless(length($key)) {
-        print "\nError: Custom certificate key file parameter missing.!\n";
+        print "\nERROR: Custom certificate key file parameter missing.!\n";
         Usage();
     }
 } else {
@@ -276,7 +287,7 @@ if (length($certfile)) {
 
         # Do some validation
         unless(scalar(@certinfo) >= 2 && scalar(@certinfo) <= 3 && length($certinfo[0]) && length($certinfo[1]) ) {
-            print "\nError: $certfile line '$_' does not contain valid information!\n";
+            print "\nERROR: $certfile line '$_' does not contain valid information!\n";
             Usage();
         }
 
@@ -297,14 +308,14 @@ if (!$preservePkgOutput) {
 
 local $/;
 # read template file
-open( TEMPLATE, $templatepkg) or die "Error '$templatepkg': $!\n";
+open( TEMPLATE, $templatepkg) or die "ERROR: '$templatepkg': $!";
 $_=<TEMPLATE>;
 close (TEMPLATE);
 
 # If the pkg file does not contain macros, there is no need for platform or target.
 if (m/\$\(PLATFORM\)/) {
     unless (length($platform) && length($target)) {
-        print "\nError: Platform or target is not defined!\n";
+        print "\nERROR: Platform or target is not defined!\n";
         Usage();
     }
 }
@@ -318,7 +329,7 @@ if ($installer_unsigned_app_sis_name ne "") {
 }
 
 #write the output
-open( OUTPUT, ">$pkgoutput" ) or die "Error '$pkgoutput' $!\n";
+open( OUTPUT, ">$pkgoutput" ) or die "ERROR: '$pkgoutput' $!";
 print OUTPUT $_;
 close OUTPUT;
 
@@ -327,29 +338,30 @@ if ($preprocessonly) {
 }
 
 if($stub) {
-    if(!($epocroot)) { die("EPOCROOT must be set to create stub sis files"); }
-    my $systeminstall = "$epocroot/epoc32/data/z/system/install";
+    if(!($epocroot)) { die("ERROR: EPOCROOT must be set to create stub sis files"); }
+    my $systeminstall = "${epocroot}epoc32/data/z/system/install";
     mkpath($systeminstall);
     my $stub_sis_name = $systeminstall."/".$stub_sis_name;
     # Create stub SIS.
-    system ("$epocroot/epoc32/tools/makesis -s $pkgoutput $stub_sis_name");
+    system ("${epocToolsDir}makesis -s $pkgoutput $stub_sis_name");
 } else {
     if ($certtext eq "Self Signed"
         && !@certificates
         && $templatepkg !~ m/_installer\.pkg$/i
         && !$onlyUnsigned) {
-        print("Auto-patching capabilities for self signed package.\n");
         my $patch_capabilities = File::Spec->catfile(dirname($0), "patch_capabilities");
-        system ("$patch_capabilities $pkgoutput");
+        if ($dontPatchCaps) {
+            system ("$patch_capabilities -c $pkgoutput") and print ("Warning: Package check for self-signing viability failed. Installing the package on a device will most likely fail!\n\n");
+        } else {
+            print("Auto-patching self-signed package.\n");
+            system ("$patch_capabilities $pkgoutput") and die ("ERROR: Automatic patching failed");
+        }
     }
 
     # Create SIS.
     # The 'and' is because system uses 0 to indicate success.
-    if($epocroot) {
-        system ("$epocroot/epoc32/tools/makesis $pkgoutput $unsigned_sis_name") and die ("makesis failed");
-    } else {
-        system ("makesis $pkgoutput $unsigned_sis_name") and die ("makesis failed");
-    }
+    system ("${epocToolsDir}makesis $pkgoutput $unsigned_sis_name") and die ("ERROR: makesis failed");
+
     print("\n");
 
     my $targetInsert = "";
@@ -376,7 +388,7 @@ if($stub) {
     my $relcert = File::Spec->abs2rel($certificate);
     my $relkey = File::Spec->abs2rel($key);
     # The 'and' is because system uses 0 to indicate success.
-    system ("signsis $unsigned_sis_name $signed_sis_name $relcert $relkey $passphrase") and die ("signsis failed");
+    system ("${epocToolsDir}signsis $unsigned_sis_name $signed_sis_name $relcert $relkey $passphrase") and die ("ERROR: signsis failed");
 
     # Check if creating signed SIS Succeeded
     stat($signed_sis_name);
@@ -389,7 +401,7 @@ if($stub) {
             my $relcert = File::Spec->abs2rel(File::Spec->rel2abs( $row->[0], $certfilepath));
             my $relkey = File::Spec->abs2rel(File::Spec->rel2abs( $row->[1], $certfilepath));
 
-            system ("signsis $signed_sis_name $signed_sis_name $relcert $relkey $row->[2]");
+            system ("${epocToolsDir}signsis $signed_sis_name $signed_sis_name $relcert $relkey $row->[2]");
             print ("\tAdditionally signed the SIS with certificate: $row->[0]!\n");
         }
 

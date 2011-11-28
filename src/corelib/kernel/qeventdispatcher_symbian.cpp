@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -127,9 +127,9 @@ private:
  * cannot change active objects that we do not own, but the active objects that Qt owns will use
  * this as a base class with convenience functions.
  *
- * Here is how it works: On every RunL, the deriving class should call okToRun(). This will allow
- * exactly one run of the active object, and mark it as such. If it is called again, it will return
- * false, and add the object to a queue so it can be run later.
+ * Here is how it works: On every RunL, the deriving class should call maybeQueueForLater().
+ * This will return whether the active object has been queued, or whether it should run immediately.
+ * Queued objects will run again after other events have been processed.
  *
  * The QCompleteDeferredAOs class is a special object that runs after all others, which will
  * reactivate the objects that were previously not run.
@@ -149,7 +149,7 @@ QActiveObject::~QActiveObject()
         m_dispatcher->removeDeferredActiveObject(this);
 }
 
-bool QActiveObject::okToRun()
+bool QActiveObject::maybeQueueForLater()
 {
     Q_ASSERT(!m_hasRunAgain);
 
@@ -157,12 +157,12 @@ bool QActiveObject::okToRun()
         // First occurrence of this event in this iteration.
         m_hasAlreadyRun = true;
         m_iterationCount = m_dispatcher->iterationCount();
-        return true;
+        return false;
     } else {
         // The event has already occurred.
         m_dispatcher->addDeferredActiveObject(this);
         m_hasRunAgain = true;
-        return false;
+        return true;
     }
 }
 
@@ -178,8 +178,7 @@ void QActiveObject::reactivateAndComplete()
 }
 
 QWakeUpActiveObject::QWakeUpActiveObject(QEventDispatcherSymbian *dispatcher)
-    : CActive(WAKE_UP_PRIORITY),
-      m_dispatcher(dispatcher)
+    : QActiveObject(WAKE_UP_PRIORITY, dispatcher)
 {
     CActiveScheduler::Add(this);
     iStatus = KRequestPending;
@@ -201,6 +200,9 @@ void QWakeUpActiveObject::DoCancel()
 
 void QWakeUpActiveObject::RunL()
 {
+    if (maybeQueueForLater())
+        return;
+
     iStatus = KRequestPending;
     SetActive();
     QT_TRYCATCH_LEAVING(m_dispatcher->wakeUpWasCalled());
@@ -208,20 +210,22 @@ void QWakeUpActiveObject::RunL()
 
 QTimerActiveObject::QTimerActiveObject(QEventDispatcherSymbian *dispatcher, SymbianTimerInfo *timerInfo)
     : QActiveObject((timerInfo->interval) ? TIMER_PRIORITY : NULLTIMER_PRIORITY , dispatcher),
-      m_timerInfo(timerInfo)
+      m_timerInfo(timerInfo), m_expectedTimeSinceLastEvent(0)
 {
+    // start the timeout timer to ensure initialisation
+    m_timeoutTimer.start();
 }
 
 QTimerActiveObject::~QTimerActiveObject()
 {
     Cancel();
+    m_rTimer.Close(); //close of null handle is safe
 }
 
 void QTimerActiveObject::DoCancel()
 {
     if (m_timerInfo->interval > 0) {
         m_rTimer.Cancel();
-        m_rTimer.Close();
     } else {
         if (iStatus.Int() == KRequestPending) {
             TRequestStatus *status = &iStatus;
@@ -253,10 +257,23 @@ void QTimerActiveObject::StartTimer()
         m_rTimer.After(iStatus, MAX_SYMBIAN_TIMEOUT_MS * 1000);
         m_timerInfo->msLeft -= MAX_SYMBIAN_TIMEOUT_MS;
     } else {
-        //HighRes gives the 1ms accuracy expected by Qt, the +1 is to ensure that
-        //"Timers will never time out earlier than the specified timeout value"
-        //condition is always met.
-        m_rTimer.HighRes(iStatus, (m_timerInfo->msLeft + 1) * 1000);
+        // this algorithm implements drift correction for repeating timers
+        // calculate how late we are for this event
+        int timeSinceLastEvent = m_timeoutTimer.restart();
+        int overshoot = timeSinceLastEvent - m_expectedTimeSinceLastEvent;
+        if (overshoot > m_timerInfo->msLeft) {
+            // we skipped a whole timeout, restart from here
+            overshoot = 0;
+        }
+        // calculate when the next event should happen
+        int waitTime = m_timerInfo->msLeft - overshoot;
+        m_expectedTimeSinceLastEvent = waitTime;
+        // limit the actual ms wait time to avoid wild corrections
+        // this will cause the real event time to slowly drift back to the expected event time
+        // measurements show that Symbian timers always fire 1 or 2 ms late
+        const int limit = 4;
+        waitTime = qMax(m_timerInfo->msLeft - limit, waitTime);
+        m_rTimer.HighRes(iStatus, waitTime * 1000);
         m_timerInfo->msLeft = 0;
     }
     SetActive();
@@ -270,7 +287,7 @@ void QTimerActiveObject::Run()
         return;
     }
 
-    if (!okToRun())
+    if (maybeQueueForLater())
         return;
 
     if (m_timerInfo->interval > 0) {
@@ -300,7 +317,11 @@ void QTimerActiveObject::Start()
     CActiveScheduler::Add(this);
     m_timerInfo->msLeft = m_timerInfo->interval;
     if (m_timerInfo->interval > 0) {
-        m_rTimer.CreateLocal();
+        if (!m_rTimer.Handle()) {
+            qt_symbian_throwIfError(m_rTimer.CreateLocal());
+        }
+        m_timeoutTimer.start();
+        m_expectedTimeSinceLastEvent = 0;
         StartTimer();
     } else {
         iStatus = KRequestPending;
@@ -630,7 +651,7 @@ void QSocketActiveObject::DoCancel()
 
 void QSocketActiveObject::RunL()
 {
-    if (!okToRun())
+    if (maybeQueueForLater())
         return;
 
     QT_TRYCATCH_LEAVING(m_dispatcher->socketFired(this));
@@ -722,6 +743,7 @@ QEventDispatcherSymbian::QEventDispatcherSymbian(QObject *parent)
       m_interrupt(false),
       m_wakeUpDone(0),
       m_iterationCount(0),
+      m_insideTimerEvent(false),
       m_noSocketEvents(false)
 {
 #ifdef QT_SYMBIAN_PRIORITY_DROP
@@ -772,6 +794,9 @@ bool QEventDispatcherSymbian::processEvents ( QEventLoop::ProcessEventsFlags fla
 {
     bool handledAnyEvent = false;
     bool oldNoSocketEventsValue = m_noSocketEvents;
+    bool oldInsideTimerEventValue = m_insideTimerEvent;
+
+    m_insideTimerEvent = false;
 
     QT_TRY {
         Q_D(QAbstractEventDispatcher);
@@ -862,6 +887,7 @@ bool QEventDispatcherSymbian::processEvents ( QEventLoop::ProcessEventsFlags fla
     }
 
     m_noSocketEvents = oldNoSocketEventsValue;
+    m_insideTimerEvent = oldInsideTimerEventValue;
 
     return handledAnyEvent;
 }
@@ -882,10 +908,13 @@ void QEventDispatcherSymbian::timerFired(int timerId)
     }
 
     timerInfo->inTimerEvent = true;
+    bool oldInsideTimerEventValue = m_insideTimerEvent;
+    m_insideTimerEvent = true;
 
     QTimerEvent event(timerInfo->timerId);
     QCoreApplication::sendEvent(timerInfo->receiver, &event);
 
+    m_insideTimerEvent = oldInsideTimerEventValue;
     timerInfo->inTimerEvent = false;
 
     return;
@@ -965,15 +994,18 @@ bool QEventDispatcherSymbian::sendPostedEvents()
 
 inline void QEventDispatcherSymbian::addDeferredActiveObject(QActiveObject *object)
 {
-    if (m_deferredActiveObjects.isEmpty()) {
-        m_completeDeferredAOs->complete();
-    }
+    queueDeferredActiveObjectsCompletion();
     m_deferredActiveObjects.append(object);
 }
 
 inline void QEventDispatcherSymbian::removeDeferredActiveObject(QActiveObject *object)
 {
     m_deferredActiveObjects.removeAll(object);
+}
+
+void QEventDispatcherSymbian::queueDeferredActiveObjectsCompletion()
+{
+    m_completeDeferredAOs->complete();
 }
 
 void QEventDispatcherSymbian::reactivateDeferredActiveObjects()
@@ -1052,6 +1084,14 @@ void QEventDispatcherSymbian::registerTimer ( int timerId, int interval, QObject
     m_timerList.insert(timerId, timer);
 
     timer->timerAO->Start();
+
+    if (m_insideTimerEvent)
+        // If we are inside a timer event, we need to prevent event starvation
+        // by preventing newly created timers from running in the same event processing
+        // iteration. Do this by calling the maybeQueueForLater() function to "fake" that we have
+        // already run once. This will cause the next run to be added to the deferred
+        // queue instead.
+        timer->timerAO->maybeQueueForLater();
 }
 
 bool QEventDispatcherSymbian::unregisterTimer ( int timerId )

@@ -11,38 +11,13 @@ symbian: {
 
     isEmpty(QT_LIBINFIX) {
         TARGET.UID3 = 0x2001E61C
-        
-        # Sqlite3 is expected to be already found on phone if infixed configuration is built.
-        # It is also expected that devices newer than those based on S60 5.0 all have sqlite3.dll.
-        contains(S60_VERSION, 3.1)|contains(S60_VERSION, 3.2)|contains(S60_VERSION, 5.0) {            
-            BLD_INF_RULES.prj_exports += \
-                "sqlite3.sis /epoc32/data/qt/sis/sqlite3.sis" \
-                "sqlite3_selfsigned.sis /epoc32/data/qt/sis/sqlite3_selfsigned.sis"
-            symbian-abld|symbian-sbsv2 {
-                sqlitedeployment = \
-                    "; Deploy sqlite onto phone that does not have it already" \
-                    "@\"$${EPOCROOT}epoc32/data/qt/sis/sqlite3.sis\", (0x2002af5f)"
-            } else {
-                sqlitedeployment = \
-                    "; Deploy sqlite onto phone that does not have it already" \
-                    "@\"$${PWD}/sqlite3.sis\", (0x2002af5f)"
-            }
-            qtlibraries.pkg_postrules += sqlitedeployment
-        }
     } else {
         # Always use experimental UID for infixed configuration to avoid UID clash
         TARGET.UID3 = 0xE001E61C
     }
     VERSION=$${QT_MAJOR_VERSION}.$${QT_MINOR_VERSION}.$${QT_PATCH_VERSION}
 
-    symbian-abld|symbian-sbsv2 {
-        qtresources.sources = $${EPOCROOT}$$HW_ZDIR$$APP_RESOURCE_DIR/s60main$${QT_LIBINFIX}.rsc
-    } else {
-        qtresources.sources = $$QMAKE_LIBDIR_QT/s60main$${QT_LIBINFIX}.rsc
-        DESTDIR = $$QMAKE_LIBDIR_QT
-    }
-    qtresources.path = c:$$APP_RESOURCE_DIR
-    DEPLOYMENT += qtresources
+    DESTDIR = $$QMAKE_LIBDIR_QT
 
     qtlibraries.sources = \
         $$QMAKE_LIBDIR_QT/QtCore$${QT_LIBINFIX}.dll \
@@ -67,7 +42,7 @@ symbian: {
 
     contains(S60_VERSION, 3.1)|contains(S60_VERSION, 3.2)|contains(S60_VERSION, 5.0) {
         qts60plugindeployment = \
-            "IF package(0x20022E6D)" \
+            "IF package(0x2003A678) OR package(0x20022E6D)" \
             "   \"$$pluginLocations/qts60plugin_5_0$${QT_LIBINFIX}.dll\" - \"c:\\sys\\bin\\qts60plugin_5_0$${QT_LIBINFIX}.dll\"" \
             "   \"$$bearerPluginLocation/qsymbianbearer$${QT_LIBINFIX}.dll\" - \"c:\\sys\\bin\\qsymbianbearer$${QT_LIBINFIX}.dll\"" \
             "ELSEIF package(0x1028315F)" \
@@ -83,7 +58,7 @@ symbian: {
             "   \"$$pluginLocations/qts60plugin_5_0$${QT_LIBINFIX}.dll\" - \"c:\\sys\\bin\\qts60plugin_5_0$${QT_LIBINFIX}.dll\"" \
             "   \"$$bearerPluginLocation/qsymbianbearer$${QT_LIBINFIX}.dll\" - \"c:\\sys\\bin\\qsymbianbearer$${QT_LIBINFIX}.dll\"" \
             "ENDIF" \
-            "   \"$$bearerStubZ\" - \"c:$$replace(QT_PLUGINS_BASE_DIR,/,\\)\\bearer\\qsymbianbearer$${QT_LIBINFIX}.qtplugin\"
+            "   \"$$bearerStubZ\" - \"c:$$replace(QT_PLUGINS_BASE_DIR,/,\\)\\bearer\\qsymbianbearer$${QT_LIBINFIX}.qtplugin\""
     } else {
         # No need to deploy plugins for older platform versions when building on Symbian3 or later
         qts60plugindeployment = \
@@ -100,7 +75,7 @@ symbian: {
 
     vendorinfo = \
         "; Localised Vendor name" \
-        "%{\"Nokia, Qt\"}" \
+        "%{\"Nokia\"}" \
         " " \
         "; Unique Vendor name" \
         ":\"Nokia, Qt\"" \
@@ -109,9 +84,9 @@ symbian: {
 
     qtlibraries.pkg_prerules = vendorinfo
     qtlibraries.pkg_prerules += "; Dependencies of Qt libraries"
-    
+
     # It is expected that Symbian^3 and newer phones will have sufficiently new OpenC already installed
-    contains(S60_VERSION, 3.1)|contains(S60_VERSION, 3.2)|contains(S60_VERSION, 5.0) {                
+    contains(S60_VERSION, 3.1)|contains(S60_VERSION, 3.2)|contains(S60_VERSION, 5.0) {
         qtlibraries.pkg_prerules += "(0x20013851), 1, 5, 1, {\"PIPS Installer\"}"
         contains(QT_CONFIG, openssl) | contains(QT_CONFIG, openssl-linked) {
             qtlibraries.pkg_prerules += "(0x200110CB), 1, 5, 1, {\"Open C LIBSSL Common\"}"
@@ -133,7 +108,7 @@ symbian: {
     codecs_plugins.path = c:$$QT_PLUGINS_BASE_DIR/codecs
 
     contains(QT_CONFIG, phonon-backend) {
-        phonon_backend_plugins.sources += $$QMAKE_LIBDIR_QT/phonon_mmf$${QT_LIBINFIX}.dll
+        phonon_backend_plugins.sources += $$QT_BUILD_TREE/plugins/phonon_backend/phonon_mmf$${QT_LIBINFIX}.dll
 
         phonon_backend_plugins.path = c:$$QT_PLUGINS_BASE_DIR/phonon_backend
         DEPLOYMENT += phonon_backend_plugins
@@ -141,7 +116,7 @@ symbian: {
 
     # Support backup & restore for Qt libraries
     qtbackup.sources = backup_registration.xml
-    qtbackup.path = c:/private/10202D56/import/packages/$$replace(TARGET.UID3, 0x,)
+    qtbackup.path = c:/private/10202d56/import/packages/$$lower($$replace(TARGET.UID3, 0x,))
 
     DEPLOYMENT += qtlibraries \
                   qtbackup \
@@ -185,18 +160,19 @@ symbian: {
         particlesImport.path = c:$$QT_IMPORTS_BASE_DIR/Qt/labs/particles
 
         DEPLOYMENT += folderlistmodelImport gesturesImport particlesImport
+
+        contains(QT_CONFIG, opengl) {
+            shadersImport.sources = $$QT_BUILD_TREE/imports/Qt/labs/shaders/qmlshadersplugin$${QT_LIBINFIX}.dll \
+                                    $$QT_SOURCE_TREE/src/imports/shaders/qmldir
+            shadersImport.path = c:$$QT_IMPORTS_BASE_DIR/Qt/labs/shaders
+            DEPLOYMENT += shadersImport
+        }
     }
 
     graphicssystems_plugins.path = c:$$QT_PLUGINS_BASE_DIR/graphicssystems
     contains(QT_CONFIG, openvg) {
         qtlibraries.sources += $$QMAKE_LIBDIR_QT/QtOpenVG$${QT_LIBINFIX}.dll
         graphicssystems_plugins.sources += $$QT_BUILD_TREE/plugins/graphicssystems/qvggraphicssystem$${QT_LIBINFIX}.dll
-        # OpenVG requires Symbian^3 or later
-        pkg_platform_dependencies -= \
-            "[0x101F7961],0,0,0,{\"S60ProductID\"}" \
-            "[0x102032BE],0,0,0,{\"S60ProductID\"}" \
-            "[0x102752AE],0,0,0,{\"S60ProductID\"}" \
-            "[0x1028315F],0,0,0,{\"S60ProductID\"}"
     }
 
     contains(QT_CONFIG, opengl) {
@@ -209,5 +185,4 @@ symbian: {
     }
 
     BLD_INF_RULES.prj_exports += "qt.iby $$CORE_MW_LAYER_IBY_EXPORT_PATH(qt.iby)"
-    BLD_INF_RULES.prj_exports += "qtdemoapps.iby $$CUSTOMER_VARIANT_APP_LAYER_IBY_EXPORT_PATH(qtdemoapps.iby)"
 }

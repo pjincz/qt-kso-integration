@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtMultimedia module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -214,18 +214,44 @@ bool QAudioInputPrivate::open()
     qDebug()<<now.second()<<"s "<<now.msec()<<"ms :open()";
 #endif
     header = 0;
-    if(buffer_size == 0) {
-        // Default buffer size, 200ms, default period size is 40ms
-        buffer_size = settings.frequency()*settings.channels()*(settings.sampleSize()/8)*0.2;
-	period_size = buffer_size/5;
+    period_size = 0;
+
+    if (!settings.isValid()) {
+        qWarning("QAudioInput: open error, invalid format.");
+    } else if (settings.channels() <= 0) {
+        qWarning("QAudioInput: open error, invalid number of channels (%d).",
+                 settings.channels());
+    } else if (settings.sampleSize() <= 0) {
+        qWarning("QAudioInput: open error, invalid sample size (%d).",
+                 settings.sampleSize());
+    } else if (settings.frequency() < 8000 || settings.frequency() > 48000) {
+        qWarning("QAudioInput: open error, frequency out of range (%d).", settings.frequency());
+    } else if (buffer_size == 0) {
+
+        buffer_size
+                = (settings.frequency()
+                * settings.channels()
+                * settings.sampleSize()
+#ifndef Q_OS_WINCE  // Default buffer size, 200ms, default period size is 40ms
+                + 39) / 40;
+        period_size = buffer_size / 5;
     } else {
-        period_size = buffer_size/5;
-    }
-#ifdef Q_OS_WINCE
-    // For wince reduce size to 40ms for buffer size and 20ms period
-    buffer_size = settings.sampleRate()*settings.channelCount()*(settings.sampleSize()/8)*0.04;
-    period_size = buffer_size/2;
+        period_size = buffer_size / 5;
+#else               // For wince reduce size to 40ms for buffer size and 20ms period
+                + 199) / 200;
+        period_size = buffer_size / 2;
+    } else {
+        period_size = buffer_size / 2;
 #endif
+    }
+
+    if (period_size == 0) {
+        errorState = QAudio::OpenError;
+        deviceState = QAudio::StoppedState;
+        emit stateChanged(deviceState);
+        return false;
+    }
+
     timeStamp.restart();
     elapsedTimeOffset = 0;
     wfx.nSamplesPerSec = settings.frequency();
@@ -374,9 +400,12 @@ qint64 QAudioInputPrivate::read(char* data, qint64 len)
 		    resuming = false;
                 }
             } else {
+                l = qMin<qint64>(len, waveBlocks[header].dwBytesRecorded);
                 // push mode
-                memcpy(p,waveBlocks[header].lpData,waveBlocks[header].dwBytesRecorded);
-                l = waveBlocks[header].dwBytesRecorded;
+                memcpy(p, waveBlocks[header].lpData, l);
+
+                len -= l;
+
 #ifdef DEBUG_AUDIO
                 qDebug()<<"IN: "<<waveBlocks[header].dwBytesRecorded<<", OUT: "<<l;
 #endif
@@ -431,7 +460,7 @@ qint64 QAudioInputPrivate::read(char* data, qint64 len)
 
         mutex.lock();
         if(!pullMode) {
-	    if(l+period_size > len && waveFreeBlockCount == buffer_size/period_size)
+            if(len < period_size || waveFreeBlockCount == buffer_size/period_size)
 	        done = true;
 	} else {
 	    if(waveFreeBlockCount == buffer_size/period_size)
@@ -542,7 +571,7 @@ bool QAudioInputPrivate::deviceReady()
 
     if(pullMode) {
         // reads some audio data and writes it to QIODevice
-        read(0,0);
+        read(0, buffer_size);
     } else {
         // emits readyRead() so user will call read() on QIODevice to get some audio data
 	InputPrivate* a = qobject_cast<InputPrivate*>(audioSource);

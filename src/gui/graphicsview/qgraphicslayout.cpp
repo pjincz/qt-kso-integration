@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -167,7 +167,7 @@ QGraphicsLayout::QGraphicsLayout(QGraphicsLayoutItem *parent)
                     " neither a QGraphicsWidget nor QGraphicsLayout");
         }
     }
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding, QSizePolicy::DefaultType);
+    d_func()->sizePolicy = QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding, QSizePolicy::DefaultType);
     setOwnedByLayout(true);
 }
 
@@ -188,7 +188,7 @@ QGraphicsLayout::QGraphicsLayout(QGraphicsLayoutPrivate &dd, QGraphicsLayoutItem
                     " neither a QGraphicsWidget nor QGraphicsLayout");
         }
     }
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding, QSizePolicy::DefaultType);
+    d_func()->sizePolicy = QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding, QSizePolicy::DefaultType);
     setOwnedByLayout(true);
 }
 
@@ -270,11 +270,9 @@ void QGraphicsLayout::activate()
     Q_ASSERT(!parentItem->isLayout());
 
     setGeometry(parentItem->contentsRect());    // relayout children
-    
-    // ### bug, should be parentItem ?
-    parentLayoutItem()->updateGeometry();            // bubble up; will set activated to false
-    // ### too many resizes? maybe we should walk up the chain to the
-    // ### top-level layouted layoutItem and call activate there.
+    if (!QGraphicsLayout::instantInvalidatePropagation()) {
+        parentLayoutItem()->updateGeometry();
+    }
 }
 
 /*!
@@ -300,29 +298,36 @@ bool QGraphicsLayout::isActivated() const
 */
 void QGraphicsLayout::invalidate()
 {
-    // only mark layouts as invalid (activated = false) if we can post a LayoutRequest event.
-    QGraphicsLayoutItem *layoutItem = this;
-    while (layoutItem && layoutItem->isLayout()) {
-        // we could call updateGeometry(), but what if that method
-        // does not call the base implementation? In addition, updateGeometry()
-        // does more than we need.
-        layoutItem->d_func()->sizeHintCacheDirty = true;
-        layoutItem = layoutItem->parentLayoutItem();        
-    }
-    if (layoutItem)
-        layoutItem->d_func()->sizeHintCacheDirty = true;
-
-    bool postIt = layoutItem ? !layoutItem->isLayout() : false;
-    if (postIt) {
-        layoutItem = this;
-        while (layoutItem && layoutItem->isLayout()
-                && static_cast<QGraphicsLayout*>(layoutItem)->d_func()->activated) {
-            static_cast<QGraphicsLayout*>(layoutItem)->d_func()->activated = false;
+    if (QGraphicsLayout::instantInvalidatePropagation()) {
+        updateGeometry();
+    } else {
+        // only mark layouts as invalid (activated = false) if we can post a LayoutRequest event.
+        QGraphicsLayoutItem *layoutItem = this;
+        while (layoutItem && layoutItem->isLayout()) {
+            // we could call updateGeometry(), but what if that method
+            // does not call the base implementation? In addition, updateGeometry()
+            // does more than we need.
+            layoutItem->d_func()->sizeHintCacheDirty = true;
+            layoutItem->d_func()->sizeHintWithConstraintCacheDirty = true;
             layoutItem = layoutItem->parentLayoutItem();
         }
-        if (layoutItem && !layoutItem->isLayout()) {
-            // If a layout has a parent that is not a layout it must be a QGraphicsWidget.
-            QApplication::postEvent(static_cast<QGraphicsWidget *>(layoutItem), new QEvent(QEvent::LayoutRequest));
+        if (layoutItem) {
+            layoutItem->d_func()->sizeHintCacheDirty = true;
+            layoutItem->d_func()->sizeHintWithConstraintCacheDirty = true;
+        }
+
+        bool postIt = layoutItem ? !layoutItem->isLayout() : false;
+        if (postIt) {
+            layoutItem = this;
+            while (layoutItem && layoutItem->isLayout()
+                    && static_cast<QGraphicsLayout*>(layoutItem)->d_func()->activated) {
+                static_cast<QGraphicsLayout*>(layoutItem)->d_func()->activated = false;
+                layoutItem = layoutItem->parentLayoutItem();
+            }
+            if (layoutItem && !layoutItem->isLayout()) {
+                // If a layout has a parent that is not a layout it must be a QGraphicsWidget.
+                QApplication::postEvent(static_cast<QGraphicsWidget *>(layoutItem), new QEvent(QEvent::LayoutRequest));
+            }
         }
     }
 }
@@ -332,12 +337,27 @@ void QGraphicsLayout::invalidate()
 */
 void QGraphicsLayout::updateGeometry()
 {
-    QGraphicsLayoutItem::updateGeometry();
-    if (QGraphicsLayoutItem *parentItem = parentLayoutItem()) {
-        if (parentItem->isLayout()) {
+    Q_D(QGraphicsLayout);
+    if (QGraphicsLayout::instantInvalidatePropagation()) {
+        d->activated = false;
+        QGraphicsLayoutItem::updateGeometry();
+
+        QGraphicsLayoutItem *parentItem = parentLayoutItem();
+        if (!parentItem)
+            return;
+
+        if (parentItem->isLayout())
+            static_cast<QGraphicsLayout *>(parentItem)->invalidate();
+        else
             parentItem->updateGeometry();
-        } else {
-            invalidate();
+    } else {
+        QGraphicsLayoutItem::updateGeometry();
+        if (QGraphicsLayoutItem *parentItem = parentLayoutItem()) {
+            if (parentItem->isLayout()) {
+                parentItem->updateGeometry();
+            } else {
+                invalidate();
+            }
         }
     }
 }
@@ -441,6 +461,50 @@ void QGraphicsLayout::addChildLayoutItem(QGraphicsLayoutItem *layoutItem)
 {
     Q_D(QGraphicsLayout);
     d->addChildLayoutItem(layoutItem);
+}
+
+static bool g_instantInvalidatePropagation = false;
+
+/*!
+    \internal
+    \since 4.8
+    \see instantInvalidatePropagation
+
+    Calling this function with \a enable set to true will enable a feature that
+    makes propagation of invalidation up to ancestor layout items to be done in
+    one go. It will propagate up the parentLayoutItem() hierarchy until it has
+    reached the root. If the root item is a QGraphicsWidget, it will *post* a
+    layout request to it. When the layout request is consumed it will traverse
+    down the hierarchy of layouts and widgets and activate all layouts that is
+    invalid (not activated). This is the recommended behaviour.
+
+    If not set it will also propagate up the parentLayoutItem() hierarchy, but
+    it will stop at the \i first \i widget it encounters, and post a layout
+    request to the widget. When the layout request is consumed, this might
+    cause it to continue propagation up to the parentLayoutItem() of the
+    widget. It will continue in this fashion until it has reached a widget with
+    no parentLayoutItem(). This strategy might cause drawing artifacts, since
+    it is not done in one go, and the consumption of layout requests might be
+    interleaved by consumption of paint events, which might cause significant
+    flicker.
+    Note, this is not the recommended behavior, but for compatibility reasons
+    this is the default behaviour.
+*/
+void QGraphicsLayout::setInstantInvalidatePropagation(bool enable)
+{
+    g_instantInvalidatePropagation = enable;
+}
+
+/*!
+    \internal
+    \since 4.8
+    \see setInstantInvalidatePropagation
+
+    returns true if the complete widget/layout hierarchy is rearranged in one go.
+*/
+bool QGraphicsLayout::instantInvalidatePropagation()
+{
+    return g_instantInvalidatePropagation;
 }
 
 QT_END_NAMESPACE

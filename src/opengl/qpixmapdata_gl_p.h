@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -59,6 +59,13 @@
 #include "private/qpixmapdata_p.h"
 #include "private/qglpaintdevice_p.h"
 
+#ifdef Q_OS_SYMBIAN
+#include "private/qvolatileimage_p.h"
+#ifdef QT_SYMBIAN_SUPPORTS_SGIMAGE
+#  include <sgresource/sgimage.h>
+#endif
+#endif
+
 QT_BEGIN_NAMESPACE
 
 class QPaintEngine;
@@ -66,6 +73,9 @@ class QGLFramebufferObject;
 class QGLFramebufferObjectFormat;
 class QGLPixmapData;
 
+#ifdef Q_OS_SYMBIAN
+class QNativeImageHandleProvider;
+#else
 class QGLFramebufferObjectPool
 {
 public:
@@ -94,7 +104,7 @@ public:
 private:
     QGLPixmapData *data;
 };
-
+#endif
 
 class Q_OPENGL_EXPORT QGLPixmapData : public QPixmapData
 {
@@ -107,6 +117,8 @@ public:
     // Re-implemented from QPixmapData:
     void resize(int width, int height);
     void fromImage(const QImage &image, Qt::ImageConversionFlags flags);
+    void fromImageReader(QImageReader *imageReader,
+                          Qt::ImageConversionFlags flags);
     bool fromFile(const QString &filename, const char *format,
                   Qt::ImageConversionFlags flags);
     bool fromData(const uchar *buffer, uint len, const char *format,
@@ -126,6 +138,31 @@ public:
     bool isValidContext(const QGLContext *ctx) const;
     GLuint bind(bool copyBack = true) const;
     QGLTexture *texture() const;
+
+#ifdef Q_OS_SYMBIAN
+    void destroyTexture();
+    // Detach this image from the image pool.
+    void detachTextureFromPool();
+    // Release the GL resources associated with this pixmap and copy
+    // the pixmap's contents out of the GPU back into main memory.
+    // The GL resource will be automatically recreated the next time
+    // ensureCreated() is called.  Does nothing if the pixmap cannot be
+    // hibernated for some reason (e.g. texture is shared with another
+    // process via a SgImage).
+    void hibernate();
+    // Called when the QGLTexturePool wants to reclaim this pixmap's
+    // texture objects to reuse storage.
+    void reclaimTexture();
+    void forceToImage();
+
+    QVolatileImage toVolatileImage() const { return m_source; }
+    QImage::Format idealFormat(QImage &image, Qt::ImageConversionFlags flags);
+    void* toNativeType(NativeType type);
+    void fromNativeType(void* pixmap, NativeType type);
+    bool initFromNativeImageHandle(void *handle, const QString &type);
+    void createFromNativeImageHandleProvider();
+    void releaseNativeImageHandle();
+#endif
 
 private:
     bool isValid() const;
@@ -149,10 +186,22 @@ private:
 
     QImage fillImage(const QColor &color) const;
 
+    void createPixmapForImage(QImage &image, Qt::ImageConversionFlags flags, bool inPlace);
+
     mutable QGLFramebufferObject *m_renderFbo;
     mutable QPaintEngine *m_engine;
     mutable QGLContext *m_ctx;
+#ifdef Q_OS_SYMBIAN
+    mutable QVolatileImage m_source;
+    mutable QNativeImageHandleProvider *nativeImageHandleProvider;
+    void *nativeImageHandle;
+    QString nativeImageType;
+#ifdef QT_SYMBIAN_SUPPORTS_SGIMAGE
+    RSgImage *m_sgImage;
+#endif
+#else
     mutable QImage m_source;
+#endif
     mutable QGLTexture m_texture;
 
     // the texture is not in sync with the source image
@@ -164,11 +213,12 @@ private:
     mutable bool m_hasFillColor;
 
     mutable bool m_hasAlpha;
-
+#ifndef Q_OS_SYMBIAN
     mutable QGLPixmapGLPaintDevice m_glDevice;
-
+#endif
     friend class QGLPixmapGLPaintDevice;
     friend class QMeeGoPixmapData;
+    friend class QMeeGoLivePixmapData;
 };
 
 QT_END_NAMESPACE

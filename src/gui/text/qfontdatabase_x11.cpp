@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -1891,6 +1891,18 @@ QFontEngine *QFontDatabase::loadXlfd(int screen, int script, const QFontDef &req
     return fe;
 }
 
+#if (defined(QT_ARCH_ARM) || defined(QT_ARCH_ARMV6)) && defined(Q_CC_GNU) && (__GNUC__ == 4) && (__GNUC_MINOR__ == 3)
+#define NEEDS_GCC_BUG_WORKAROUND
+#endif
+
+#ifdef NEEDS_GCC_BUG_WORKAROUND
+static inline void gccBugWorkaround(const QFontDef &req)
+{
+    char buffer[8];
+    snprintf(buffer, 8, "%f", req.pixelSize);
+}
+#endif
+
 /*! \internal
   Loads a QFontEngine for the specified \a script that matches the
   QFontDef \e request member variable.
@@ -1902,9 +1914,15 @@ void QFontDatabase::load(const QFontPrivate *d, int script)
     // normalize the request to get better caching
     QFontDef req = d->request;
     if (req.pixelSize <= 0)
-        req.pixelSize = floor(qt_pixelSize(req.pointSize, d->dpi) * 100 + 0.5) / 100;
+        req.pixelSize = qFloor(qt_pixelSize(req.pointSize, d->dpi) * 100.0 + 0.5) * 0.01;
     if (req.pixelSize < 1)
         req.pixelSize = 1;
+
+#ifdef NEEDS_GCC_BUG_WORKAROUND
+    // req.pixelSize ends up with a bogus value unless this workaround is called
+    gccBugWorkaround(req);
+#endif
+
     if (req.weight == 0)
         req.weight = QFont::Normal;
     if (req.stretch == 0)
@@ -1940,7 +1958,6 @@ void QFontDatabase::load(const QFontPrivate *d, int script)
 #ifndef QT_NO_FONTCONFIG
         } else if (X11->has_fontconfig) {
             fe = loadFc(d, script, req);
-
             if (fe != 0 && fe->fontDef.pixelSize != req.pixelSize && mainThread && qt_is_gui_used) {
                 QFontEngine *xlfdFontEngine = loadXlfd(d->screen, script, req);
                 if (xlfdFontEngine->fontDef.family == fe->fontDef.family) {
@@ -1989,7 +2006,7 @@ static void registerFont(QFontDatabasePrivate::ApplicationFont *fnt)
 
     FcFontSet *set = FcConfigGetFonts(config, FcSetApplication);
     if (!set) {
-        FcConfigAppFontAddFile(config, (const FcChar8 *)":/non-existant");
+        FcConfigAppFontAddFile(config, (const FcChar8 *)":/non-existent");
         set = FcConfigGetFonts(config, FcSetApplication); // try again
         if (!set)
             return;

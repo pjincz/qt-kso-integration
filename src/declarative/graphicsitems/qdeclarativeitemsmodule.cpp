@@ -7,34 +7,34 @@
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -78,6 +78,7 @@
 #include "private/qdeclarativewebview_p_p.h"
 #endif
 #include "private/qdeclarativeanchors_p.h"
+#include "private/qdeclarativepincharea_p.h"
 
 static QDeclarativePrivate::AutoParentResult qgraphicsobject_autoParent(QObject *obj, QObject *parent)
 {
@@ -173,6 +174,31 @@ void QDeclarativeItemModule::defineModule()
 
     qmlRegisterUncreatableType<QDeclarativeKeyNavigationAttached>("QtQuick",1,0,"KeyNavigation",QDeclarativeKeyNavigationAttached::tr("KeyNavigation is only available via attached properties"));
     qmlRegisterUncreatableType<QDeclarativeKeysAttached>("QtQuick",1,0,"Keys",QDeclarativeKeysAttached::tr("Keys is only available via attached properties"));
+
+    // QtQuick 1.1 items
+    qmlRegisterType<QDeclarativePinchArea>("QtQuick",1,1,"PinchArea");
+    qmlRegisterType<QDeclarativePinch>("QtQuick",1,1,"Pinch");
+    qmlRegisterType<QDeclarativePinchEvent>();
+    qmlRegisterType<QDeclarativeItem,1>("QtQuick",1,1,"Item");
+    qmlRegisterType<QDeclarativeMouseArea,1>("QtQuick",1,1,"MouseArea");
+    qmlRegisterType<QDeclarativeFlickable,1>("QtQuick",1,1,"Flickable");
+    qmlRegisterType<QDeclarativeListView,1>("QtQuick",1,1,"ListView");
+    qmlRegisterType<QDeclarativeGridView,1>("QtQuick",1,1,"GridView");
+    qmlRegisterType<QDeclarativeRow,1>("QtQuick",1,1,"Row");
+    qmlRegisterType<QDeclarativeGrid,1>("QtQuick",1,1,"Grid");
+    qmlRegisterType<QDeclarativeFlow,1>("QtQuick",1,1,"Flow");
+    qmlRegisterType<QDeclarativeRepeater,1>("QtQuick",1,1,"Repeater");
+    qmlRegisterType<QDeclarativeText,1>("QtQuick",1,1,"Text");
+    qmlRegisterType<QDeclarativeTextEdit,1>("QtQuick",1,1,"TextEdit");
+#ifndef QT_NO_LINEEDIT
+    qmlRegisterType<QDeclarativeTextInput,1>("QtQuick",1,1,"TextInput");
+#endif
+    qmlRegisterRevision<QDeclarativeImageBase,1>("QtQuick",1,1);
+    qmlRegisterRevision<QDeclarativeImplicitSizeItem,0>("QtQuick",1,0);
+    qmlRegisterRevision<QDeclarativeImplicitSizeItem,1>("QtQuick",1,1);
+    qmlRegisterRevision<QDeclarativeImplicitSizePaintedItem,0>("QtQuick",1,0);
+    qmlRegisterRevision<QDeclarativeImplicitSizePaintedItem,1>("QtQuick",1,1);
+    qmlRegisterUncreatableType<QDeclarativeLayoutMirroringAttached>("QtQuick",1,1,"LayoutMirroring", QDeclarativeLayoutMirroringAttached::tr("LayoutMirroring is only available via attached properties"));
 
 #ifndef QT_NO_IMPORT_QT47_QML
 #ifdef QT_NO_MOVIE

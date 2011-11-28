@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -565,9 +565,9 @@ const QString::Null QString::null = { };
     and join a list of strings into a single string with an optional
     separator using QStringList::join(). You can obtain a list of
     strings from a string list that contain a particular substring or
-    that match a particular QRegExp using the QStringList::find()
+    that match a particular QRegExp using the QStringList::filter()
     function.
-:
+
     \section1 Querying String Data
 
     If you want to see if a QString starts or ends with a particular
@@ -646,10 +646,11 @@ const QString::Null QString::null = { };
     class.)
 
     \table 100 %
+    \header
+    \o Note for C Programmers
+
     \row
     \o
-    \section1 Note for C Programmers
-
     Due to C++'s type system and the fact that QString is
     \l{implicitly shared}, QStrings may be treated like \c{int}s or
     other basic types. For example:
@@ -3572,7 +3573,7 @@ static QByteArray toLatin1_helper(const QChar *data, int length)
             }
             length = length % 16;
         }
-#elif QT_HAVE_NEON
+#elif defined(QT_ALWAYS_HAVE_NEON)
         // Refer to the documentation of the SSE2 implementation
         // this use eactly the same method as for SSE except:
         // 1) neon has unsigned comparison
@@ -3868,8 +3869,7 @@ const char *QString::latin1_helper() const
     If \a size is -1 (default), it is taken to be qstrlen(\a
     str).
 
-    QTextCodec::codecForLocale() is used to perform the conversion
-    from Unicode.
+    QTextCodec::codecForLocale() is used to perform the conversion.
 
     \sa toLocal8Bit(), fromAscii(), fromLatin1(), fromUtf8()
 */
@@ -3891,7 +3891,7 @@ QString QString::fromLocal8Bit(const char *str, int size)
 
 /*!
     Returns a QString initialized with the first \a size characters
-    of the 8-bit string \a str.
+    from the string \a str.
 
     If \a size is -1 (default), it is taken to be qstrlen(\a
     str).
@@ -4275,7 +4275,7 @@ QString& QString::fill(QChar ch, int size)
     Returns the number of characters in this string.  Equivalent to
     size().
 
-    \sa setLength()
+    \sa resize()
 */
 
 /*!
@@ -6941,30 +6941,8 @@ QString QString::multiArg(int numArgs, const QString **args) const
     return result;
 }
 
-/*! \internal
- */
-void QString::updateProperties() const
+static bool isStringRightToLeft(const ushort *p, const ushort *end)
 {
-    ushort *p = d->data;
-    ushort *end = p + d->size;
-    d->simpletext = true;
-    while (p < end) {
-        ushort uc = *p;
-        // sort out regions of complex text formatting
-        if (uc > 0x058f && (uc < 0x1100 || uc > 0xfb0f)) {
-            d->simpletext = false;
-        }
-        p++;
-    }
-
-    d->righttoleft = isRightToLeft();
-    d->clean = true;
-}
-
-bool QString::isRightToLeft() const
-{
-    ushort *p = d->data;
-    const ushort * const end = p + d->size;
     bool righttoleft = false;
     while (p < end) {
         switch(QChar::direction(*p))
@@ -6982,6 +6960,31 @@ bool QString::isRightToLeft() const
     }
  end:
     return righttoleft;
+}
+
+/*! \internal
+ */
+void QString::updateProperties() const
+{
+    ushort *p = d->data;
+    ushort *end = p + d->size;
+    d->simpletext = true;
+    while (p < end) {
+        ushort uc = *p;
+        // sort out regions of complex text formatting
+        if (uc > 0x058f && (uc < 0x1100 || uc > 0xfb0f)) {
+            d->simpletext = false;
+        }
+        p++;
+    }
+
+    d->righttoleft = isStringRightToLeft(d->data, d->data + d->size);
+    d->clean = true;
+}
+
+bool QString::isRightToLeft() const
+{
+    return isStringRightToLeft(d->data, d->data + d->size);
 }
 
 /*! \fn bool QString::isSimpleText() const

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -130,7 +130,7 @@
     item on the scene gains focus, the scene automatically gains focus. If the
     scene has focus, hasFocus() will return true, and key events will be
     forwarded to the focus item, if any. If the scene loses focus, (i.e.,
-    someone calls clearFocus(),) while an item has focus, the scene will
+    someone calls clearFocus()) while an item has focus, the scene will
     maintain its item focus information, and once the scene regains focus, it
     will make sure the last focus item regains focus.
 
@@ -306,6 +306,7 @@ QGraphicsScenePrivate::QGraphicsScenePrivate()
       rectAdjust(2),
       focusItem(0),
       lastFocusItem(0),
+      passiveFocusItem(0),
       tabFocusFirst(0),
       activePanel(0),
       lastActivePanel(0),
@@ -630,6 +631,8 @@ void QGraphicsScenePrivate::removeItemHelper(QGraphicsItem *item)
         focusItem = 0;
     if (item == lastFocusItem)
         lastFocusItem = 0;
+    if (item == passiveFocusItem)
+        passiveFocusItem = 0;
     if (item == activePanel) {
         // ### deactivate...
         activePanel = 0;
@@ -806,28 +809,23 @@ void QGraphicsScenePrivate::setFocusItemHelper(QGraphicsItem *item,
     }
 
     if (focusItem) {
-        QFocusEvent event(QEvent::FocusOut, focusReason);
         lastFocusItem = focusItem;
-        focusItem = 0;
-        sendEvent(lastFocusItem, &event);
 
 #ifndef QT_NO_IM
         if (lastFocusItem
             && (lastFocusItem->flags() & QGraphicsItem::ItemAcceptsInputMethod)) {
-            // Reset any visible preedit text
-            QInputMethodEvent imEvent;
-            sendEvent(lastFocusItem, &imEvent);
-
             // Close any external input method panel. This happens
             // automatically by removing WA_InputMethodEnabled on
             // the views, but if we are changing focus, we have to
             // do it ourselves.
-            if (item) {
-                for (int i = 0; i < views.size(); ++i)
-                    if (views.at(i)->inputContext())
-                        views.at(i)->inputContext()->reset();
-            }
+            for (int i = 0; i < views.size(); ++i)
+                if (views.at(i)->inputContext())
+                    views.at(i)->inputContext()->reset();
         }
+
+        focusItem = 0;
+        QFocusEvent event(QEvent::FocusOut, focusReason);
+        sendEvent(lastFocusItem, &event);
 #endif //QT_NO_IM
     }
 
@@ -1322,8 +1320,10 @@ void QGraphicsScenePrivate::mousePressEventHandler(QGraphicsSceneMouseEvent *mou
 
     // Set focus on the topmost enabled item that can take focus.
     bool setFocus = false;
+
     foreach (QGraphicsItem *item, cachedItemsUnderMouse) {
-        if (item->isBlockedByModalPanel()) {
+        if (item->isBlockedByModalPanel()
+            || (item->d_ptr->flags & QGraphicsItem::ItemStopsFocusHandling)) {
             // Make sure we don't clear focus.
             setFocus = true;
             break;
@@ -1336,9 +1336,9 @@ void QGraphicsScenePrivate::mousePressEventHandler(QGraphicsSceneMouseEvent *mou
                 break;
             }
         }
-        if (item->d_ptr->flags & QGraphicsItem::ItemStopsClickFocusPropagation)
-            break;
         if (item->isPanel())
+            break;
+        if (item->d_ptr->flags & QGraphicsItem::ItemStopsClickFocusPropagation)
             break;
     }
 
@@ -1759,7 +1759,7 @@ void QGraphicsScene::render(QPainter *painter, const QRectF &target, const QRect
     painter->save();
 
     // Transform the painter.
-    painter->setClipRect(targetRect);
+    painter->setClipRect(targetRect, Qt::IntersectClip);
     QTransform painterTransform;
     painterTransform *= QTransform()
                         .translate(targetRect.left(), targetRect.top())
@@ -2985,7 +2985,7 @@ void QGraphicsScene::removeItem(QGraphicsItem *item)
 QGraphicsItem *QGraphicsScene::focusItem() const
 {
     Q_D(const QGraphicsScene);
-    return isActive() ? d->focusItem : d->lastFocusItem;
+    return isActive() ? d->focusItem : d->passiveFocusItem;
 }
 
 /*!
@@ -3059,6 +3059,7 @@ void QGraphicsScene::clearFocus()
     Q_D(QGraphicsScene);
     if (d->hasFocus) {
         d->hasFocus = false;
+        d->passiveFocusItem = d->focusItem;
         setFocusItem(0, Qt::OtherFocusReason);
     }
 }
@@ -3104,8 +3105,8 @@ bool QGraphicsScene::stickyFocus() const
     \list
     \o If the item receives a mouse release event when there are no other
     buttons pressed, it loses the mouse grab.
-    \o If the item becomes invisible (i.e., someone calls \c {item->setVisible(false))},
-    or if it becomes disabled (i.e., someone calls \c {item->setEnabled(false))},
+    \o If the item becomes invisible (i.e., someone calls \c {item->setVisible(false)}),
+    or if it becomes disabled (i.e., someone calls \c {item->setEnabled(false)}),
     it loses the mouse grab.
     \o If the item is removed from the scene, it loses the mouse grab.
     \endlist
@@ -3761,9 +3762,9 @@ void QGraphicsScene::focusInEvent(QFocusEvent *focusEvent)
             focusEvent->ignore();
         break;
     default:
-        if (d->lastFocusItem) {
+        if (d->passiveFocusItem) {
             // Set focus on the last focus item
-            setFocusItem(d->lastFocusItem, focusEvent->reason());
+            setFocusItem(d->passiveFocusItem, focusEvent->reason());
         }
         break;
     }
@@ -3782,6 +3783,7 @@ void QGraphicsScene::focusOutEvent(QFocusEvent *focusEvent)
 {
     Q_D(QGraphicsScene);
     d->hasFocus = false;
+    d->passiveFocusItem = d->focusItem;
     setFocusItem(0, focusEvent->reason());
 
     // Remove all popups when the scene loses focus.
@@ -4583,13 +4585,13 @@ void QGraphicsScenePrivate::drawItemHelper(QGraphicsItem *item, QPainter *painte
             itemCache->exposed.clear();
             deviceData->cacheIndent = QPoint();
             pix = QPixmap();
-        } else {
+        } else if (!viewRect.isNull()) {
             allowPartialCacheExposure = deviceData->cacheIndent != QPoint();
         }
 
         // Allow partial cache exposure if the device rect isn't fully contained and
         // deviceRect is 20% taller or wider than the viewRect.
-        if (!allowPartialCacheExposure && !viewRect.contains(deviceRect)) {
+        if (!allowPartialCacheExposure && !viewRect.isNull() && !viewRect.contains(deviceRect)) {
             allowPartialCacheExposure = (viewRect.width() * 1.2 < deviceRect.width())
                                          || (viewRect.height() * 1.2 < deviceRect.height());
         }
@@ -4791,7 +4793,7 @@ void QGraphicsScenePrivate::drawSubtreeRecursive(QGraphicsItem *item, QPainter *
         ENSURE_TRANSFORM_PTR
         QRect viewBoundingRect = translateOnlyTransform ? brect.translated(transformPtr->dx(), transformPtr->dy()).toAlignedRect()
                                                         : transformPtr->mapRect(brect).toAlignedRect();
-        viewBoundingRect.adjust(-rectAdjust, -rectAdjust, rectAdjust, rectAdjust);
+        viewBoundingRect.adjust(-int(rectAdjust), -int(rectAdjust), rectAdjust, rectAdjust);
         if (widget)
             item->d_ptr->paintedViewBoundingRects.insert(widget, viewBoundingRect);
         drawItem = exposedRegion ? exposedRegion->intersects(viewBoundingRect)
@@ -4854,6 +4856,27 @@ void QGraphicsScenePrivate::drawSubtreeRecursive(QGraphicsItem *item, QPainter *
     }
 }
 
+static inline void setClip(QPainter *painter, QGraphicsItem *item)
+{
+    painter->save();
+    QRectF clipRect;
+    const QPainterPath clipPath(item->shape());
+    if (QPathClipper::pathToRect(clipPath, &clipRect))
+        painter->setClipRect(clipRect, Qt::IntersectClip);
+    else
+        painter->setClipPath(clipPath, Qt::IntersectClip);
+}
+
+static inline void setWorldTransform(QPainter *painter, const QTransform *const transformPtr,
+                                     const QTransform *effectTransform)
+{
+    Q_ASSERT(transformPtr);
+    if (effectTransform)
+        painter->setWorldTransform(*transformPtr * *effectTransform);
+    else
+        painter->setWorldTransform(*transformPtr);
+}
+
 void QGraphicsScenePrivate::draw(QGraphicsItem *item, QPainter *painter, const QTransform *const viewTransform,
                                  const QTransform *const transformPtr, QRegion *exposedRegion, QWidget *widget,
                                  qreal opacity, const QTransform *effectTransform,
@@ -4862,36 +4885,37 @@ void QGraphicsScenePrivate::draw(QGraphicsItem *item, QPainter *painter, const Q
     const bool itemIsFullyTransparent = QGraphicsItemPrivate::isOpacityNull(opacity);
     const bool itemClipsChildrenToShape = (item->d_ptr->flags & QGraphicsItem::ItemClipsChildrenToShape);
     const bool itemHasChildren = !item->d_ptr->children.isEmpty();
+    bool setChildClip = itemClipsChildrenToShape;
+    bool itemHasChildrenStackedBehind = false;
 
     int i = 0;
     if (itemHasChildren) {
+        if (itemClipsChildrenToShape)
+            setWorldTransform(painter, transformPtr, effectTransform);
+
         item->d_ptr->ensureSortedChildren();
+        // Items with the 'ItemStacksBehindParent' flag are put in front of the list
+        // so all we have to do is to check the first item.
+        itemHasChildrenStackedBehind = (item->d_ptr->children.at(0)->d_ptr->flags
+                                        & QGraphicsItem::ItemStacksBehindParent);
 
-        if (itemClipsChildrenToShape) {
-            painter->save();
-            Q_ASSERT(transformPtr);
-            if (effectTransform)
-                painter->setWorldTransform(*transformPtr * *effectTransform);
-            else
-                painter->setWorldTransform(*transformPtr);
-            QRectF clipRect;
-            const QPainterPath clipPath(item->shape());
-            if (QPathClipper::pathToRect(clipPath, &clipRect))
-                painter->setClipRect(clipRect, Qt::IntersectClip);
-            else
-                painter->setClipPath(clipPath, Qt::IntersectClip);
-        }
+        if (itemHasChildrenStackedBehind) {
+            if (itemClipsChildrenToShape) {
+                setClip(painter, item);
+                setChildClip = false;
+            }
 
-        // Draw children behind
-        for (i = 0; i < item->d_ptr->children.size(); ++i) {
-            QGraphicsItem *child = item->d_ptr->children.at(i);
-            if (wasDirtyParentSceneTransform)
-                child->d_ptr->dirtySceneTransform = 1;
-            if (!(child->d_ptr->flags & QGraphicsItem::ItemStacksBehindParent))
-                break;
-            if (itemIsFullyTransparent && !(child->d_ptr->flags & QGraphicsItem::ItemIgnoresParentOpacity))
-                continue;
-            drawSubtreeRecursive(child, painter, viewTransform, exposedRegion, widget, opacity, effectTransform);
+            // Draw children behind
+            for (i = 0; i < item->d_ptr->children.size(); ++i) {
+                QGraphicsItem *child = item->d_ptr->children.at(i);
+                if (wasDirtyParentSceneTransform)
+                    child->d_ptr->dirtySceneTransform = 1;
+                if (!(child->d_ptr->flags & QGraphicsItem::ItemStacksBehindParent))
+                    break;
+                if (itemIsFullyTransparent && !(child->d_ptr->flags & QGraphicsItem::ItemIgnoresParentOpacity))
+                    continue;
+                drawSubtreeRecursive(child, painter, viewTransform, exposedRegion, widget, opacity, effectTransform);
+            }
         }
     }
 
@@ -4904,38 +4928,50 @@ void QGraphicsScenePrivate::draw(QGraphicsItem *item, QPainter *painter, const Q
                                      ? *exposedRegion : QRegion(), exposedRegion == 0);
 
         const bool itemClipsToShape = item->d_ptr->flags & QGraphicsItem::ItemClipsToShape;
-        const bool savePainter = itemClipsToShape || painterStateProtection;
-        if (savePainter)
-            painter->save();
+        bool restorePainterClip = false;
 
         if (!itemHasChildren || !itemClipsChildrenToShape) {
-            if (effectTransform)
-                painter->setWorldTransform(*transformPtr * *effectTransform);
-            else
-                painter->setWorldTransform(*transformPtr);
+            // Item does not have children or clip children to shape.
+            setWorldTransform(painter, transformPtr, effectTransform);
+            if ((restorePainterClip = itemClipsToShape))
+                setClip(painter, item);
+        } else if (itemHasChildrenStackedBehind){
+            // Item clips children to shape and has children stacked behind, which means
+            // the painter is already clipped to the item's shape.
+            if (itemClipsToShape) {
+                // The clip is already correct. Ensure correct world transform.
+                setWorldTransform(painter, transformPtr, effectTransform);
+            } else {
+                // Remove clip (this also ensures correct world transform).
+                painter->restore();
+                setChildClip = true;
+            }
+        } else if (itemClipsToShape) {
+            // Item clips children and itself to shape. It does not have hildren stacked
+            // behind, which means the clip has not yet been set. We set it now and re-use it
+            // for the children.
+            setClip(painter, item);
+            setChildClip = false;
         }
 
-        if (itemClipsToShape) {
-            QRectF clipRect;
-            const QPainterPath clipPath(item->shape());
-            if (QPathClipper::pathToRect(clipPath, &clipRect))
-                painter->setClipRect(clipRect, Qt::IntersectClip);
-            else
-                painter->setClipPath(clipPath, Qt::IntersectClip);
-        }
+        if (painterStateProtection && !restorePainterClip)
+            painter->save();
+
         painter->setOpacity(opacity);
-
         if (!item->d_ptr->cacheMode && !item->d_ptr->isWidget)
             item->paint(painter, &styleOptionTmp, widget);
         else
             drawItemHelper(item, painter, &styleOptionTmp, widget, painterStateProtection);
 
-        if (savePainter)
+        if (painterStateProtection || restorePainterClip)
             painter->restore();
     }
 
     // Draw children in front
     if (itemHasChildren) {
+        if (setChildClip)
+            setClip(painter, item);
+
         for (; i < item->d_ptr->children.size(); ++i) {
             QGraphicsItem *child = item->d_ptr->children.at(i);
             if (wasDirtyParentSceneTransform)
@@ -4944,11 +4980,11 @@ void QGraphicsScenePrivate::draw(QGraphicsItem *item, QPainter *painter, const Q
                 continue;
             drawSubtreeRecursive(child, painter, viewTransform, exposedRegion, widget, opacity, effectTransform);
         }
-    }
 
-    // Restore child clip
-    if (itemHasChildren && itemClipsChildrenToShape)
-        painter->restore();
+        // Restore child clip
+        if (itemClipsChildrenToShape)
+            painter->restore();
+    }
 }
 
 void QGraphicsScenePrivate::markDirty(QGraphicsItem *item, const QRectF &rect, bool invalidateChildren,
@@ -5311,6 +5347,7 @@ void QGraphicsScene::drawItems(QPainter *painter,
     if (!d->unpolishedItems.isEmpty())
         d->_q_polishItems();
 
+    const qreal opacity = painter->opacity();
     QTransform viewTransform = painter->worldTransform();
     Q_UNUSED(options);
 
@@ -5344,6 +5381,7 @@ void QGraphicsScene::drawItems(QPainter *painter,
         topLevelItems.at(i)->d_ptr->itemDiscovered = 0;
 
     painter->setWorldTransform(viewTransform);
+    painter->setOpacity(opacity);
 }
 
 /*!
@@ -5894,6 +5932,7 @@ bool QGraphicsScenePrivate::sendTouchBeginEvent(QGraphicsItem *origin, QTouchEve
 
     // Set focus on the topmost enabled item that can take focus.
     bool setFocus = false;
+
     foreach (QGraphicsItem *item, cachedItemsUnderMouse) {
         if (item->isEnabled() && ((item->flags() & QGraphicsItem::ItemIsFocusable) && item->d_ptr->mouseSetsFocus)) {
             if (!item->isWidget() || ((QGraphicsWidget *)item)->focusPolicy() & Qt::ClickFocus) {
@@ -5905,6 +5944,13 @@ bool QGraphicsScenePrivate::sendTouchBeginEvent(QGraphicsItem *origin, QTouchEve
         }
         if (item->isPanel())
             break;
+        if (item->d_ptr->flags & QGraphicsItem::ItemStopsClickFocusPropagation)
+            break;
+        if (item->d_ptr->flags & QGraphicsItem::ItemStopsFocusHandling) {
+            // Make sure we don't clear focus.
+            setFocus = true;
+            break;
+        }
     }
 
     // If nobody could take focus, clear it.

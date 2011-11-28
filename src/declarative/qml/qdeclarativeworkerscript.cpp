@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -43,6 +43,7 @@
 #include "private/qdeclarativelistmodel_p.h"
 #include "private/qdeclarativelistmodelworkeragent_p.h"
 #include "private/qdeclarativeengine_p.h"
+#include "private/qdeclarativeexpression_p.h"
 
 #include <QtCore/qcoreevent.h>
 #include <QtCore/qcoreapplication.h>
@@ -52,6 +53,7 @@
 #include <QtCore/qwaitcondition.h>
 #include <QtScript/qscriptvalueiterator.h>
 #include <QtCore/qfile.h>
+#include <QtCore/qdatetime.h>
 #include <QtNetwork/qnetworkaccessmanager.h>
 #include <QtDeclarative/qdeclarativeinfo.h>
 #include "qdeclarativenetworkaccessmanagerfactory.h"
@@ -103,6 +105,19 @@ private:
     int m_id;
 };
 
+class WorkerErrorEvent : public QEvent
+{
+public:
+    enum Type { WorkerError = WorkerRemoveEvent::WorkerRemove + 1 };
+
+    WorkerErrorEvent(const QDeclarativeError &error);
+
+    QDeclarativeError error() const;
+
+private:
+    QDeclarativeError m_error;
+};
+
 class QDeclarativeWorkerScriptEnginePrivate : public QObject
 {
     Q_OBJECT
@@ -145,6 +160,7 @@ public:
         WorkerScript();
 
         int id;
+        QUrl source;
         bool initialized;
         QDeclarativeWorkerScript *owner;
         QScriptValue object;
@@ -172,6 +188,7 @@ protected:
 private:
     void processMessage(int, const QVariant &);
     void processLoad(int, const QUrl &);
+    void reportScriptException(WorkerScript *);
 };
 
 QDeclarativeWorkerScriptEnginePrivate::QDeclarativeWorkerScriptEnginePrivate(QDeclarativeEngine *engine)
@@ -272,6 +289,11 @@ void QDeclarativeWorkerScriptEnginePrivate::processMessage(int id, const QVarian
         args.setProperty(0, variantToScriptValue(data, workerEngine));
 
         script->callback.call(script->object, args);
+
+        if (workerEngine->hasUncaughtException()) {
+            reportScriptException(script);
+            workerEngine->clearExceptions();
+        }
     }
 }
 
@@ -285,25 +307,50 @@ void QDeclarativeWorkerScriptEnginePrivate::processLoad(int id, const QUrl &url)
     QFile f(fileName);
     if (f.open(QIODevice::ReadOnly)) {
         QByteArray data = f.readAll();
-        QString script = QString::fromUtf8(data);
+        QString sourceCode = QString::fromUtf8(data);
 
         QScriptValue activation = getWorker(id);
 
         QScriptContext *ctxt = QScriptDeclarativeClass::pushCleanContext(workerEngine);
         QScriptValue urlContext = workerEngine->newObject();
-        urlContext.setData(QScriptValue(workerEngine, fileName));
+        urlContext.setData(QScriptValue(workerEngine, url.toString()));
         ctxt->pushScope(urlContext);
         ctxt->pushScope(activation);
         ctxt->setActivationObject(activation);
-        QDeclarativeScriptParser::extractPragmas(script);
+        QDeclarativeScriptParser::extractPragmas(sourceCode);
 
         workerEngine->baseUrl = url;
-        workerEngine->evaluate(script);
+        workerEngine->evaluate(sourceCode);
+
+        WorkerScript *script = workers.value(id);
+        if (script) {
+            script->source = url;
+            if (workerEngine->hasUncaughtException()) {
+                reportScriptException(script);
+                workerEngine->clearExceptions();
+            }
+        }
 
         workerEngine->popContext();
     } else {
         qWarning().nospace() << "WorkerScript: Cannot find source file " << url.toString();
     }
+}
+
+void QDeclarativeWorkerScriptEnginePrivate::reportScriptException(WorkerScript *script)
+{
+    if (!script || !workerEngine->hasUncaughtException())
+        return;
+
+    QDeclarativeError error;
+    QDeclarativeExpressionPrivate::exceptionToError(workerEngine, error);
+    error.setUrl(script->source);
+
+    QDeclarativeWorkerScriptEnginePrivate *p = QDeclarativeWorkerScriptEnginePrivate::get(workerEngine);
+
+    QMutexLocker(&p->m_lock);
+    if (script->owner)
+        QCoreApplication::postEvent(script->owner, new WorkerErrorEvent(error));
 }
 
 QVariant QDeclarativeWorkerScriptEnginePrivate::scriptValueToVariant(const QScriptValue &value)
@@ -314,6 +361,12 @@ QVariant QDeclarativeWorkerScriptEnginePrivate::scriptValueToVariant(const QScri
         return QVariant(value.toString());
     } else if (value.isNumber()) {
         return QVariant((qreal)value.toNumber());
+    } else if (value.isDate()) {
+        return QVariant(value.toDateTime());
+#ifndef QT_NO_REGEXP
+    } else if (value.isRegExp()) {
+        return QVariant(value.toRegExp());
+#endif
     } else if (value.isArray()) {
         QVariantList list;
 
@@ -364,6 +417,12 @@ QScriptValue QDeclarativeWorkerScriptEnginePrivate::variantToScriptValue(const Q
         return QScriptValue(value.toString());
     } else if (value.userType() == QMetaType::QReal) {
         return QScriptValue(value.toReal());
+    } else if (value.userType() == QVariant::DateTime) {
+        return engine->newDate(value.toDateTime());
+#ifndef QT_NO_REGEXP
+    } else if (value.userType() == QVariant::RegExp) {
+        return engine->newRegExp(value.toRegExp());
+#endif
     } else if (value.userType() == qMetaTypeId<QDeclarativeListModelWorkerAgent::VariantRef>()) {
         QDeclarativeListModelWorkerAgent::VariantRef vr = qvariant_cast<QDeclarativeListModelWorkerAgent::VariantRef>(value);
         if (vr.a->scriptEngine() == 0)
@@ -440,12 +499,22 @@ int WorkerRemoveEvent::workerId() const
     return m_id;
 }
 
+WorkerErrorEvent::WorkerErrorEvent(const QDeclarativeError &error)
+: QEvent((QEvent::Type)WorkerError), m_error(error)
+{
+}
+
+QDeclarativeError WorkerErrorEvent::error() const
+{
+    return m_error;
+}
+
 QDeclarativeWorkerScriptEngine::QDeclarativeWorkerScriptEngine(QDeclarativeEngine *parent)
 : QThread(parent), d(new QDeclarativeWorkerScriptEnginePrivate(parent))
 {
     d->m_lock.lock();
     connect(d, SIGNAL(stopThread()), this, SLOT(quit()), Qt::DirectConnection);
-    start(QThread::LowPriority);
+    start(QThread::IdlePriority);
     d->m_wait.wait(&d->m_lock);
     d->moveToThread(this);
     d->m_lock.unlock();
@@ -514,7 +583,7 @@ void QDeclarativeWorkerScriptEngine::run()
 
 /*!
     \qmlclass WorkerScript QDeclarativeWorkerScript
-  \ingroup qml-utility-elements
+    \ingroup qml-utility-elements
     \brief The WorkerScript element enables the use of threads in QML.
 
     Use WorkerScript to run operations in a new thread.
@@ -528,20 +597,28 @@ void QDeclarativeWorkerScriptEngine::run()
 
     \snippet doc/src/snippets/declarative/workerscript.qml 0
 
-    The above worker script specifies a javascript file, "script.js", that handles
+    The above worker script specifies a JavaScript file, "script.js", that handles
     the operations to be performed in the new thread. Here is \c script.js:
 
-    \qml
-    WorkerScript.onMessage = function(message) {
-        // ... long-running operations and calculations are done here
-        WorkerScript.sendMessage({ 'reply': 'Mouse is at ' + message.x + ',' + message.y })
-    }
-    \endqml
+    \quotefile doc/src/snippets/declarative/script.js
 
     When the user clicks anywhere within the rectangle, \c sendMessage() is
     called, triggering the \tt WorkerScript.onMessage() handler in
     \tt script.js. This in turn sends a reply message that is then received
     by the \tt onMessage() handler of \tt myWorker.
+
+
+    \section3 Restrictions
+
+    Since the \c WorkerScript.onMessage() function is run in a separate thread, the
+    JavaScript file is evaluated in a context separate from the main QML engine. This means
+    that unlike an ordinary JavaScript file that is imported into QML, the \c script.js
+    in the above example cannot access the properties, methods or other attributes
+    of the QML item, nor can it access any context properties set on the QML object
+    through QDeclarativeContext.
+
+    Additionally, there are restrictions on the types of values that can be passed to and
+    from the worker script. See the sendMessage() documentation for details.
 
     \sa {declarative/threading/workerscript}{WorkerScript example},
         {declarative/threading/threadedlistmodel}{Threaded ListModel example}
@@ -586,6 +663,19 @@ void QDeclarativeWorkerScript::setSource(const QUrl &source)
     Sends the given \a message to a worker script handler in another
     thread. The other worker script handler can receive this message
     through the onMessage() handler.
+
+    The \c message object may only contain values of the following
+    types:
+
+    \list
+    \o boolean, number, string
+    \o JavaScript objects and arrays
+    \o ListModel objects (any other type of QObject* is not allowed)
+    \endlist
+
+    All objects and arrays are copied to the \c message. With the exception
+    of ListModel objects, any modifications by the other thread to an object
+    passed in \c message will not be reflected in the original object.
 */
 void QDeclarativeWorkerScript::sendMessage(const QScriptValue &message)
 {
@@ -647,6 +737,10 @@ bool QDeclarativeWorkerScript::event(QEvent *event)
                 QDeclarativeWorkerScriptEnginePrivate::variantToScriptValue(workerEvent->data(), scriptEngine);
             emit message(value);
         }
+        return true;
+    } else if (event->type() == (QEvent::Type)WorkerErrorEvent::WorkerError) {
+        WorkerErrorEvent *workerEvent = static_cast<WorkerErrorEvent *>(event);
+        QDeclarativeEnginePrivate::warning(qmlEngine(this), workerEvent->error());
         return true;
     } else {
         return QObject::event(event);

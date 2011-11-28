@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -46,7 +46,7 @@
 
 /**
  * Widget which displays a vertical audio level meter, indicating the
- * RMS and peak levels of the window of audio samples most recently analysed
+ * RMS and peak levels of the window of audio samples most recently analyzed
  * by the Engine.
  */
 class LevelMeter : public QWidget {

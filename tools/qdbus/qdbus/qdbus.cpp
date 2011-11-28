@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -49,6 +49,10 @@
 #include <QtXml/QDomElement>
 #include <QtDBus/QtDBus>
 #include <private/qdbusutil_p.h>
+
+QT_BEGIN_NAMESPACE
+Q_DBUS_EXPORT extern bool qt_dbus_metaobject_skip_annotations;
+QT_END_NAMESPACE
 
 static QDBusConnection connection(QLatin1String(""));
 static bool printArgumentsLiterally = false;
@@ -99,7 +103,7 @@ static void printArg(const QVariant &v)
         else if (arg.currentSignature() == QLatin1String("a{sv}"))
             printArg(qdbus_cast<QVariantMap>(arg));
         else
-            printf("qdbus: I don't know how to display an argument of type '%s'\n",
+            printf("qdbus: I don't know how to display an argument of type '%s', run with --literal.\n",
                    qPrintable(arg.currentSignature()));
     } else {
         printf("%s\n", qPrintable(v.toString()));
@@ -311,7 +315,11 @@ static int placeCall(const QString &service, const QString &path, const QString 
                 int id = QVariant::nameToType(types.at(i));
                 if (id == QVariant::UserType)
                     id = QMetaType::type(types.at(i));
-                Q_ASSERT(id);
+                if (!id) {
+                    fprintf(stderr, "Cannot call method '%s' because type '%s' is unknown to this tool\n",
+                            qPrintable(member), types.at(i).constData());
+                    return 1;
+                }
 
                 QVariant p;
                 QString argument;
@@ -435,6 +443,7 @@ static void printAllServices(QDBusConnectionInterface *bus)
 
 int main(int argc, char **argv)
 {
+    QT_PREPEND_NAMESPACE(qt_dbus_metaobject_skip_annotations) = true;
     QCoreApplication app(argc, argv);
     QStringList args = app.arguments();
     args.takeFirst();

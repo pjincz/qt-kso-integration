@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -68,6 +68,7 @@
 # include "qt_cocoa_helpers_mac_p.h"
 # include "qmainwindow.h"
 # include "qtoolbar.h"
+# include <private/qmainwindowlayout_p.h>
 #endif
 #if defined(Q_WS_QWS)
 # include "qwsdisplay_qws.h"
@@ -122,6 +123,10 @@
 #ifdef QT_KEYPAD_NAVIGATION
 #include "qtabwidget.h" // Needed in inTabWidget()
 #endif // QT_KEYPAD_NAVIGATION
+
+#ifdef Q_WS_S60
+#include <aknappui.h>
+#endif
 
 // widget/widget data creation count
 //#define QWIDGET_EXTRA_DEBUG
@@ -235,6 +240,17 @@ void QWidgetBackingStoreTracker::unregisterWidget(QWidget *w)
     }
 }
 
+/*!
+    \internal
+    Recursively remove widget and all of its descendents.
+ */
+void QWidgetBackingStoreTracker::unregisterWidgetSubtree(QWidget *widget)
+{
+    unregisterWidget(widget);
+    foreach (QObject *child, widget->children())
+        if (QWidget *childWidget = qobject_cast<QWidget *>(child))
+            unregisterWidgetSubtree(childWidget);
+}
 
 QWidgetPrivate::QWidgetPrivate(int version)
     : QObjectPrivate(version)
@@ -273,6 +289,10 @@ QWidgetPrivate::QWidgetPrivate(int version)
       , isMoved(0)
       , isGLWidget(0)
       , usesDoubleBufferedGLContext(0)
+#ifndef QT_NO_IM
+      , inheritsInputMethodHints(0)
+#endif
+      , inSetParent(0)
 #if defined(Q_WS_X11)
       , picture(0)
 #elif defined(Q_WS_WIN)
@@ -285,6 +305,9 @@ QWidgetPrivate::QWidgetPrivate(int version)
       , hasAlienChildren(0)
       , window_event(0)
       , qd_hd(0)
+#elif defined(Q_OS_SYMBIAN)
+      , symbianScreenNumber(0)
+      , fixNativeOrientationCalled(false)
 #endif
 {
     if (!qApp) {
@@ -322,15 +345,27 @@ QWidgetPrivate::~QWidgetPrivate()
 #endif //QT_NO_GRAPHICSEFFECT
 }
 
+class QDummyWindowSurface : public QWindowSurface
+{
+public:
+    QDummyWindowSurface(QWidget *window) : QWindowSurface(window) {}
+    QPaintDevice *paintDevice() { return window(); }
+    void flush(QWidget *, const QRegion &, const QPoint &) {}
+};
+
 QWindowSurface *QWidgetPrivate::createDefaultWindowSurface()
 {
     Q_Q(QWidget);
 
     QWindowSurface *surface;
-    if (QApplicationPrivate::graphicsSystem())
-        surface = QApplicationPrivate::graphicsSystem()->createWindowSurface(q);
-    else
-        surface = createDefaultWindowSurface_sys();
+    if (q->property("_q_DummyWindowSurface").toBool()) {
+        surface = new QDummyWindowSurface(q);
+    } else {
+        if (QApplicationPrivate::graphicsSystem())
+            surface = QApplicationPrivate::graphicsSystem()->createWindowSurface(q);
+        else
+            surface = createDefaultWindowSurface_sys();
+    }
 
     return surface;
 }
@@ -362,11 +397,24 @@ void QWidgetPrivate::scrollChildren(int dx, int dy)
     }
 }
 
+QInputContext *QWidgetPrivate::assignedInputContext() const
+{
+#ifndef QT_NO_IM
+    const QWidget *widget = q_func();
+    while (widget) {
+        if (QInputContext *qic = widget->d_func()->ic)
+            return qic;
+        widget = widget->parentWidget();
+    }
+#endif
+    return 0;
+}
+
 QInputContext *QWidgetPrivate::inputContext() const
 {
 #ifndef QT_NO_IM
-    if (ic)
-        return ic;
+    if (QInputContext *qic = assignedInputContext())
+        return qic;
     return qApp->inputContext();
 #else
     return 0;
@@ -552,7 +600,6 @@ void QWidget::setAutoFillBackground(bool enabled)
 
     \ingroup basicwidgets
 
-
     The widget is the atom of the user interface: it receives mouse, keyboard
     and other events from the window system, and paints a representation of
     itself on the screen. Every widget is rectangular, and they are sorted in a
@@ -728,9 +775,9 @@ void QWidget::setAutoFillBackground(bool enabled)
     \list
         \i  mouseMoveEvent() is called whenever the mouse moves while a mouse
             button is held down. This can be useful during drag and drop
-            operations. If you call setMouseTracking(true), you get mouse move
-            events even when no buttons are held down. (See also the \l{Drag
-            and Drop} guide.)
+            operations. If you call \l{setMouseTracking()}{setMouseTracking}(true),
+            you get mouse move events even when no buttons are held down.
+            (See also the \l{Drag and Drop} guide.)
         \i  keyReleaseEvent() is called whenever a key is released and while it
             is held down (if the key is auto-repeating). In that case, the
             widget will receive a pair of key release and key press event for
@@ -1240,6 +1287,10 @@ void QWidgetPrivate::init(QWidget *parentWidget, Qt::WindowFlags f)
         // programmer specified desktop widget
         xinfo = desktopWidget->d_func()->xinfo;
     }
+#elif defined(Q_OS_SYMBIAN)
+    if (desktopWidget) {
+        symbianScreenNumber = qt_widget_private(desktopWidget)->symbianScreenNumber;
+    }
 #else
     Q_UNUSED(desktopWidget);
 #endif
@@ -1276,8 +1327,8 @@ void QWidgetPrivate::init(QWidget *parentWidget, Qt::WindowFlags f)
     //give potential windows a bigger "pre-initial" size; create_sys() will give them a new size later
 #ifdef Q_OS_SYMBIAN
     if (isGLWidget) {
-        // Don't waste GPU mem for unnecessary large egl surface
-        data.crect = QRect(0,0,2,2);
+        // Don't waste GPU mem for unnecessary large egl surface until resized by application
+        data.crect = QRect(0,0,1,1);
     } else {
         data.crect = parentWidget ? QRect(0,0,100,30) : QRect(0,0,360,640);
     }
@@ -1646,13 +1697,8 @@ void QWidgetPrivate::setWinId(WId id)                // set widget identifier
     }
 
     if(oldWinId != id) {
-        // Do not emit an event when the old winId is destroyed.  This only
-        // happens (a) during widget destruction, and (b) immediately prior
-        // to creation of a new winId, for example as a result of re-parenting.
-        if(id != 0) {
-            QEvent e(QEvent::WinIdChange);
-            QCoreApplication::sendEvent(q, &e);
-        }
+        QEvent e(QEvent::WinIdChange);
+        QCoreApplication::sendEvent(q, &e);
     }
 }
 
@@ -2518,6 +2564,22 @@ WId QWidget::effectiveWinId() const
     if (id || !testAttribute(Qt::WA_WState_Created))
         return id;
     QWidget *realParent = nativeParentWidget();
+    if (!realParent && d_func()->inSetParent) {
+        // In transitional state. This is really just a workaround. The real problem
+        // is that QWidgetPrivate::setParent_sys (platform specific code) first sets
+        // the window id to 0 (setWinId(0)) before it sets the Qt::WA_WState_Created
+        // attribute to false. The correct way is to do it the other way around, and
+        // in that case the Qt::WA_WState_Created logic above will kick in and
+        // return 0 whenever the widget is in a transitional state. However, changing
+        // the original logic for all platforms is far more intrusive and might
+        // break existing applications.
+        // Note: The widget can only be in a transitional state when changing its
+        // parent -- everything else is an internal error -- hence explicitly checking
+        // against 'inSetParent' rather than doing an unconditional return whenever
+        // 'realParent' is 0 (which may cause strange artifacts and headache later).
+        return 0;
+    }
+    // This widget *must* have a native parent widget.
     Q_ASSERT(realParent);
     Q_ASSERT(realParent->internalWinId());
     return realParent->internalWinId();
@@ -2999,6 +3061,15 @@ bool QWidget::isFullScreen() const
 */
 void QWidget::showFullScreen()
 {
+#ifdef Q_WS_MAC
+    // If the unified toolbar is enabled, we have to disable it before going fullscreen.
+    QMainWindow *mainWindow = qobject_cast<QMainWindow*>(this);
+    if (mainWindow && mainWindow->unifiedTitleAndToolBarOnMac()) {
+        mainWindow->setUnifiedTitleAndToolBarOnMac(false);
+        QMainWindowLayout *mainLayout = qobject_cast<QMainWindowLayout*>(mainWindow->layout());
+        mainLayout->activateUnifiedToolbarAfterFullScreen = true;
+    }
+#endif // Q_WS_MAC
     ensurePolished();
 #ifdef QT3_SUPPORT
     if (parent())
@@ -3031,6 +3102,18 @@ void QWidget::showMaximized()
 
     setWindowState((windowState() & ~(Qt::WindowMinimized | Qt::WindowFullScreen))
                    | Qt::WindowMaximized);
+#ifdef Q_WS_MAC
+    // If the unified toolbar was enabled before going fullscreen, we have to enable it back.
+    QMainWindow *mainWindow = qobject_cast<QMainWindow*>(this);
+    if (mainWindow)
+    {
+        QMainWindowLayout *mainLayout = qobject_cast<QMainWindowLayout*>(mainWindow->layout());
+        if (mainLayout->activateUnifiedToolbarAfterFullScreen) {
+            mainWindow->setUnifiedTitleAndToolBarOnMac(true);
+            mainLayout->activateUnifiedToolbarAfterFullScreen = false;
+        }
+    }
+#endif // Q_WS_MAC
     show();
 }
 
@@ -3052,6 +3135,18 @@ void QWidget::showNormal()
     setWindowState(windowState() & ~(Qt::WindowMinimized
                                      | Qt::WindowMaximized
                                      | Qt::WindowFullScreen));
+#ifdef Q_WS_MAC
+    // If the unified toolbar was enabled before going fullscreen, we have to enable it back.
+    QMainWindow *mainWindow = qobject_cast<QMainWindow*>(this);
+    if (mainWindow)
+    {
+        QMainWindowLayout *mainLayout = qobject_cast<QMainWindowLayout*>(mainWindow->layout());
+        if (mainLayout->activateUnifiedToolbarAfterFullScreen) {
+            mainWindow->setUnifiedTitleAndToolBarOnMac(true);
+            mainLayout->activateUnifiedToolbarAfterFullScreen = false;
+        }
+    }
+#endif // Q_WS_MAC
     show();
 }
 
@@ -8664,8 +8759,8 @@ bool QWidget::event(QEvent *event)
 /*!
   This event handler can be reimplemented to handle state changes.
 
-  The state being changed in this event can be retrieved through event \a
-  event.
+  The state being changed in this event can be retrieved through the \a event
+  supplied.
 
   Change events include: QEvent::ToolBarChange,
   QEvent::ActivationChange, QEvent::EnabledChange, QEvent::FontChange,
@@ -8776,7 +8871,7 @@ void QWidget::mousePressEvent(QMouseEvent *event)
         QWidget* w;
         while ((w = QApplication::activePopupWidget()) && w != this){
             w->close();
-            if (QApplication::activePopupWidget() == w) // widget does not want to dissappear
+            if (QApplication::activePopupWidget() == w) // widget does not want to disappear
                 w->hide(); // hide at least
         }
         if (!rect().contains(event->pos())){
@@ -9228,9 +9323,13 @@ QVariant QWidget::inputMethodQuery(Qt::InputMethodQuery query) const
 */
 Qt::InputMethodHints QWidget::inputMethodHints() const
 {
-    Q_D(const QWidget);
 #ifndef QT_NO_IM
-    return d->imHints;
+    const QWidgetPrivate *priv = d_func();
+    while (priv->inheritsInputMethodHints) {
+        priv = priv->q_func()->parentWidget()->d_func();
+        Q_ASSERT(priv);
+    }
+    return priv->imHints;
 #else //QT_NO_IM
     return 0;
 #endif //QT_NO_IM
@@ -9241,7 +9340,7 @@ void QWidget::setInputMethodHints(Qt::InputMethodHints hints)
 #ifndef QT_NO_IM
     Q_D(QWidget);
     d->imHints = hints;
-    // Optimisation to update input context only it has already been created.
+    // Optimization to update input context only it has already been created.
     if (d->ic || qApp->d_func()->inputContext) {
         QInputContext *ic = inputContext();
         if (ic)
@@ -9959,6 +10058,7 @@ void QWidget::setParent(QWidget *parent)
 void QWidget::setParent(QWidget *parent, Qt::WindowFlags f)
 {
     Q_D(QWidget);
+    d->inSetParent = true;
     bool resized = testAttribute(Qt::WA_Resized);
     bool wasCreated = testAttribute(Qt::WA_WState_Created);
     QWidget *oldtlw = window();
@@ -9990,7 +10090,16 @@ void QWidget::setParent(QWidget *parent, Qt::WindowFlags f)
     if (newParent && isAncestorOf(focusWidget()))
         focusWidget()->clearFocus();
 
+    QTLWExtra *oldTopExtra = window()->d_func()->maybeTopData();
+    QWidgetBackingStoreTracker *oldBsTracker = oldTopExtra ? &oldTopExtra->backingStore : 0;
+
     d->setParent_sys(parent, f);
+
+    QTLWExtra *topExtra = window()->d_func()->maybeTopData();
+    QWidgetBackingStoreTracker *bsTracker = topExtra ? &topExtra->backingStore : 0;
+    if (oldBsTracker && oldBsTracker != bsTracker)
+        oldBsTracker->unregisterWidgetSubtree(this);
+
     if (desktopWidget)
         parent = 0;
 
@@ -10104,6 +10213,8 @@ void QWidget::setParent(QWidget *parent, Qt::WindowFlags f)
             ancestorProxy->d_func()->embedSubWindow(this);
     }
 #endif
+
+    d->inSetParent = false;
 }
 
 /*!
@@ -10649,7 +10760,7 @@ void QWidget::setAttribute(Qt::WidgetAttribute attribute, bool on)
     case Qt::WA_InputMethodEnabled: {
 #ifndef QT_NO_IM
         QWidget *focusWidget = d->effectiveFocusWidget();
-        QInputContext *ic = focusWidget->d_func()->ic;
+        QInputContext *ic = focusWidget->d_func()->assignedInputContext();
         if (!ic && (!on || hasFocus()))
             ic = focusWidget->d_func()->inputContext();
         if (ic) {
@@ -10742,6 +10853,45 @@ void QWidget::setAttribute(Qt::WidgetAttribute attribute, bool on)
             d->registerTouchWindow();
 #endif
         break;
+    case Qt::WA_LockPortraitOrientation:
+    case Qt::WA_LockLandscapeOrientation:
+    case Qt::WA_AutoOrientation: {
+        const Qt::WidgetAttribute orientations[3] = {
+            Qt::WA_LockPortraitOrientation,
+            Qt::WA_LockLandscapeOrientation,
+            Qt::WA_AutoOrientation
+        };
+
+        if (on) {
+            // We can only have one of these set at a time
+            for (int i = 0; i < 3; ++i) {
+                if (orientations[i] != attribute)
+                    setAttribute_internal(orientations[i], false, data, d);
+            }
+        }
+
+#ifdef Q_WS_S60
+        CAknAppUiBase* appUi = static_cast<CAknAppUiBase*>(CEikonEnv::Static()->EikAppUi());
+        const CAknAppUiBase::TAppUiOrientation s60orientations[] = {
+            CAknAppUiBase::EAppUiOrientationPortrait,
+            CAknAppUiBase::EAppUiOrientationLandscape,
+            CAknAppUiBase::EAppUiOrientationAutomatic
+        };
+        CAknAppUiBase::TAppUiOrientation s60orientation = CAknAppUiBase::EAppUiOrientationUnspecified;
+        for (int i = 0; i < 3; ++i) {
+            if (testAttribute(orientations[i])) {
+                s60orientation = s60orientations[i];
+                break;
+            }
+        }
+        QT_TRAP_THROWING(appUi->SetOrientationL(s60orientation));
+        S60->orientationSet = true;
+        QSymbianControl *window = static_cast<QSymbianControl *>(internalWinId());
+        if (window)
+            window->ensureFixNativeOrientation();
+#endif
+        break;
+    }
     default:
         break;
     }
@@ -11100,7 +11250,7 @@ void QWidget::updateMicroFocus()
 #if !defined(QT_NO_IM) && (defined(Q_WS_X11) || defined(Q_WS_QWS) || defined(Q_OS_SYMBIAN))
     Q_D(QWidget);
     // and optimization to update input context only it has already been created.
-    if (d->ic || qApp->d_func()->inputContext) {
+    if (d->assignedInputContext() || qApp->d_func()->inputContext) {
         QInputContext *ic = inputContext();
         if (ic)
             ic->update();

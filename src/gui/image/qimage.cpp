@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -61,7 +61,11 @@
 
 #include <qhash.h>
 
+#if defined(Q_OS_SYMBIAN)
+#include <private/qpaintengine_raster_symbian_p.h>
+#else
 #include <private/qpaintengine_raster_p.h>
+#endif
 
 #include <private/qimage_p.h>
 
@@ -514,12 +518,12 @@ bool QImageData::checkForAlphaPixels() const
     function. For example:
 
     \table
+    \header
+    \o {2,1}32-bit
     \row
     \o \inlineimage qimage-32bit_scaled.png
     \o
     \snippet doc/src/snippets/code/src_gui_image_qimage.cpp 0
-    \header
-    \o {2,1}32-bit
     \endtable
 
     In case of a 8-bit and monchrome images, the pixel value is only
@@ -535,12 +539,12 @@ bool QImageData::checkForAlphaPixels() const
     example:
 
     \table
+    \header
+    \o {2,1} 8-bit
     \row
     \o \inlineimage qimage-8bit_scaled.png
     \o
     \snippet doc/src/snippets/code/src_gui_image_qimage.cpp 1
-    \header
-    \o {2,1} 8-bit
     \endtable
 
     QImage also provide the scanLine() function which returns a
@@ -834,6 +838,8 @@ QImage::QImage()
     Constructs an image with the given \a width, \a height and \a
     format.
 
+    A \l{isNull()}{null} image will be returned if memory cannot be allocated.
+
     \warning This will create a QImage with uninitialized data. Call
     fill() to fill the image with an appropriate pixel value before
     drawing onto it with QPainter.
@@ -846,6 +852,8 @@ QImage::QImage(int width, int height, Format format)
 
 /*!
     Constructs an image with the given \a size and \a format.
+
+    A \l{isNull()}{null} image is returned if memory cannot be allocated.
 
     \warning This will create a QImage with uninitialized data. Call
     fill() to fill the image with an appropriate pixel value before
@@ -1122,9 +1130,14 @@ QImage::QImage(const char * const xpm[])
 QImage::QImage(const QImage &image)
     : QPaintDevice()
 {
-    d = image.d;
-    if (d)
-        d->ref.ref();
+    if (image.paintingActive()) {
+        d = 0;
+        operator=(image.copy());
+    } else {
+        d = image.d;
+        if (d)
+            d->ref.ref();
+    }
 }
 
 #ifdef QT3_SUPPORT
@@ -1321,11 +1334,15 @@ QImage::~QImage()
 
 QImage &QImage::operator=(const QImage &image)
 {
-    if (image.d)
-        image.d->ref.ref();
-    if (d && !d->ref.deref())
-        delete d;
-    d = image.d;
+    if (image.paintingActive()) {
+        operator=(image.copy());
+    } else {
+        if (image.d)
+            image.d->ref.ref();
+        if (d && !d->ref.deref())
+            delete d;
+        d = image.d;
+    }
     return *this;
 }
 
@@ -4365,6 +4382,8 @@ QImage QImage::scaled(const QSize& s, Qt::AspectRatioMode aspectMode, Qt::Transf
 
     QSize newSize = size();
     newSize.scale(s, aspectMode);
+    newSize.rwidth() = qMax(newSize.width(), 1);
+    newSize.rheight() = qMax(newSize.height(), 1);
     if (newSize == size())
         return *this;
 
@@ -5692,7 +5711,11 @@ QPaintEngine *QImage::paintEngine() const
         return 0;
 
     if (!d->paintEngine) {
+#ifdef Q_OS_SYMBIAN
+        d->paintEngine = new QSymbianRasterPaintEngine(const_cast<QImage *>(this));
+#else
         d->paintEngine = new QRasterPaintEngine(const_cast<QImage *>(this));
+#endif
     }
 
     return d->paintEngine;

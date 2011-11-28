@@ -89,7 +89,7 @@
     </message>
     <message>
         <source>Revert back to device &apos;%1&apos;</source>
-        <translation>Возвращение к устройству &quot;%1&quot;</translation>
+        <translation>Возвращение к устройству «%1»</translation>
     </message>
     <message>
         <source>&lt;html&gt;Switching to the audio playback device &lt;b&gt;%1&lt;/b&gt;&lt;br/&gt;which has higher preference or is specifically configured for this stream.&lt;/html&gt;</source>
@@ -188,7 +188,7 @@ have libgstreamer-plugins-base installed.</source>
     </message>
     <message>
         <source>Underflow</source>
-        <translation type="unfinished">Переполнение</translation>
+        <translation>Ниже границы</translation>
     </message>
     <message>
         <source>Already exists</source>
@@ -240,7 +240,7 @@ have libgstreamer-plugins-base installed.</source>
     </message>
     <message>
         <source>Server alert</source>
-        <translation type="unfinished">Сигнал сервера</translation>
+        <translation>Сигнал сервера</translation>
     </message>
     <message>
         <source>Invalid protocol</source>
@@ -302,6 +302,14 @@ have libgstreamer-plugins-base installed.</source>
         <translation>Ошибка открытия адреса URL</translation>
     </message>
     <message>
+        <source>Error opening resource</source>
+        <translation>Ошибка открытия ресурса</translation>
+    </message>
+    <message>
+        <source>Error opening source: resource not opened</source>
+        <translation>Ошибка открытия источника: ресурс не был открыт</translation>
+    </message>
+    <message>
         <source>Setting volume failed</source>
         <translation>Не удалось установить уровень громкости</translation>
     </message>
@@ -312,6 +320,10 @@ have libgstreamer-plugins-base installed.</source>
     <message>
         <source>Playback complete</source>
         <translation>Воспроизведение завершено</translation>
+    </message>
+    <message>
+        <source>Download error</source>
+        <translation>Ошибка загрузки</translation>
     </message>
 </context>
 <context>
@@ -421,8 +433,20 @@ have libgstreamer-plugins-base installed.</source>
         <translation>Ошибка открытия источника: тип не поддерживается</translation>
     </message>
     <message>
+        <source>Error opening source: resource is compressed</source>
+        <translation>Ошибка открытия источника: сжатый ресурс</translation>
+    </message>
+    <message>
+        <source>Error opening source: resource not valid</source>
+        <translation>Ошибка открытия источника: некорректный ресурс</translation>
+    </message>
+    <message>
         <source>Error opening source: media type could not be determined</source>
         <translation>Ошибка открытия источника: не удалось определить тип медиа-данных</translation>
+    </message>
+    <message>
+        <source>Failed to set requested IAP</source>
+        <translation>Не удалось задать указанную точку доступа</translation>
     </message>
 </context>
 <context>
@@ -462,7 +486,7 @@ have libgstreamer-plugins-base installed.</source>
     </message>
     <message>
         <source>Ambiguous %1 not handled</source>
-        <translation type="unfinished"></translation>
+        <translation>Неоднозначная комбинация %1 не обработана</translation>
     </message>
 </context>
 <context>
@@ -684,7 +708,7 @@ have libgstreamer-plugins-base installed.</source>
     </message>
     <message>
         <source>&lt;qt&gt;Are you sure you wish to delete %1 &quot;%2&quot;?&lt;/qt&gt;</source>
-        <translation>&lt;qt&gt;Вы действительно хотите удалить %1 &quot;%2&quot;?&lt;/qt&gt;</translation>
+        <translation>&lt;qt&gt;Вы действительно хотите удалить %1 «%2»?&lt;/qt&gt;</translation>
     </message>
     <message>
         <source>&amp;Yes</source>
@@ -931,35 +955,35 @@ to
     <name>Q3UrlOperator</name>
     <message>
         <source>The protocol `%1&apos; is not supported</source>
-        <translation>Протокол &quot;%1&quot; не поддерживается</translation>
+        <translation>Протокол «%1» не поддерживается</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support listing directories</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает просмотр каталогов</translation>
+        <translation>Протокол «%1» не поддерживает просмотр каталогов</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support creating new directories</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает создание каталогов</translation>
+        <translation>Протокол «%1» не поддерживает создание каталогов</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support removing files or directories</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает удаление файлов или каталогов</translation>
+        <translation>Протокол «%1» не поддерживает удаление файлов или каталогов</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support renaming files or directories</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает переименование файлов или каталогов</translation>
+        <translation>Протокол «%1» не поддерживает переименование файлов или каталогов</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support getting files</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает доставку файлов</translation>
+        <translation>Протокол «%1» не поддерживает передачу файлов</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support putting files</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает отправку файлов</translation>
+        <translation>Протокол «%1» не поддерживает отправку файлов</translation>
     </message>
     <message>
         <source>The protocol `%1&apos; does not support copying or moving files or directories</source>
-        <translation>Протокол &quot;%1&quot; не поддерживает копирование или перемещение файлов или каталогов</translation>
+        <translation>Протокол «%1» не поддерживает копирование или перемещение файлов или каталогов</translation>
     </message>
     <message>
         <source>(unknown)</source>
@@ -1046,7 +1070,7 @@ to
     <name>QApplication</name>
     <message>
         <source>Executable &apos;%1&apos; requires Qt %2, found Qt %3.</source>
-        <translation>Программный модуль &quot;%1&quot; требует Qt %2, найдена версия %3.</translation>
+        <translation>Программный модуль «%1» требует Qt %2, найдена версия %3.</translation>
     </message>
     <message>
         <source>Incompatible Qt Library Error</source>
@@ -1199,6 +1223,11 @@ to
         <translation>%1: недостаточно ресурсов</translation>
     </message>
     <message>
+        <source>%1: permission denied</source>
+        <comment>QSystemSemaphore</comment>
+        <translation>%1: доступ запрещён</translation>
+    </message>
+    <message>
         <source>%1: unknown error %2</source>
         <comment>QSystemSemaphore</comment>
         <translation>%1: неизвестная ошибка %2</translation>
@@ -1273,11 +1302,11 @@ to
     <name>QDeclarativeAbstractAnimation</name>
     <message>
         <source>Cannot animate non-existent property &quot;%1&quot;</source>
-        <translation>Невозможно анимировать несуществуещее свойство &quot;%1&quot;</translation>
+        <translation>Невозможно анимировать несуществуещее свойство «%1»</translation>
     </message>
     <message>
         <source>Cannot animate read-only property &quot;%1&quot;</source>
-        <translation>Невозможно анимировать свойство только для чтения &quot;%1&quot;</translation>
+        <translation>Невозможно анимировать свойство только для чтения «%1»</translation>
     </message>
     <message>
         <source>Animation is an abstract class</source>
@@ -1295,51 +1324,51 @@ to
     <name>QDeclarativeAnchors</name>
     <message>
         <source>Possible anchor loop detected on fill.</source>
-        <translation type="unfinished">Обнаружена возможная цикличная привязка на fill.</translation>
+        <translation>Обнаружена возможная цикличная привязка на fill.</translation>
     </message>
     <message>
         <source>Possible anchor loop detected on centerIn.</source>
-        <translation type="unfinished">Обнаружена возможная цикличная привязка на centerIn.</translation>
+        <translation>Обнаружена возможная цикличная привязка на centerIn.</translation>
     </message>
     <message>
         <source>Cannot anchor to an item that isn&apos;t a parent or sibling.</source>
-        <translation type="unfinished">Невозможно установить привязку к элементу, не являющемуся родителем или соседом.</translation>
+        <translation>Невозможно установить привязку к элементу, не являющемуся родителем или соседом.</translation>
     </message>
     <message>
         <source>Possible anchor loop detected on vertical anchor.</source>
-        <translation type="unfinished">Обнаружена возможная цикличная привязка к вертикальной привязке.</translation>
+        <translation>Обнаружена возможная цикличная привязка к вертикальной привязке.</translation>
     </message>
     <message>
         <source>Possible anchor loop detected on horizontal anchor.</source>
-        <translation type="unfinished">Обнаружена возможная цикличная привязка к горизонтальной привязке.</translation>
+        <translation>Обнаружена возможная цикличная привязка к горизонтальной привязке.</translation>
     </message>
     <message>
         <source>Cannot specify left, right, and hcenter anchors.</source>
-        <translation type="unfinished">Невозможно задать левую, правую и среднюю привязки.</translation>
+        <translation>Невозможно задать левую, правую и среднюю привязки.</translation>
     </message>
     <message>
         <source>Cannot anchor to a null item.</source>
-        <translation type="unfinished">Невозможно привязаться к нулевому элементу.</translation>
+        <translation>Невозможно привязаться к нулевому элементу.</translation>
     </message>
     <message>
         <source>Cannot anchor a horizontal edge to a vertical edge.</source>
-        <translation type="unfinished">Невозможно привязать горизонтальный край к вертикальному.</translation>
+        <translation>Невозможно привязать горизонтальный край к вертикальному.</translation>
     </message>
     <message>
         <source>Cannot anchor item to self.</source>
-        <translation type="unfinished">Невозможно привязать элемент к самому себе.</translation>
+        <translation>Невозможно привязать элемент к самому себе.</translation>
     </message>
     <message>
         <source>Cannot specify top, bottom, and vcenter anchors.</source>
-        <translation type="unfinished">Невозможно задать верхнюю, нижнюю и среднюю привязки.</translation>
+        <translation>Невозможно задать верхнюю, нижнюю и среднюю привязки.</translation>
     </message>
     <message>
         <source>Baseline anchor cannot be used in conjunction with top, bottom, or vcenter anchors.</source>
-        <translation type="unfinished">Невозможно использовать базовую привязку вместе с верхней, нижней и центральной по вертикали.</translation>
+        <translation>Невозможно использовать базовую привязку вместе с верхней, нижней и центральной по вертикали.</translation>
     </message>
     <message>
         <source>Cannot anchor a vertical edge to a horizontal edge.</source>
-        <translation type="unfinished">Невозможно привязать вертикальный край к горизонтальному.</translation>
+        <translation>Невозможно привязать вертикальный край к горизонтальному.</translation>
     </message>
 </context>
 <context>
@@ -1350,31 +1379,38 @@ to
     </message>
 </context>
 <context>
+    <name>QDeclarativeApplication</name>
+    <message>
+        <source>Application is an abstract class</source>
+        <translation>Класс Application - абстрактный</translation>
+    </message>
+</context>
+<context>
     <name>QDeclarativeBehavior</name>
     <message>
         <source>Cannot change the animation assigned to a Behavior.</source>
-        <translation type="unfinished">Невозможно изменить анимацию, назначенную поведению.</translation>
+        <translation>Невозможно изменить анимацию, назначенную поведению.</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeBinding</name>
     <message>
         <source>Binding loop detected for property &quot;%1&quot;</source>
-        <translation type="unfinished">Обнаружена цикличная привязка для свойства &quot;%1&quot;</translation>
+        <translation>Обнаружено зацикливание привязки для свойства «%1»</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeCompiledBindings</name>
     <message>
         <source>Binding loop detected for property &quot;%1&quot;</source>
-        <translation type="unfinished">Обнаружена цикличная привязка для свойства &quot;%1&quot;</translation>
+        <translation>Обнаружена цикличная привязка для свойства «%1»</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeCompiler</name>
     <message>
         <source>Invalid property assignment: &quot;%1&quot; is a read-only property</source>
-        <translation>Некорректное присваивание свойства: &quot;%1&quot; свойство только для чтения</translation>
+        <translation>Некорректное присваивание свойства: «%1» свойство только для чтения</translation>
     </message>
     <message>
         <source>Invalid property assignment: unknown enumeration</source>
@@ -1382,19 +1418,19 @@ to
     </message>
     <message>
         <source>Invalid property assignment: string expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;string&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «string»</translation>
     </message>
     <message>
         <source>Invalid property assignment: url expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;url&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «url»</translation>
     </message>
     <message>
         <source>Invalid property assignment: unsigned int expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;unsigned int&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «unsigned int»</translation>
     </message>
     <message>
         <source>Invalid property assignment: int expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;int&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «int»</translation>
     </message>
     <message>
         <source>Invalid property assignment: number expected</source>
@@ -1402,31 +1438,31 @@ to
     </message>
     <message>
         <source>Invalid property assignment: color expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;color&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «color»</translation>
     </message>
     <message>
         <source>Invalid property assignment: date expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;date&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «date»</translation>
     </message>
     <message>
         <source>Invalid property assignment: time expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;time&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «time»</translation>
     </message>
     <message>
         <source>Invalid property assignment: datetime expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;datetime&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «datetime»</translation>
     </message>
     <message>
         <source>Invalid property assignment: point expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;point&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «point»</translation>
     </message>
     <message>
         <source>Invalid property assignment: size expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;size&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «size»</translation>
     </message>
     <message>
         <source>Invalid property assignment: rect expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;rect&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «rect»</translation>
     </message>
     <message>
         <source>Invalid property assignment: boolean expected</source>
@@ -1434,11 +1470,11 @@ to
     </message>
     <message>
         <source>Invalid property assignment: 3D vector expected</source>
-        <translation>Некорректное присваивание свойства: ожидается значение типа &quot;трёхмерный вектор&quot;</translation>
+        <translation>Некорректное присваивание свойства: ожидается значение типа «трёхмерный вектор»</translation>
     </message>
     <message>
         <source>Invalid property assignment: unsupported type &quot;%1&quot;</source>
-        <translation>Некорректное присваивание свойства: неподдерживаемый тип &quot;%1&quot;</translation>
+        <translation>Некорректное присваивание свойства: неподдерживаемый тип «%1»</translation>
     </message>
     <message>
         <source>Element is not creatable.</source>
@@ -1446,11 +1482,11 @@ to
     </message>
     <message>
         <source>Component elements may not contain properties other than id</source>
-        <translation type="unfinished">Элементы Component не могут содержать свойств кроме id</translation>
+        <translation>Элементы Component не могут содержать свойств кроме id</translation>
     </message>
     <message>
         <source>Invalid component id specification</source>
-        <translation type="unfinished">Некорректная спецификация id компонента</translation>
+        <translation>Некорректная спецификация id компонента</translation>
     </message>
     <message>
         <source>id is not unique</source>
@@ -1458,60 +1494,68 @@ to
     </message>
     <message>
         <source>Invalid component body specification</source>
-        <translation type="unfinished">Некорректная спецификация тела компонента</translation>
+        <translation>Некорректная спецификация тела компонента</translation>
     </message>
     <message>
         <source>Component objects cannot declare new properties.</source>
-        <translation type="unfinished">Объекты Component не могут объявлять новые свойства.</translation>
+        <translation>Объекты Component не могут объявлять новые свойства.</translation>
     </message>
     <message>
         <source>Component objects cannot declare new signals.</source>
-        <translation type="unfinished">Объекты Component не могут объявлять новые сигналы.</translation>
+        <translation>Объекты Component не могут объявлять новые сигналы.</translation>
     </message>
     <message>
         <source>Component objects cannot declare new functions.</source>
-        <translation type="unfinished">Объекты Component не могут объявлять новые функции.</translation>
+        <translation>Объекты Component не могут объявлять новые функции.</translation>
     </message>
     <message>
         <source>Cannot create empty component specification</source>
-        <translation type="unfinished">Невозможно создать пустую спецификацю компонента</translation>
+        <translation>Невозможно создать пустую спецификацю компонента</translation>
+    </message>
+    <message>
+        <source>&quot;%1.%2&quot; is not available in %3 %4.%5.</source>
+        <translation>«%1.%2» не доступно в %3 %4.%5.</translation>
+    </message>
+    <message>
+        <source>&quot;%1.%2&quot; is not available due to component versioning.</source>
+        <translation>«%1.%2» не доступно из-за версии компоненты.</translation>
     </message>
     <message>
         <source>Incorrectly specified signal assignment</source>
-        <translation type="unfinished">Неверно указано назначение сигнала</translation>
+        <translation>Неверно указано назначение сигнала</translation>
     </message>
     <message>
         <source>Cannot assign a value to a signal (expecting a script to be run)</source>
-        <translation type="unfinished">Невозможно назначить значение сигналу (сценарий должен быть запущен)</translation>
+        <translation>Невозможно назначить значение сигналу (сценарий должен быть запущен)</translation>
     </message>
     <message>
         <source>Empty signal assignment</source>
-        <translation type="unfinished">Пустое назначение сигнала</translation>
+        <translation>Пустое назначение сигнала</translation>
     </message>
     <message>
         <source>Empty property assignment</source>
-        <translation type="unfinished">Пустое назначение свойства</translation>
+        <translation>Пустое назначение свойства</translation>
     </message>
     <message>
         <source>Attached properties cannot be used here</source>
         <translatorcomment>здесь - в данном контексте?</translatorcomment>
-        <translation type="unfinished">Прикреплённые свойства не могут быть использованы здесь</translation>
+        <translation>Прикреплённые свойства не могут быть использованы здесь</translation>
     </message>
     <message>
         <source>Non-existent attached object</source>
-        <translation type="unfinished">Несуществующий прикреплённый объект</translation>
+        <translation>Несуществующий прикреплённый объект</translation>
     </message>
     <message>
         <source>Invalid attached object assignment</source>
-        <translation type="unfinished">Некорректное назначение прикреплённого объекта</translation>
+        <translation>Некорректное назначение прикреплённого объекта</translation>
     </message>
     <message>
         <source>Cannot assign to non-existent default property</source>
-        <translation type="unfinished">Невозможно назначить несуществующему свойству по умолчанию</translation>
+        <translation>Невозможно назначить несуществующему свойству по умолчанию</translation>
     </message>
     <message>
         <source>Cannot assign to non-existent property &quot;%1&quot;</source>
-        <translation type="unfinished">Невозможно назначить несуществующему свойству &quot;%1&quot;</translation>
+        <translation>Невозможно назначить несуществующему свойству «%1»</translation>
     </message>
     <message>
         <source>Invalid use of namespace</source>
@@ -1519,23 +1563,23 @@ to
     </message>
     <message>
         <source>Not an attached property name</source>
-        <translation type="unfinished">Не является именем привязанного свойства</translation>
+        <translation>Не является именем привязанного свойства</translation>
     </message>
     <message>
         <source>Invalid use of id property</source>
-        <translation type="unfinished">Некорректное использование свойства id</translation>
+        <translation>Некорректное использование свойства id</translation>
     </message>
     <message>
         <source>Property has already been assigned a value</source>
-        <translation type="unfinished">Свойству уже назначено значение</translation>
+        <translation>Свойству уже назначено значение</translation>
     </message>
     <message>
         <source>Invalid grouped property access</source>
-        <translation type="unfinished">Некорректный доступ к сгруппированному свойству</translation>
+        <translation>Некорректный доступ к сгруппированному свойству</translation>
     </message>
     <message>
         <source>Cannot assign a value directly to a grouped property</source>
-        <translation type="unfinished">Невозможно присвоить значение непосредственно сгруппированному свойству</translation>
+        <translation>Невозможно присвоить значение непосредственно сгруппированному свойству</translation>
     </message>
     <message>
         <source>Invalid property use</source>
@@ -1543,51 +1587,55 @@ to
     </message>
     <message>
         <source>Property assignment expected</source>
-        <translation type="unfinished">Ожидается назначение свойства</translation>
+        <translation>Ожидается назначение свойства</translation>
     </message>
     <message>
         <source>Single property assignment expected</source>
-        <translation type="unfinished">Ожидается одиночное назначение свойства</translation>
+        <translation>Ожидается одиночное назначение свойства</translation>
     </message>
     <message>
         <source>Unexpected object assignment</source>
-        <translation type="unfinished">Неожиданное назначение объекта</translation>
+        <translation>Неожиданное назначение объекта</translation>
     </message>
     <message>
         <source>Cannot assign object to list</source>
-        <translation type="unfinished">Невозможно назначить объект списку</translation>
+        <translation>Невозможно назначить объект списку</translation>
     </message>
     <message>
         <source>Can only assign one binding to lists</source>
-        <translation type="unfinished">Можно назначить только одну связь для списка</translation>
+        <translation>Можно назначить только одну связь для списка</translation>
     </message>
     <message>
         <source>Cannot assign primitives to lists</source>
-        <translation type="unfinished">Невозможно назначить примитивы списку</translation>
+        <translation>Невозможно назначить примитивы списку</translation>
     </message>
     <message>
         <source>Cannot assign multiple values to a script property</source>
-        <translation type="unfinished">Невозможно назначить множественное значение свойству сценария</translation>
+        <translation>Невозможно назначить множественное значение свойству сценария</translation>
     </message>
     <message>
         <source>Invalid property assignment: script expected</source>
-        <translation type="unfinished">Некорректное присваивание свойства: ожидается сценарий</translation>
+        <translation>Некорректное присваивание свойства: ожидается сценарий</translation>
+    </message>
+    <message>
+        <source>Cannot assign multiple values to a singular property</source>
+        <translation>Невозможно присвоить множество значений свойству, принимающему только одно</translation>
     </message>
     <message>
         <source>Cannot assign object to property</source>
-        <translation type="unfinished">Невозможно назначить объектсвойству</translation>
+        <translation>Невозможно назначить объектсвойству</translation>
     </message>
     <message>
         <source>&quot;%1&quot; cannot operate on &quot;%2&quot;</source>
-        <translation>&quot;%1&quot; не может воздействовать на &quot;%2&quot;</translation>
+        <translation>«%1» не может воздействовать на «%2»</translation>
     </message>
     <message>
         <source>Duplicate default property</source>
-        <translation type="unfinished">Дублирование свойства по умолчанию</translation>
+        <translation>Дублирование свойства по умолчанию</translation>
     </message>
     <message>
         <source>Duplicate property name</source>
-        <translation type="unfinished">Дублирование названия свойства</translation>
+        <translation>Дублирование названия свойства</translation>
     </message>
     <message>
         <source>Property names cannot begin with an upper case letter</source>
@@ -1599,7 +1647,7 @@ to
     </message>
     <message>
         <source>Duplicate signal name</source>
-        <translation type="unfinished">Дублирование названия сигнала</translation>
+        <translation>Дублирование названия сигнала</translation>
     </message>
     <message>
         <source>Signal names cannot begin with an upper case letter</source>
@@ -1611,7 +1659,7 @@ to
     </message>
     <message>
         <source>Duplicate method name</source>
-        <translation type="unfinished">Дублирование название метода</translation>
+        <translation>Дублирование название метода</translation>
     </message>
     <message>
         <source>Method names cannot begin with an upper case letter</source>
@@ -1623,11 +1671,11 @@ to
     </message>
     <message>
         <source>Property value set multiple times</source>
-        <translation type="unfinished">Значение свойства задано несколько раз</translation>
+        <translation>Значение свойства задано несколько раз</translation>
     </message>
     <message>
         <source>Invalid property nesting</source>
-        <translation type="unfinished">Некорректное вложенность свойств</translation>
+        <translation>Некорректное вложенность свойств</translation>
     </message>
     <message>
         <source>Cannot override FINAL property</source>
@@ -1655,23 +1703,31 @@ to
     </message>
     <message>
         <source>ID illegally masks global JavaScript property</source>
-        <translation type="unfinished">Идентификатор неверно маскирует глобальное свойство JavaScript</translation>
+        <translation>Идентификатор неверно маскирует глобальное свойство JavaScript</translation>
     </message>
     <message>
         <source>No property alias location</source>
-        <translation type="unfinished">Отсутствует размещение псевдонима свойства</translation>
+        <translation>Отсутствует размещение псевдонима свойства</translation>
     </message>
     <message>
         <source>Invalid alias location</source>
-        <translation type="unfinished">Некорректное размещение псевдонима</translation>
+        <translation>Некорректное размещение псевдонима</translation>
+    </message>
+    <message>
+        <source>Invalid alias reference. An alias reference must be specified as &lt;id&gt;, &lt;id&gt;.&lt;property&gt; or &lt;id&gt;.&lt;value property&gt;.&lt;property&gt;</source>
+        <translation>Некорректная ссылка на псевдоним. Ссылка на псевдоним должна быть указана, как &lt;id&gt;, &lt;id&gt;.&lt;свойство&gt; или &lt;id&gt;.&lt;свойство значения&gt;.&lt;свойство&gt;</translation>
+    </message>
+    <message>
+        <source>Alias property exceeds alias bounds</source>
+        <translation>Свойство псевдонима выходит за границы</translation>
     </message>
     <message>
         <source>Invalid alias reference. An alias reference must be specified as &lt;id&gt; or &lt;id&gt;.&lt;property&gt;</source>
-        <translation type="unfinished">Некорректная ссылка на псевдоним. Ссылка на псевдоним должна быть указана, как &lt;id&gt; или &lt;id&gt;.&lt;property&gt;</translation>
+        <translation type="obsolete">Некорректная ссылка на псевдоним. Ссылка на псевдоним должна быть указана, как &lt;id&gt; или &lt;id&gt;.&lt;property&gt;</translation>
     </message>
     <message>
         <source>Invalid alias reference. Unable to find id &quot;%1&quot;</source>
-        <translation type="unfinished">Некорректная ссылка на псевдоним. Не удалось найти id &quot;%1&quot;</translation>
+        <translation>Некорректная ссылка на псевдоним. Не удалось найти id «%1»</translation>
     </message>
 </context>
 <context>
@@ -1680,31 +1736,16 @@ to
         <source>Invalid empty URL</source>
         <translation>Пустой адрес URL</translation>
     </message>
-</context>
-<context>
-    <name>QDeclarativeCompositeTypeManager</name>
     <message>
-        <source>Resource %1 unavailable</source>
-        <translation>Ресурс &quot;%1&quot; недоступен</translation>
-    </message>
-    <message>
-        <source>Namespace %1 cannot be used as a type</source>
-        <translation>Пространство имён &quot;%1&quot; не может быть использовано в качестве типа</translation>
-    </message>
-    <message>
-        <source>%1 %2</source>
-        <translation>%1 %2</translation>
-    </message>
-    <message>
-        <source>Type %1 unavailable</source>
-        <translation>Тип &quot;%1&quot; недоступен</translation>
+        <source>createObject: value is not an object</source>
+        <translation>createObject: значение не является объектом</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeConnections</name>
     <message>
         <source>Cannot assign to non-existent property &quot;%1&quot;</source>
-        <translation type="unfinished">Невозможно назначить несуществующему свойству &quot;%1&quot;</translation>
+        <translation>Невозможно назначить несуществующему свойству «%1»</translation>
     </message>
     <message>
         <source>Connections: nested objects not allowed</source>
@@ -1760,32 +1801,36 @@ to
 <context>
     <name>QDeclarativeImportDatabase</name>
     <message>
+        <source>cannot load module &quot;%1&quot;: File name case mismatch for &quot;%2&quot;</source>
+        <translation>невозможно загрузить модуль «%1»: Регистр имени файла не соответствует «%2»</translation>
+    </message>
+    <message>
         <source>module &quot;%1&quot; definition &quot;%2&quot; not readable</source>
-        <translation type="unfinished">невозможно прочитать определение &quot;%2&quot; модуля &quot;%1&quot;</translation>
+        <translation>невозможно прочитать определение «%2» модуля «%1»</translation>
     </message>
     <message>
         <source>plugin cannot be loaded for module &quot;%1&quot;: %2</source>
-        <translation type="unfinished">модуль не может быть загружен для подмодуля &quot;%1&quot;: %2</translation>
+        <translation>не удалось загрузить плагин для модуля «%1»: %2</translation>
     </message>
     <message>
         <source>module &quot;%1&quot; plugin &quot;%2&quot; not found</source>
-        <translation type="unfinished">подмодуль &quot;%1&quot; модуля &quot;%2&quot; не найден</translation>
+        <translation>модуль «%1» плагина «%2» не найден</translation>
     </message>
     <message>
         <source>module &quot;%1&quot; version %2.%3 is not installed</source>
-        <translation>модуль &quot;%1&quot; версии %2.%3 не установлен</translation>
+        <translation>модуль «%1» версии %2.%3 не установлен</translation>
     </message>
     <message>
         <source>module &quot;%1&quot; is not installed</source>
-        <translation>модуль &quot;%1&quot; не установлен</translation>
+        <translation>модуль «%1» не установлен</translation>
     </message>
     <message>
         <source>&quot;%1&quot;: no such directory</source>
-        <translation>&quot;%1&quot;: каталог не существует</translation>
+        <translation>«%1»: каталог не существует</translation>
     </message>
     <message>
         <source>import &quot;%1&quot; has no qmldir and no namespace</source>
-        <translation type="unfinished">каталог &quot;%1&quot; не содержит ни qmldir, ни namespace</translation>
+        <translation>каталог «%1» не содержит ни qmldir, ни namespace</translation>
     </message>
     <message>
         <source>- %1 is not a namespace</source>
@@ -1815,19 +1860,34 @@ to
         <source>is not a type</source>
         <translation>не является типом</translation>
     </message>
+    <message>
+        <source>File name case mismatch for &quot;%2&quot;</source>
+        <translation>Регистр имени файла не соответствует «%2»</translation>
+    </message>
 </context>
 <context>
     <name>QDeclarativeKeyNavigationAttached</name>
     <message>
         <source>KeyNavigation is only available via attached properties</source>
-        <translation type="unfinished">KeyNavigation доступна только через прикреплённые свойства</translation>
+        <translation>KeyNavigation доступна только через прикреплённые свойства</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeKeysAttached</name>
     <message>
         <source>Keys is only available via attached properties</source>
-        <translation type="unfinished">Keys доступны только через прикреплённые свойства</translation>
+        <translation>Keys доступны только через прикреплённые свойства</translation>
+    </message>
+</context>
+<context>
+    <name>QDeclarativeLayoutMirroringAttached</name>
+    <message>
+        <source>LayoutDirection attached property only works with Items</source>
+        <translation>Подключённое свойство LayoutDirection работает только с элементами</translation>
+    </message>
+    <message>
+        <source>LayoutMirroring is only available via attached properties</source>
+        <translation>LayoutMirroring доступно только через подключаемые свойства</translation>
     </message>
 </context>
 <context>
@@ -1866,7 +1926,7 @@ to
     </message>
     <message>
         <source>ListElement: cannot use reserved &quot;id&quot; property</source>
-        <translation>ListElement: невозможно использовать зарезервированное свойство &quot;id&quot;</translation>
+        <translation>ListElement: невозможно использовать зарезервированное свойство «id»</translation>
     </message>
     <message>
         <source>ListElement: cannot use script for property value</source>
@@ -1874,7 +1934,7 @@ to
     </message>
     <message>
         <source>ListModel: undefined property &apos;%1&apos;</source>
-        <translation>ListModel: неопределённое свойство &quot;%1&quot;</translation>
+        <translation>ListModel: неопределённое свойство «%1»</translation>
     </message>
 </context>
 <context>
@@ -1918,7 +1978,7 @@ to
     <name>QDeclarativeParser</name>
     <message>
         <source>Illegal unicode escape sequence</source>
-        <translation type="unfinished">Неверная unicode esc-последовательность</translation>
+        <translation>Недопустимая unicode esc-последовательность</translation>
     </message>
     <message>
         <source>Illegal character</source>
@@ -1929,8 +1989,8 @@ to
         <translation>Незакрытый текст в конце строки</translation>
     </message>
     <message>
-        <source>Illegal escape squence</source>
-        <translation type="unfinished">Неверная esc-последовательность</translation>
+        <source>Illegal escape sequence</source>
+        <translation>Недопустимая esc-последовательность</translation>
     </message>
     <message>
         <source>Unclosed comment at end of file</source>
@@ -1938,7 +1998,7 @@ to
     </message>
     <message>
         <source>Illegal syntax for exponential number</source>
-        <translation type="unfinished">Недопустимый синтаксис для экспоненциального числа</translation>
+        <translation>Недопустимый синтаксис для экспоненциального числа</translation>
     </message>
     <message>
         <source>Identifier cannot start with numeric literal</source>
@@ -1950,7 +2010,7 @@ to
     </message>
     <message>
         <source>Invalid regular expression flag &apos;%0&apos;</source>
-        <translation>Некорректный флаг &quot;%0&quot; в регулярном выражении</translation>
+        <translation>Некорректный флаг «%0» в регулярном выражении</translation>
     </message>
     <message>
         <source>Unterminated regular expression backslash sequence</source>
@@ -1966,15 +2026,15 @@ to
     </message>
     <message>
         <source>Unexpected token `%1&apos;</source>
-        <translation>Неожиданный символ &quot;%1&quot;</translation>
+        <translation>Неожиданный символ «%1»</translation>
     </message>
     <message>
         <source>Expected token `%1&apos;</source>
-        <translation>Ожидается символ &quot;%1&quot;</translation>
+        <translation>Ожидается символ «%1»</translation>
     </message>
     <message>
         <source>Property value set multiple times</source>
-        <translation type="unfinished">Значение свойства установлено несколько раз</translation>
+        <translation>Значение свойства установлено несколько раз</translation>
     </message>
     <message>
         <source>Expected type name</source>
@@ -1982,23 +2042,23 @@ to
     </message>
     <message>
         <source>Invalid import qualifier ID</source>
-        <translation type="unfinished">Некорректный ID спецификатора импорта</translation>
+        <translation>Некорректный ID спецификатора импорта</translation>
     </message>
     <message>
         <source>Reserved name &quot;Qt&quot; cannot be used as an qualifier</source>
-        <translation type="unfinished">Зарезервированное имя &quot;Qt&quot; не может быть использовано в качестве спецификатора</translation>
+        <translation>Зарезервированное имя «Qt» не может быть использовано в качестве спецификатора</translation>
     </message>
     <message>
         <source>Script import qualifiers must be unique.</source>
-        <translation type="unfinished">Спецификаторы импорта сценария должны быть уникальными.</translation>
+        <translation>Спецификаторы импорта сценария должны быть уникальными.</translation>
     </message>
     <message>
         <source>Script import requires a qualifier</source>
-        <translation type="unfinished">Для импорта сценария требуется спецификатор</translation>
+        <translation>Для импорта сценария требуется спецификатор</translation>
     </message>
     <message>
         <source>Library import requires a version</source>
-        <translation type="unfinished">Импорт библиотеки требует версию</translation>
+        <translation>Импорт библиотеки требует версию</translation>
     </message>
     <message>
         <source>Expected parameter type</source>
@@ -2018,7 +2078,7 @@ to
     </message>
     <message>
         <source>Readonly not yet supported</source>
-        <translation type="unfinished">Readonly ещё не поддерживается</translation>
+        <translation>Readonly ещё не поддерживается</translation>
     </message>
     <message>
         <source>JavaScript declaration outside Script element</source>
@@ -2058,72 +2118,91 @@ to
     <name>QDeclarativePropertyChanges</name>
     <message>
         <source>PropertyChanges does not support creating state-specific objects.</source>
-        <translation type="unfinished">PropertyChanges не поддерживают создание объектов, зависимых от состояния.</translation>
+        <translation>PropertyChanges не поддерживают создание объектов, зависимых от состояния.</translation>
     </message>
     <message>
         <source>Cannot assign to non-existent property &quot;%1&quot;</source>
-        <translation type="unfinished">Невозможно назначить несуществующему свойству &quot;%1&quot;</translation>
+        <translation>Невозможно назначить несуществующему свойству «%1»</translation>
     </message>
     <message>
         <source>Cannot assign to read-only property &quot;%1&quot;</source>
-        <translation type="unfinished">Невозможно назначить свойству только для чтения &quot;%1&quot;</translation>
+        <translation>Невозможно назначить свойству только для чтения «%1»</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeTextInput</name>
     <message>
         <source>Could not load cursor delegate</source>
-        <translation type="unfinished">Не удалось загрузить делегат курсора</translation>
+        <translation>Не удалось загрузить делегат курсора</translation>
     </message>
     <message>
         <source>Could not instantiate cursor delegate</source>
-        <translation type="unfinished">Не удалось инстанциировать делегат курсора</translation>
+        <translation>Не удалось инстанциировать делегат курсора</translation>
+    </message>
+</context>
+<context>
+    <name>QDeclarativeTypeLoader</name>
+    <message>
+        <source>Script %1 unavailable</source>
+        <translation>Сценарий %1 недоступен</translation>
+    </message>
+    <message>
+        <source>Type %1 unavailable</source>
+        <translation>Тип «%1» недоступен</translation>
+    </message>
+    <message>
+        <source>Namespace %1 cannot be used as a type</source>
+        <translation>Пространство имён «%1» не может быть использовано в качестве типа</translation>
+    </message>
+    <message>
+        <source>%1 %2</source>
+        <translation>%1 %2</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeVME</name>
     <message>
         <source>Unable to create object of type %1</source>
-        <translation>Невозможно создать объект типа &quot;%1&quot;</translation>
+        <translation>Невозможно создать объект типа «%1»</translation>
     </message>
     <message>
         <source>Cannot assign value %1 to property %2</source>
-        <translation>Невозможно установить значение &quot;%1&quot; свойству &quot;%2&quot;</translation>
+        <translation>Невозможно присвоить значение «%1» свойству «%2»</translation>
     </message>
     <message>
         <source>Cannot assign object type %1 with no default method</source>
-        <translation type="unfinished">Невозможно назначить объект типа %1 без метода по умолчанию</translation>
+        <translation>Невозможно присвоить объект типа «%1» без метода по умолчанию</translation>
     </message>
     <message>
         <source>Cannot connect mismatched signal/slot %1 %vs. %2</source>
-        <translation type="unfinished">Невозможно подключить отсутствующий сигнал/слот %1 к %2</translation>
+        <translation>Невозможно подключить отсутствующий сигнал/слот %1 к %2</translation>
     </message>
     <message>
         <source>Cannot assign an object to signal property %1</source>
-        <translation type="unfinished">Невозможно назначить объект к свойству сигнала %1</translation>
+        <translation>Невозможно назначить объект к свойству сигнала %1</translation>
     </message>
     <message>
         <source>Cannot assign object to list</source>
-        <translation type="unfinished">Невозможно назначить объект списку</translation>
+        <translation>Невозможно назначить объект списку</translation>
     </message>
     <message>
         <source>Cannot assign object to interface property</source>
-        <translation type="unfinished">Невозможно назначить объект свойству интерфейса</translation>
+        <translation>Невозможно назначить объект свойству интерфейса</translation>
     </message>
     <message>
         <source>Unable to create attached object</source>
-        <translation type="unfinished">Не удалось создать вложенный объект</translation>
+        <translation>Не удалось создать вложенный объект</translation>
     </message>
     <message>
         <source>Cannot set properties on %1 as it is null</source>
-        <translation type="unfinished">Невозможно установить свойства для %1, так как он нулевой</translation>
+        <translation>Невозможно установить свойства для %1, так как он нулевой</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeVisualDataModel</name>
     <message>
         <source>Delegate component must be Item type.</source>
-        <translation type="unfinished">Компинент делегата должен быть типа Item.</translation>
+        <translation>Компонента делегата должен быть типа Item.</translation>
     </message>
 </context>
 <context>
@@ -2137,14 +2216,14 @@ to
     <name>QDeclarativeXmlListModelRole</name>
     <message>
         <source>An XmlRole query must not start with &apos;/&apos;</source>
-        <translation type="unfinished">Запрос XmlRole не должен начинаться с &apos;/&apos;</translation>
+        <translation>Запрос XmlRole не должен начинаться с «/»</translation>
     </message>
 </context>
 <context>
     <name>QDeclarativeXmlRoleList</name>
     <message>
         <source>An XmlListModel query must start with &apos;/&apos; or &quot;//&quot;</source>
-        <translation type="unfinished">Запрос XmlListModel должен начинаться с &apos;/&apos; или &quot;//&quot;</translation>
+        <translation>Запрос XmlListModel должен начинаться с «/» или «//»</translation>
     </message>
 </context>
 <context>
@@ -2305,11 +2384,11 @@ to
     </message>
     <message>
         <source>Dock</source>
-        <translation type="unfinished">Прикрепить</translation>
+        <translation>Прикрепить</translation>
     </message>
     <message>
         <source>Float</source>
-        <translation type="unfinished">Открепить</translation>
+        <translation>Открепить</translation>
     </message>
 </context>
 <context>
@@ -2438,7 +2517,7 @@ to
     <message>
         <source>&apos;%1&apos; is write protected.
 Do you want to delete it anyway?</source>
-        <translation>&quot;%1&quot; защищён от записи.
+        <translation>«%1» защищён от записи.
 Действительно желаете удалить?</translation>
     </message>
     <message>
@@ -2513,7 +2592,7 @@ Please verify the correct directory name was given.</source>
     </message>
     <message>
         <source>Are sure you want to delete &apos;%1&apos;?</source>
-        <translation>Вы действительно хотите удалить &quot;%1&quot;?</translation>
+        <translation>Вы действительно хотите удалить «%1»?</translation>
     </message>
     <message>
         <source>Could not delete directory.</source>
@@ -2612,7 +2691,7 @@ Please verify the correct directory name was given.</source>
     </message>
     <message>
         <source>&lt;b&gt;The name &quot;%1&quot; can not be used.&lt;/b&gt;&lt;p&gt;Try using another name, with fewer characters or no punctuations marks.</source>
-        <translation>&lt;b&gt;Имя &quot;%1&quot; не может быть использовано.&lt;/b&gt;&lt;p&gt;Попробуйте использовать имя меньшей длины и/или без символов пунктуации.</translation>
+        <translation>&lt;b&gt;Имя «%1» не может быть использовано.&lt;/b&gt;&lt;p&gt;Попробуйте использовать имя меньшей длины и/или без символов пунктуации.</translation>
     </message>
     <message>
         <source>Name</source>
@@ -3298,24 +3377,16 @@ Please verify the correct directory name was given.</source>
 <context>
     <name>QLibrary</name>
     <message>
-        <source>Could not mmap &apos;%1&apos;: %2</source>
-        <translation>Не удалось выполнить mmap &quot;%1&quot;: %2</translation>
-    </message>
-    <message>
         <source>Plugin verification data mismatch in &apos;%1&apos;</source>
-        <translation>Проверочная информация для модуля &quot;%1&quot; не совпадает</translation>
-    </message>
-    <message>
-        <source>Could not unmap &apos;%1&apos;: %2</source>
-        <translation>Не удалось выполнить unmap &quot;%1&quot;: %2</translation>
+        <translation>Проверочная информация для модуля «%1» не совпадает</translation>
     </message>
     <message>
         <source>The plugin &apos;%1&apos; uses incompatible Qt library. (%2.%3.%4) [%5]</source>
-        <translation>Модуль &quot;%1&quot; использует несоместимую библиотеку Qt. (%2.%3.%4) [%5]</translation>
+        <translation>Модуль «%1» использует несоместимую библиотеку Qt. (%2.%3.%4) [%5]</translation>
     </message>
     <message>
         <source>The plugin &apos;%1&apos; uses incompatible Qt library. Expected build key &quot;%2&quot;, got &quot;%3&quot;</source>
-        <translation>Модуль &quot;%1&quot; использует несоместимую библиотеку Qt. Ожидается ключ &quot;%2&quot;, но получен ключ &quot;%3&quot;</translation>
+        <translation>Модуль «%1» использует несоместимую библиотеку Qt. Ожидается ключ «%2», но получен ключ «%3»</translation>
     </message>
     <message>
         <source>Unknown error</source>
@@ -3327,11 +3398,11 @@ Please verify the correct directory name was given.</source>
     </message>
     <message>
         <source>The file &apos;%1&apos; is not a valid Qt plugin.</source>
-        <translation>Файл &quot;%1&quot; - не является корректным модулем Qt.</translation>
+        <translation>Файл «%1» - не является корректным модулем Qt.</translation>
     </message>
     <message>
         <source>The plugin &apos;%1&apos; uses incompatible Qt library. (Cannot mix debug and release libraries.)</source>
-        <translation>Модуль &quot;%1&quot; использует несоместимую библиотеку Qt. (Невозможно совместить релизные и отладочные библиотеки.)</translation>
+        <translation>Модуль «%1» использует несоместимую библиотеку Qt. (Невозможно совместить релизные и отладочные библиотеки.)</translation>
     </message>
     <message>
         <source>Cannot load library %1: %2</source>
@@ -3343,7 +3414,7 @@ Please verify the correct directory name was given.</source>
     </message>
     <message>
         <source>Cannot resolve symbol &quot;%1&quot; in %2: %3</source>
-        <translation>Невозможно разрешить символ &quot;%1&quot; в %2: %3</translation>
+        <translation>Невозможно разрешить символ «%1» в %2: %3</translation>
     </message>
 </context>
 <context>
@@ -3628,8 +3699,8 @@ Please verify the correct directory name was given.</source>
         <translation>&lt;h3&gt;О Qt&lt;/h3&gt;&lt;p&gt;Данная программа использует Qt версии %1.&lt;/p&gt;</translation>
     </message>
     <message>
-        <source>&lt;p&gt;Qt is a C++ toolkit for cross-platform application development.&lt;/p&gt;&lt;p&gt;Qt provides single-source portability across MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux, and all major commercial Unix variants. Qt is also available for embedded devices as Qt for Embedded Linux and Qt for Windows CE.&lt;/p&gt;&lt;p&gt;Qt is available under three different licensing options designed to accommodate the needs of our various users.&lt;/p&gt;&lt;p&gt;Qt licensed under our commercial license agreement is appropriate for development of proprietary/commercial software where you do not want to share any source code with third parties or otherwise cannot comply with the terms of the GNU LGPL version 2.1 or GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU LGPL version 2.1 is appropriate for the development of Qt applications (proprietary or open source) provided you can comply with the terms and conditions of the GNU LGPL version 2.1.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU General Public License version 3.0 is appropriate for the development of Qt applications where you wish to use such applications in combination with software subject to the terms of the GNU GPL version 3.0 or where you are otherwise willing to comply with the terms of the GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Please see &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; for an overview of Qt licensing.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).&lt;/p&gt;&lt;p&gt;Qt is a Nokia product. See &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; for more information.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Qt - это инструментарий для разработки кроссплатформенных приложений на C++.&lt;/p&gt;&lt;p&gt;Qt предоставляет совместимость на уровне исходных текстов между MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux и всеми популярными коммерческими вариантами Unix. Также Qt доступна для встраиваемых устройств в виде Qt для Embedded Linux и Qt для Windows CE.&lt;/p&gt;&lt;p&gt;Qt доступна под тремя различными лицензиями, разработанными для удовлетворения различных требований.&lt;/p&gt;&lt;p&gt;Qt под нашей коммерческой лицензией предназначена для развития проприетарного/коммерческого программного обеспечения, когда Вы не желаете предоставлять исходные тексты третьим сторонам, или в случае невозможности принятия условий лицензий GNU LGPL версии 2.1 или GNU GPL версии 3.0.&lt;/p&gt;&lt;p&gt;Qt под лицензией GNU LGPL версии 2.1 предназначена для разработки программного обеспечения с открытыми исходными текстами или коммерческого программного обеспечения при соблюдении условий лицензии GNU LGPL версии 2.1.&lt;/p&gt;&lt;p&gt;Qt под лицензией GNU General Public License версии 3.0 предназначена для разработки программных приложений в тех случаях, когда Вы хотели бы использовать такие приложения в сочетании с программным обеспечением на условиях лицензии GNU GPL с версии 3.0 или если Вы готовы соблюдать условия лицензии GNU GPL версии 3.0.&lt;/p&gt;&lt;p&gt;Обратитесь к &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; для обзора лицензий Qt.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Корпорация Nokia и/или её дочерние подразделения.&lt;/p&gt;&lt;p&gt;Qt - продукт компании Nokia. Обратитесь к &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; для получения дополнительной информации.&lt;/p&gt;</translation>
+        <source>&lt;p&gt;Qt is a C++ toolkit for cross-platform application development.&lt;/p&gt;&lt;p&gt;Qt provides single-source portability across MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux, and all major commercial Unix variants. Qt is also available for embedded devices as Qt for Embedded Linux and Qt for Windows CE.&lt;/p&gt;&lt;p&gt;Qt is available under three different licensing options designed to accommodate the needs of our various users.&lt;/p&gt;&lt;p&gt;Qt licensed under our commercial license agreement is appropriate for development of proprietary/commercial software where you do not want to share any source code with third parties or otherwise cannot comply with the terms of the GNU LGPL version 2.1 or GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU LGPL version 2.1 is appropriate for the development of Qt applications (proprietary or open source) provided you can comply with the terms and conditions of the GNU LGPL version 2.1.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU General Public License version 3.0 is appropriate for the development of Qt applications where you wish to use such applications in combination with software subject to the terms of the GNU GPL version 3.0 or where you are otherwise willing to comply with the terms of the GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Please see &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; for an overview of Qt licensing.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).&lt;/p&gt;&lt;p&gt;Qt is a Nokia product. See &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; for more information.&lt;/p&gt;</source>
+        <translation>&lt;p&gt;Qt - это инструментарий для разработки кроссплатформенных приложений на C++.&lt;/p&gt;&lt;p&gt;Qt предоставляет совместимость на уровне исходных текстов между MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux и всеми популярными коммерческими вариантами Unix. Также Qt доступна для встраиваемых устройств в виде Qt для Embedded Linux и Qt для Windows CE.&lt;/p&gt;&lt;p&gt;Qt доступна под тремя различными лицензиями, разработанными для удовлетворения различных требований.&lt;/p&gt;&lt;p&gt;Qt под нашей коммерческой лицензией предназначена для развития проприетарного/коммерческого программного обеспечения, когда Вы не желаете предоставлять исходные тексты третьим сторонам, или в случае невозможности принятия условий лицензий GNU LGPL версии 2.1 или GNU GPL версии 3.0.&lt;/p&gt;&lt;p&gt;Qt под лицензией GNU LGPL версии 2.1 предназначена для разработки программного обеспечения с открытыми исходными текстами или коммерческого программного обеспечения при соблюдении условий лицензии GNU LGPL версии 2.1.&lt;/p&gt;&lt;p&gt;Qt под лицензией GNU General Public License версии 3.0 предназначена для разработки программных приложений в тех случаях, когда Вы хотели бы использовать такие приложения в сочетании с программным обеспечением на условиях лицензии GNU GPL с версии 3.0 или если Вы готовы соблюдать условия лицензии GNU GPL версии 3.0.&lt;/p&gt;&lt;p&gt;Обратитесь к &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; для обзора лицензий Qt.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Корпорация Nokia и/или её дочерние подразделения.&lt;/p&gt;&lt;p&gt;Qt - продукт компании Nokia. Обратитесь к &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; для получения дополнительной информации.&lt;/p&gt;</translation>
     </message>
     <message>
         <source>About Qt</source>
@@ -3874,7 +3945,7 @@ Please verify the correct directory name was given.</source>
     </message>
     <message>
         <source>Protocol &quot;%1&quot; is unknown</source>
-        <translation>Неизвестный протокол &quot;%1&quot;</translation>
+        <translation>Неизвестный протокол «%1»</translation>
     </message>
     <message>
         <source>Network session error.</source>
@@ -3904,7 +3975,7 @@ Please verify the correct directory name was given.</source>
     <message>
         <source>Roaming error</source>
         <translatorcomment>или перемещения?</translatorcomment>
-        <translation type="unfinished">Ошибка роуминга</translation>
+        <translation>Ошибка роуминга</translation>
     </message>
     <message>
         <source>Session aborted by user or system</source>
@@ -3932,7 +4003,7 @@ Please verify the correct directory name was given.</source>
     </message>
     <message>
         <source>Roaming was aborted or is not possible.</source>
-        <translation type="unfinished">Роуминг прерван или невозможен.</translation>
+        <translation>Роуминг прерван или невозможен.</translation>
     </message>
 </context>
 <context>
@@ -4025,7 +4096,7 @@ Please verify the correct directory name was given.</source>
     <name>QODBCResult</name>
     <message>
         <source>QODBCResult::reset: Unable to set &apos;SQL_CURSOR_STATIC&apos; as statement attribute. Please check your ODBC driver configuration</source>
-        <translation>QODBCResult::reset: Невозможно установить &quot;SQL_CURSOR_STATIC&quot; атрибутом выражение. Проверьте настройки драйвера ODBC</translation>
+        <translation>QODBCResult::reset: Невозможно установить «SQL_CURSOR_STATIC» атрибутом выражение. Проверьте настройки драйвера ODBC</translation>
     </message>
     <message>
         <source>Unable to execute statement</source>
@@ -4064,11 +4135,11 @@ Please verify the correct directory name was given.</source>
     <name>QObject</name>
     <message>
         <source>&quot;%1&quot; duplicates a previous role name and will be disabled.</source>
-        <translation>&quot;%1&quot; повторяет имя предыдущей роли и не будет использовано.</translation>
+        <translation>«%1» повторяет имя предыдущей роли и не будет использовано.</translation>
     </message>
     <message>
         <source>invalid query: &quot;%1&quot;</source>
-        <translation>Некорректный запрос: &quot;%1&quot;</translation>
+        <translation>Некорректный запрос: «%1»</translation>
     </message>
     <message>
         <source>PulseAudio Sound Server</source>
@@ -4408,7 +4479,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>The &apos;From&apos; value cannot be greater than the &apos;To&apos; value.</source>
-        <translation>Значение &quot;с&quot; не может быть больше значения &quot;по&quot;.</translation>
+        <translation>Значение «с» не может быть больше значения «по».</translation>
     </message>
     <message>
         <source>A0</source>
@@ -6071,7 +6142,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Voice Dial</source>
-        <extracomment>Button to trigger voice dialling</extracomment>
+        <extracomment>Button to trigger voice dialing</extracomment>
         <translation type="unfinished">Голосовой вызов</translation>
     </message>
     <message>
@@ -6155,15 +6226,15 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Code input</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Ввод кода</translation>
     </message>
     <message>
         <source>Multiple Candidate</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Несколько вариантов</translation>
     </message>
     <message>
         <source>Previous Candidate</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Предыдущий вариант</translation>
     </message>
     <message>
         <source>Hangul</source>
@@ -6253,23 +6324,23 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Ctrl</source>
-        <translation type="unfinished">Ctrl</translation>
+        <translation></translation>
     </message>
     <message>
         <source>Shift</source>
-        <translation type="unfinished">Shift</translation>
+        <translation></translation>
     </message>
     <message>
         <source>Alt</source>
-        <translation type="unfinished">Alt</translation>
+        <translation></translation>
     </message>
     <message>
         <source>Meta</source>
-        <translation type="unfinished">Meta</translation>
+        <translation></translation>
     </message>
     <message>
         <source>+</source>
-        <translation type="unfinished">+</translation>
+        <translation></translation>
     </message>
     <message>
         <source>F%1</source>
@@ -6482,6 +6553,10 @@ Please choose a different file name.</source>
         <translation>Ошибка создания сессии SSL: %1</translation>
     </message>
     <message>
+        <source>The peer certificate is blacklisted</source>
+        <translation>Сертификат узла в чёрном списке</translation>
+    </message>
+    <message>
         <source>Cannot provide a certificate with no key, %1</source>
         <translation>Невозможно предоставить сертификат без ключа, %1</translation>
     </message>
@@ -6590,15 +6665,15 @@ Please choose a different file name.</source>
     <name>QStateMachine</name>
     <message>
         <source>Missing initial state in compound state &apos;%1&apos;</source>
-        <translation>Отсутствует исходное состояние в составном состоянии &quot;%1&quot;</translation>
+        <translation>Отсутствует исходное состояние в составном состоянии «%1»</translation>
     </message>
     <message>
         <source>Missing default state in history state &apos;%1&apos;</source>
-        <translation>Отсутствует состояние по умолчанию в историческом состоянии &quot;%1&quot;</translation>
+        <translation>Отсутствует состояние по умолчанию в историческом состоянии «%1»</translation>
     </message>
     <message>
         <source>No common ancestor for targets and source of transition from state &apos;%1&apos;</source>
-        <translation>Нет общего предка у источника и цели перехода из состояния &quot;%1&quot;</translation>
+        <translation>Нет общего предка у источника и цели перехода из состояния «%1»</translation>
     </message>
     <message>
         <source>Unknown error</source>
@@ -7090,7 +7165,7 @@ Please choose a different file name.</source>
     <message>
         <source>Choose File</source>
         <comment>title for file button used in HTML forms</comment>
-        <translation>Обзор...</translation>
+        <translation>Выбрать файл</translation>
     </message>
     <message>
         <source>No file selected</source>
@@ -7170,13 +7245,13 @@ Please choose a different file name.</source>
     <message>
         <source>No Guesses Found</source>
         <comment>No Guesses Found context menu item</comment>
-        <translation type="unfinished">Совпадений не найдено</translation>
+        <translation>Совпадений не найдено</translation>
     </message>
     <message>
         <source>Ignore</source>
         <comment>Ignore Spelling context menu item</comment>
         <translatorcomment>?Пропускать</translatorcomment>
-        <translation type="unfinished">Пропустить</translation>
+        <translation>Пропустить</translation>
     </message>
     <message>
         <source>Add To Dictionary</source>
@@ -7186,12 +7261,12 @@ Please choose a different file name.</source>
     <message>
         <source>Search The Web</source>
         <comment>Search The Web context menu item</comment>
-        <translation type="unfinished">Искать в Интернет</translation>
+        <translation>Искать в Интернет</translation>
     </message>
     <message>
         <source>Look Up In Dictionary</source>
         <comment>Look Up in Dictionary context menu item</comment>
-        <translation type="unfinished">Искать в словаре</translation>
+        <translation>Искать в словаре</translation>
     </message>
     <message>
         <source>Open Link</source>
@@ -7202,7 +7277,7 @@ Please choose a different file name.</source>
         <source>Ignore</source>
         <comment>Ignore Grammar context menu item</comment>
         <translatorcomment>?Пропускать</translatorcomment>
-        <translation type="unfinished">Пропустить</translation>
+        <translation>Пропустить</translation>
     </message>
     <message>
         <source>Spelling</source>
@@ -7212,12 +7287,12 @@ Please choose a different file name.</source>
     <message>
         <source>Show Spelling and Grammar</source>
         <comment>menu item title</comment>
-        <translation type="unfinished">Показать панель проверки правописания</translation>
+        <translation>Показать панель проверки правописания</translation>
     </message>
     <message>
         <source>Hide Spelling and Grammar</source>
         <comment>menu item title</comment>
-        <translation type="unfinished">Скрыть панель проверки правописания</translation>
+        <translation>Скрыть панель проверки правописания</translation>
     </message>
     <message>
         <source>Check Spelling</source>
@@ -7342,22 +7417,22 @@ Please choose a different file name.</source>
     <message>
         <source>Mute Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Отключить звук&quot;</translation>
+        <translation>Кнопка «Отключить звук»</translation>
     </message>
     <message>
         <source>Unmute Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Включить звук&quot;</translation>
+        <translation>Кнопка «Включить звук»</translation>
     </message>
     <message>
         <source>Play Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Воспроизведение&quot;</translation>
+        <translation>Кнопка «Воспроизведение»</translation>
     </message>
     <message>
         <source>Pause Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Пауза&quot;</translation>
+        <translation>Кнопка «Пауза»</translation>
     </message>
     <message>
         <source>Slider</source>
@@ -7372,12 +7447,12 @@ Please choose a different file name.</source>
     <message>
         <source>Rewind Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Перемотка назад&quot;</translation>
+        <translation>Кнопка «Перемотка назад»</translation>
     </message>
     <message>
         <source>Return to Real-time Button</source>
         <comment>Media controller element</comment>
-        <translation type="unfinished">Кнопка &quot;Вернуть в реальное время&quot;</translation>
+        <translation>Кнопка «Вернуть в реальное время»</translation>
     </message>
     <message>
         <source>Elapsed Time</source>
@@ -7397,17 +7472,17 @@ Please choose a different file name.</source>
     <message>
         <source>Fullscreen Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;На весь экран&quot;</translation>
+        <translation>Кнопка «На весь экран»</translation>
     </message>
     <message>
         <source>Seek Forward Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Перемотка вперёд&quot;</translation>
+        <translation>Кнопка «Перемотка вперёд»</translation>
     </message>
     <message>
         <source>Seek Back Button</source>
         <comment>Media controller element</comment>
-        <translation>Кнопка &quot;Перемотка назад&quot;</translation>
+        <translation>Кнопка «Перемотка назад»</translation>
     </message>
     <message>
         <source>Audio element playback controls and status display</source>
@@ -7442,12 +7517,12 @@ Please choose a different file name.</source>
     <message>
         <source>Movie time scrubber</source>
         <comment>Media controller element</comment>
-        <translation type="unfinished">Перемотка</translation>
+        <translation>Перемотка</translation>
     </message>
     <message>
         <source>Movie time scrubber thumb</source>
         <comment>Media controller element</comment>
-        <translation type="unfinished">Позиция перемотки</translation>
+        <translation>Позиция перемотки</translation>
     </message>
     <message>
         <source>Rewind movie</source>
@@ -7457,7 +7532,7 @@ Please choose a different file name.</source>
     <message>
         <source>Return streaming movie to real-time</source>
         <comment>Media controller element</comment>
-        <translation type="unfinished">Возвращает потоковое видео к воспроизведению в реальном времени</translation>
+        <translation>Возвращает потоковое видео к воспроизведению в реальном времени</translation>
     </message>
     <message>
         <source>Current movie time</source>
@@ -7570,7 +7645,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Commit</source>
-        <translation>Передать</translation>
+        <translation>Подтвердить</translation>
     </message>
     <message>
         <source>Done</source>
@@ -7774,11 +7849,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Sequence &apos;]]&gt;&apos; not allowed in content.</source>
-        <translation>Последовательность &quot;]]&gt;&quot; недопустима в содержимом.</translation>
+        <translation>Последовательность «]]&gt;» недопустима в содержимом.</translation>
     </message>
     <message>
         <source>Namespace prefix &apos;%1&apos; not declared</source>
-        <translation>Префикс пространства имён &quot;%1&quot; не объявлен</translation>
+        <translation>Префикс пространства имён «%1» не объявлен</translation>
     </message>
     <message>
         <source>Attribute redefined.</source>
@@ -7786,7 +7861,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Unexpected character &apos;%1&apos; in public id literal.</source>
-        <translation>Неожиданный символ &quot;%1&quot; в литерале открытого идентификатора.</translation>
+        <translation>Неожиданный символ «%1» в литерале открытого идентификатора.</translation>
     </message>
     <message>
         <source>Invalid XML version string.</source>
@@ -7806,7 +7881,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Standalone accepts only yes or no.</source>
-        <translation>Псевдоатрибут &quot;standalone&quot; может принимать только значения &quot;yes&quot; или &quot;no&quot;.</translation>
+        <translation>Псевдоатрибут «standalone» может принимать только значения «yes» или «no».</translation>
     </message>
     <message>
         <source>Invalid attribute in XML declaration.</source>
@@ -7874,15 +7949,15 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Reference to unparsed entity &apos;%1&apos;.</source>
-        <translation>Ссылка на необработанный объект &quot;%1&quot;.</translation>
+        <translation>Ссылка на необработанный объект «%1».</translation>
     </message>
     <message>
         <source>Entity &apos;%1&apos; not declared.</source>
-        <translation>Объект &quot;%1&quot; не объявлен.</translation>
+        <translation>Объект «%1» не объявлен.</translation>
     </message>
     <message>
         <source>Reference to external entity &apos;%1&apos; in attribute value.</source>
-        <translation>Ссылка на внешний объект &quot;%1&quot; в значении атрибута.</translation>
+        <translation>Ссылка на внешний объект «%1» в значении атрибута.</translation>
     </message>
     <message>
         <source>Invalid character reference.</source>
@@ -7894,7 +7969,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>The standalone pseudo attribute must appear after the encoding.</source>
-        <translation>Псевдоатрибут &quot;standalone&quot; должен находиться после указания кодировки.</translation>
+        <translation>Псевдоатрибут «standalone» должен находиться после указания кодировки.</translation>
     </message>
     <message>
         <source>%1 is an invalid PUBLIC identifier.</source>
@@ -7921,7 +7996,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>The data of a processing instruction cannot contain the string %1</source>
-        <translation>Данные обрабатываемой инструкции не могут содержать строку &quot;%1&quot;</translation>
+        <translation>Данные обрабатываемой инструкции не могут содержать строку «%1»</translation>
     </message>
     <message>
         <source>%1 is an invalid %2</source>
@@ -7937,11 +8012,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>In the replacement string, %1 must be followed by at least one digit when not escaped.</source>
-        <translation>В замещаемой строке &quot;%1&quot; должно сопровождаться как минимум одной цифрой, если неэкранировано.</translation>
+        <translation>В замещаемой строке «%1» должно сопровождаться как минимум одной цифрой, если неэкранировано.</translation>
     </message>
     <message>
         <source>In the replacement string, %1 can only be used to escape itself or %2, not %3</source>
-        <translation>В замещаемой строке символ &quot;%1&quot; может использоваться только для экранирования самого себя или &quot;%2&quot;, но не &quot;%3&quot;</translation>
+        <translation>В замещаемой строке символ «%1» может использоваться только для экранирования самого себя или «%2», но не «%3»</translation>
     </message>
     <message>
         <source>%1 matches newline characters</source>
@@ -8133,7 +8208,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>At least one time component must appear after the %1-delimiter.</source>
-        <translation>Как минимум одна компонента времени должна следовать за разделителем &apos;%1&apos;.</translation>
+        <translation>Как минимум одна компонента времени должна следовать за разделителем «%1».</translation>
     </message>
     <message>
         <source>Dividing a value of type %1 by %2 (not-a-number) is not allowed.</source>
@@ -8257,7 +8332,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>%1 must be followed by %2 or %3, not at the end of the replacement string.</source>
-        <translation>&quot;%1&quot; должно сопровождаться &quot;%2&quot; или &quot;%3&quot;, но не в конце замещаемой строки.</translation>
+        <translation>«%1» должно сопровождаться «%2» или «%3», но не в конце замещаемой строки.</translation>
     </message>
     <message>
         <source>%1 and %2 match the start and end of a line.</source>
@@ -8381,11 +8456,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>W3C XML Schema identity constraint selector</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Переключатель ограничений типа шаблона W3C XML</translation>
     </message>
     <message>
         <source>W3C XML Schema identity constraint field</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Поле ограничений типа шаблона W3C XML</translation>
     </message>
     <message>
         <source>A construct was encountered which is disallowed in the current language(%1).</source>
@@ -8657,15 +8732,15 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>%1 has inheritance loop in its base type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">У %1 зациклено наследование в его базовом типе %2.</translation>
     </message>
     <message>
         <source>Circular inheritance of base type %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Цикличное наследование базового типа %1.</translation>
     </message>
     <message>
         <source>Circular inheritance of union %1.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Цикличное наследование базового объединения %1.</translation>
     </message>
     <message>
         <source>%1 is not allowed to derive from %2 by restriction as the latter defines it as final.</source>
@@ -8677,19 +8752,19 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Base type of simple type %1 cannot be complex type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Базовым простого типа %1 не может быть сложный %2.</translation>
     </message>
     <message>
         <source>Simple type %1 cannot have direct base type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>У простого типа %1 %2 не может быть непосредственным базовым типом.</translation>
     </message>
     <message>
         <source>Simple type %1 is not allowed to have base type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Недопустимо, чтобы простой тип %1 имел базовым %2.</translation>
     </message>
     <message>
         <source>Simple type %1 can only have simple atomic type as base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>У простого типа %1 может быть только простой атомарный базовый тип.</translation>
     </message>
     <message>
         <source>Simple type %1 cannot derive from %2 as the latter defines restriction as final.</source>
@@ -8697,11 +8772,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Variety of item type of %1 must be either atomic or union.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Виды типов элементов %1 должны быть или атомарными, или объединениями.</translation>
     </message>
     <message>
         <source>Variety of member types of %1 must be atomic.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Виды внутренних типов %1 должны быть атомарными.</translation>
     </message>
     <message>
         <source>%1 is not allowed to derive from %2 by list as the latter defines it as final.</source>
@@ -8709,11 +8784,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Simple type %1 is only allowed to have %2 facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Простой тип %1 может иметь только фасет %2.</translation>
     </message>
     <message>
         <source>Base type of simple type %1 must have variety of type list.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Базовый тип простого типа %1 должен содержать какой-нибудь список.</translation>
     </message>
     <message>
         <source>Base type of simple type %1 has defined derivation by restriction as final.</source>
@@ -8721,11 +8796,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Item type of base type does not match item type of %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Тип элемента базового типа не совпадает с типом элемента %1.</translation>
     </message>
     <message>
         <source>Simple type %1 contains not allowed facet type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Простой тип %1 содержит недопустимый фасет типа %2.</translation>
     </message>
     <message>
         <source>%1 is not allowed to derive from %2 by union as the latter defines it as final.</source>
@@ -8733,11 +8808,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>%1 is not allowed to have any facets.</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 не может имет никаких фасетов.</translation>
     </message>
     <message>
         <source>Base type %1 of simple type %2 must have variety of union.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Базовый тип %1 простого типа %2 должен содержать какое-то объединение.</translation>
     </message>
     <message>
         <source>Base type %1 of simple type %2 is not allowed to have restriction in %3 attribute.</source>
@@ -8745,171 +8820,171 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Member type %1 cannot be derived from member type %2 of %3&apos;s base type %4.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Внутренний тип %1 не может быть производным от типа %2, определённого в базовом типе типа %3 - %4.</translation>
     </message>
     <message>
         <source>Derivation method of %1 must be extension because the base type %2 is a simple type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Метод наследования %1 должен быть «расширение», так как базовый тип %2 является простым.</translation>
     </message>
     <message>
         <source>Complex type %1 has duplicated element %2 in its content model.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 имеет повторяющийся элемент %2 в своей модели содержимого.</translation>
     </message>
     <message>
         <source>Complex type %1 has non-deterministic content.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 имеет недетерминированное содержимое.</translation>
     </message>
     <message>
         <source>Attributes of complex type %1 are not a valid extension of the attributes of base type %2: %3.</source>
-        <translation type="unfinished"></translation>
+        <translation>Атрибуты сложного типа %1 неверно дополняют атрибуты базового типа %2: %3.</translation>
     </message>
     <message>
         <source>Content model of complex type %1 is not a valid extension of content model of %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Модель содержимого сложного типа %1 неверно дополняет модель содержимого %2.</translation>
     </message>
     <message>
         <source>Complex type %1 must have simple content.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 должен иметь простое содержимое.</translation>
     </message>
     <message>
         <source>Complex type %1 must have the same simple type as its base class %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 должен содержать такой же простой тип, как и его базовый класс %2.</translation>
     </message>
     <message>
         <source>Complex type %1 cannot be derived from base type %2%3.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 не может быть производным от %2%3.</translation>
     </message>
     <message>
         <source>Attributes of complex type %1 are not a valid restriction from the attributes of base type %2: %3.</source>
-        <translation type="unfinished"></translation>
+        <translation>Атрибуты сложного типа %1 не являются верным ограничением атрибутов базового типа %2: %3.</translation>
     </message>
     <message>
         <source>Complex type %1 with simple content cannot be derived from complex base type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 с простым содержимым не может быть производным от сложного типа %2.</translation>
     </message>
     <message>
         <source>Item type of simple type %1 cannot be a complex type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Простой тип %1 не может содержать элементов сложных типов.</translation>
     </message>
     <message>
         <source>Member type of simple type %1 cannot be a complex type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Простой тип %1 не может определять сложные типы.</translation>
     </message>
     <message>
         <source>%1 is not allowed to have a member type with the same name as itself.</source>
-        <translation type="unfinished"></translation>
+        <translation>Не допустимо, чтобы %1 определял внутренний тип с таким же именем.</translation>
     </message>
     <message>
         <source>%1 facet collides with %2 facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 противоречит %2.</translation>
     </message>
     <message>
         <source>%1 facet must have the same value as %2 facet of base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен иметь такое же значение, как и фасет %2 базового типа.</translation>
     </message>
     <message>
         <source>%1 facet must be equal or greater than %2 facet of base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть не менее фасета %2 базового типа.</translation>
     </message>
     <message>
         <source>%1 facet must be less than or equal to %2 facet of base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть не более фасета %2 базового типа.</translation>
     </message>
     <message>
         <source>%1 facet contains invalid regular expression</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 содержит неверное регулярное выражение</translation>
     </message>
     <message>
         <source>Unknown notation %1 used in %2 facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>В фасете %2 используется неизвестное обозначение %1.</translation>
     </message>
     <message>
         <source>%1 facet contains invalid value %2: %3.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 содержит неверное значение %2: %3.</translation>
     </message>
     <message>
         <source>%1 facet cannot be %2 or %3 if %4 facet of base type is %5.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Фасет %1 не может быть %2 или %3, если фасет %4 базового типа равен %5.</translation>
     </message>
     <message>
         <source>%1 facet cannot be %2 if %3 facet of base type is %4.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Фасет %1 не может быть %2, если фасет %3 базового типа равен %4.</translation>
     </message>
     <message>
         <source>%1 facet must be less than or equal to %2 facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть не более фасета %2.</translation>
     </message>
     <message>
         <source>%1 facet must be less than %2 facet of base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть менее фасета %2 базового типа.</translation>
     </message>
     <message>
         <source>%1 facet and %2 facet cannot appear together.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасеты %1 и %2 не могут быть одновременно.</translation>
     </message>
     <message>
         <source>%1 facet must be greater than %2 facet of base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть более фасета %2 базового типа.</translation>
     </message>
     <message>
         <source>%1 facet must be less than %2 facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть менее фасета %2.</translation>
     </message>
     <message>
         <source>%1 facet must be greater than or equal to %2 facet of base type.</source>
-        <translation type="unfinished"></translation>
+        <translation>Фасет %1 должен быть не менее фасета %2 базового типа.</translation>
     </message>
     <message>
         <source>Simple type contains not allowed facet %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Простой тип содержит недопустимый фасет %1.</translation>
     </message>
     <message>
         <source>%1, %2, %3, %4, %5 and %6 facets are not allowed when derived by list.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Недопустимы фасеты %1, %2, %3, %4, %5 и %6 при наследовании списком.</translation>
     </message>
     <message>
         <source>Only %1 and %2 facets are allowed when derived by union.</source>
-        <translation type="unfinished"></translation>
+        <translation>При наследовании объединением доступны только фасеты %1 и %2.</translation>
     </message>
     <message>
         <source>%1 contains %2 facet with invalid data: %3.</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 содержит фасет %2 с неверными данными: %3.</translation>
     </message>
     <message>
         <source>Attribute group %1 contains attribute %2 twice.</source>
-        <translation type="unfinished"></translation>
+        <translation>Группа атрибутов %1 содержит два атрибута %2.</translation>
     </message>
     <message>
         <source>Attribute group %1 contains two different attributes that both have types derived from %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Группа атрибутов %1 содержит два разных атрибута, производных от %2.</translation>
     </message>
     <message>
         <source>Attribute group %1 contains attribute %2 that has value constraint but type that inherits from %3.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Группа атрибутов %1 содержит атрибут %2, на значение которого наложено ограничение, но тип наследован от %3.</translation>
     </message>
     <message>
         <source>Complex type %1 contains attribute %2 twice.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 содержит два атрибута %2.</translation>
     </message>
     <message>
         <source>Complex type %1 contains two different attributes that both have types derived from %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Сложный тип %1 содержит два разных атрибута, производных от %2.</translation>
     </message>
     <message>
         <source>Complex type %1 contains attribute %2 that has value constraint but type that inherits from %3.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Сложный тип %1 содержит атрибут %2, на значение которого наложено ограничение, но тип наследован от %3.</translation>
     </message>
     <message>
         <source>Element %1 is not allowed to have a value constraint if its base type is complex.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Элементу %1 недопустимо иметь ограничение на значения, если у его базовый тип сложный.</translation>
     </message>
     <message>
         <source>Element %1 is not allowed to have a value constraint if its type is derived from %2.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Элементу %1 недопустимо иметь ограничение на значения, если его тип производный от %2.</translation>
     </message>
     <message>
         <source>Value constraint of element %1 is not of elements type: %2.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Ограничение значения элемента %1 не типа элемента: %2.</translation>
     </message>
     <message>
         <source>Element %1 is not allowed to have substitution group affiliation as it is no global element.</source>
@@ -8921,7 +8996,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Value constraint of attribute %1 is not of attributes type: %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Ограничение значения атрибута %1 не типа атрибута: %2.</translation>
     </message>
     <message>
         <source>Attribute %1 has value constraint but has type derived from %2.</source>
@@ -9337,179 +9412,179 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>String content does not match the length facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое строки не соответствует фасету length.</translation>
     </message>
     <message>
         <source>String content does not match the minLength facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое строки не соответствует фасету minLength.</translation>
     </message>
     <message>
         <source>String content does not match the maxLength facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое строки не соответствует фасету maxLength.</translation>
     </message>
     <message>
         <source>String content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое строки не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>String content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое строки отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>Signed integer content does not match the maxInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое не соответствует фасету maxInclusive.</translation>
     </message>
     <message>
         <source>Signed integer content does not match the maxExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое не соответствует фасету maxExclusive.</translation>
     </message>
     <message>
         <source>Signed integer content does not match the minInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое не соответствует фасету minInclusive.</translation>
     </message>
     <message>
         <source>Signed integer content does not match the minExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое не соответствует фасету minExclusive.</translation>
     </message>
     <message>
         <source>Signed integer content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>Signed integer content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Signed integer content does not match in the totalDigits facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Знаковое целое не соответствует фасету totalDigits.</translation>
     </message>
     <message>
         <source>Unsigned integer content does not match the maxInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое не соответствует фасету maxInclusive.</translation>
     </message>
     <message>
         <source>Unsigned integer content does not match the maxExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое не соответствует фасету maxExclusive.</translation>
     </message>
     <message>
         <source>Unsigned integer content does not match the minInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое не соответствует фасету minInclusive.</translation>
     </message>
     <message>
         <source>Unsigned integer content does not match the minExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое не соответствует фасету minExclusive.</translation>
     </message>
     <message>
         <source>Unsigned integer content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>Unsigned integer content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Unsigned integer content does not match in the totalDigits facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Беззнаковое целое не соответствует фасету totalDigits.</translation>
     </message>
     <message>
         <source>Double content does not match the maxInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Действительное число не соответствует фасету maxInclusive.</translation>
     </message>
     <message>
         <source>Double content does not match the maxExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Действительное число не соответствует фасету maxExclusive.</translation>
     </message>
     <message>
         <source>Double content does not match the minInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Действительное число не соответствует фасету minInclusive.</translation>
     </message>
     <message>
         <source>Double content does not match the minExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Действительное число не соответствует фасету minExclusive.</translation>
     </message>
     <message>
         <source>Double content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Действительное число отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>Double content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Действительное число не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Decimal content does not match in the fractionDigits facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Десятичное не соответствует фасету fractionDigits.</translation>
     </message>
     <message>
         <source>Decimal content does not match in the totalDigits facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Десятичное не соответствует фасету totalDigits.</translation>
     </message>
     <message>
         <source>Date time content does not match the maxInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата-время не соответствует фасету maxInclusive.</translation>
     </message>
     <message>
         <source>Date time content does not match the maxExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата-время не соответствует фасету maxExclusive.</translation>
     </message>
     <message>
         <source>Date time content does not match the minInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата-время не соответствует фасету minInclusive.</translation>
     </message>
     <message>
         <source>Date time content does not match the minExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата-время не соответствует фасету minExclusive.</translation>
     </message>
     <message>
         <source>Date time content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата-время отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>Date time content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата-время не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Duration content does not match the maxInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность не соответствует фасету maxInclusive.</translation>
     </message>
     <message>
         <source>Duration content does not match the maxExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность не соответствует фасету maxExclusive.</translation>
     </message>
     <message>
         <source>Duration content does not match the minInclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность не соответствует фасету minInclusive.</translation>
     </message>
     <message>
         <source>Duration content does not match the minExclusive facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность не соответствует фасету minExclusive.</translation>
     </message>
     <message>
         <source>Duration content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>Duration content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Boolean content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Булевое число не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Binary content does not match the length facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Двоичные данные не соответствуют фасету length.</translation>
     </message>
     <message>
         <source>Binary content does not match the minLength facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Двоичные данные не соответствуют фасету minLength.</translation>
     </message>
     <message>
         <source>Binary content does not match the maxLength facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Двоичные данные не соответствуют фасету maxLength.</translation>
     </message>
     <message>
         <source>Binary content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Двоичные данные отсутствуют в фасете enumeration.</translation>
     </message>
     <message>
         <source>Invalid QName content: %1.</source>
@@ -9517,55 +9592,55 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>QName content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое QName отсутствует в фасете enumeration.</translation>
     </message>
     <message>
         <source>QName content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое QName не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Notation content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое Notation не перечислено в фасете enumeration.</translation>
     </message>
     <message>
         <source>List content does not match length facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Список не соответствует фасету length.</translation>
     </message>
     <message>
         <source>List content does not match minLength facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Список не соответствует фасету minLength.</translation>
     </message>
     <message>
         <source>List content does not match maxLength facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Список не соответствует фасету maxLength.</translation>
     </message>
     <message>
         <source>List content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое списка не перечислено в фасете enumeration.</translation>
     </message>
     <message>
         <source>List content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое списка не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Union content is not listed in the enumeration facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Объединение не перечислено в фасете enumeration.</translation>
     </message>
     <message>
         <source>Union content does not match pattern facet.</source>
-        <translation type="unfinished"></translation>
+        <translation>Объединение не соответствует фасету pattern.</translation>
     </message>
     <message>
         <source>Data of type %1 are not allowed to be empty.</source>
-        <translation type="unfinished"></translation>
+        <translation>Данные типа %1 не могут быть пустыми.</translation>
     </message>
     <message>
         <source>Element %1 is missing child element.</source>
-        <translation type="unfinished"></translation>
+        <translation>У элемента %1 отсутствует дочерний элемент.</translation>
     </message>
     <message>
         <source>There is one IDREF value with no corresponding ID: %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Присутствует одно значение IDREF без соответствующего ID: %1.</translation>
     </message>
     <message>
         <source>Loaded schema file is invalid.</source>
@@ -9593,7 +9668,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Specified type %1 is not known to the schema.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Указанный тип %1 шаблону не известен.</translation>
     </message>
     <message>
         <source>Element %1 is not defined in this scope.</source>
@@ -9601,15 +9676,15 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Declaration for element %1 does not exist.</source>
-        <translation type="unfinished"></translation>
+        <translation>Отсутствует объявление элемента %1.</translation>
     </message>
     <message>
         <source>Element %1 contains invalid content.</source>
-        <translation type="unfinished"></translation>
+        <translation>В элементе %1 находится неверное содержимое.</translation>
     </message>
     <message>
         <source>Element %1 is declared as abstract.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 объявлен абстрактным.</translation>
     </message>
     <message>
         <source>Element %1 is not nillable.</source>
@@ -9617,7 +9692,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Attribute %1 contains invalid data: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Атрибут %1 содержит неверные данные: %2</translation>
     </message>
     <message>
         <source>Element contains content although it is nillable.</source>
@@ -9625,7 +9700,7 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Fixed value constraint not allowed if element is nillable.</source>
-        <translation type="unfinished"></translation>
+        <translation>Для обнуляемых элементов недопустимо ограничение фиксированным значением.</translation>
     </message>
     <message>
         <source>Element %1 cannot contain other elements, as it has a fixed content.</source>
@@ -9633,75 +9708,75 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Specified type %1 is not validly substitutable with element type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Указанный тип %1 не может быть корректно замещён элементом типа %2.</translation>
     </message>
     <message>
         <source>Complex type %1 is not allowed to be abstract.</source>
-        <translation type="unfinished"></translation>
+        <translation>Недопустимо, чтобы сложный тип %1 был абстрактным.</translation>
     </message>
     <message>
         <source>Element %1 contains not allowed attributes.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 содержит недопустимые атрибуты.</translation>
     </message>
     <message>
         <source>Element %1 contains not allowed child element.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 содержит недопустимый дочерний элемент.</translation>
     </message>
     <message>
         <source>Content of element %1 does not match its type definition: %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое элемента %1 не соответствует его определению типа: %2.</translation>
     </message>
     <message>
         <source>Content of element %1 does not match defined value constraint.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое элемента %1 не соответствует определённому ограничению значения.</translation>
     </message>
     <message>
         <source>Element %1 contains not allowed child content.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Элемент %1 содержит недопустимое дочернее содержимое.</translation>
     </message>
     <message>
         <source>Element %1 contains not allowed text content.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 содержит недопустимое текстовое содержимое.</translation>
     </message>
     <message>
         <source>Element %1 is missing required attribute %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>У элемента %1 отсутствует необходимый атрибут %2.</translation>
     </message>
     <message>
         <source>Attribute %1 does not match the attribute wildcard.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Атрибут %1 не соответствует шаблону.</translation>
     </message>
     <message>
         <source>Declaration for attribute %1 does not exist.</source>
-        <translation type="unfinished"></translation>
+        <translation>Отсутствует объявление атрибута %1.</translation>
     </message>
     <message>
         <source>Element %1 contains two attributes of type %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 содержит два атрибута типа %2.</translation>
     </message>
     <message>
         <source>Attribute %1 contains invalid content.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 содержит неверное содержимое.</translation>
     </message>
     <message>
         <source>Element %1 contains unknown attribute %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Элемент %1 содержит неизвестный атрибут %2.</translation>
     </message>
     <message>
         <source>Content of attribute %1 does not match its type definition: %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое атрибута %1 не соответствует его определению типа: %2.</translation>
     </message>
     <message>
         <source>Content of attribute %1 does not match defined value constraint.</source>
-        <translation type="unfinished"></translation>
+        <translation>Содержимое атрибута %1 не соответствует определённому ограничению значения.</translation>
     </message>
     <message>
         <source>Non-unique value found for constraint %1.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Обнаружено неуникальное значение для ограничения %1.</translation>
     </message>
     <message>
         <source>Key constraint %1 contains absent fields.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Ограничение на ключ %1 содержит недостающие поля.</translation>
     </message>
     <message>
         <source>Key constraint %1 contains references nillable element %2.</source>
@@ -9717,11 +9792,11 @@ Please choose a different file name.</source>
     </message>
     <message>
         <source>Field %1 has no simple type.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Поле %1 имеет не простой тип.</translation>
     </message>
     <message>
         <source>ID value &apos;%1&apos; is not unique.</source>
-        <translation>Значение ID &quot;%1&quot; неуникально.</translation>
+        <translation>Значение ID «%1» не уникально.</translation>
     </message>
     <message>
         <source>&apos;%1&apos; attribute contains invalid QName content: %2.</source>

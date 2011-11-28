@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -50,6 +50,7 @@
 #include <qabstracttextdocumentlayout.h>
 #include <qtextlayout.h>
 #include <qtextcursor.h>
+#include <qtextobject.h>
 #include <qdebug.h>
 
 //TESTED_FILES=gui/text/qtextcursor.cpp gui/text/qtextcursor_p.h
@@ -134,6 +135,7 @@ private slots:
     void endOfLine();
 
     void editBlocksDuringRemove();
+    void selectAllDuringRemove();
 
     void update_data();
     void update();
@@ -152,6 +154,8 @@ private slots:
     void cursorPositionWithBlockUndoAndRedo();
     void cursorPositionWithBlockUndoAndRedo2();
     void cursorPositionWithBlockUndoAndRedo3();
+
+    void joinNonEmptyRemovedBlockUserState();
 
 private:
     int blockCount();
@@ -1388,6 +1392,17 @@ public slots:
         ++recordingCount;
     }
 
+    void selectAllContents()
+    {
+        // Only test the first time
+        if (!recordingCount) {
+            recordingCount++;
+            cursor->select(QTextCursor::Document);
+            lastRecordedPosition = cursor->position();
+            lastRecordedAnchor = cursor->anchor();
+        }
+    }
+
 private:
     QTextCursor *cursor;
 };
@@ -1409,6 +1424,22 @@ void tst_QTextCursor::editBlocksDuringRemove()
     QCOMPARE(listener.lastRecordedAnchor, 0);
 
     QVERIFY(doc->toPlainText().isEmpty());
+}
+
+void tst_QTextCursor::selectAllDuringRemove()
+{
+    CursorListener listener(&cursor);
+
+    cursor.insertText("Hello World");
+    cursor.movePosition(QTextCursor::End);
+
+    connect(doc, SIGNAL(contentsChanged()), &listener, SLOT(selectAllContents()));
+    listener.recordingCount = 0;
+    QTextCursor localCursor = cursor;
+    localCursor.deletePreviousChar();
+
+    QCOMPARE(listener.lastRecordedPosition, 10);
+    QCOMPARE(listener.lastRecordedAnchor, 0);
 }
 
 void tst_QTextCursor::update_data()
@@ -1828,6 +1859,21 @@ void tst_QTextCursor::cursorPositionWithBlockUndoAndRedo3()
     QCOMPARE(cursor.position(), 5);
     doc->undo(&cursor);
     QCOMPARE(cursor.position(), cursorPositionBefore);
+}
+
+void tst_QTextCursor::joinNonEmptyRemovedBlockUserState()
+{
+    cursor.insertText("Hello");
+    cursor.insertBlock();
+    cursor.insertText("World");
+    cursor.block().setUserState(10);
+
+    cursor.movePosition(QTextCursor::EndOfBlock);
+    cursor.movePosition(QTextCursor::PreviousBlock, QTextCursor::KeepAnchor);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    cursor.removeSelectedText();
+
+    QCOMPARE(cursor.block().userState(), 10);
 }
 
 QTEST_MAIN(tst_QTextCursor)

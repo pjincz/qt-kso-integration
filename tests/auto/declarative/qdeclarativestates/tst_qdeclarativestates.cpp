@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -44,7 +44,6 @@
 #include <private/qdeclarativeanchors_p_p.h>
 #include <private/qdeclarativerectangle_p.h>
 #include <private/qdeclarativeimage_p.h>
-#include <private/qdeclarativetext_p.h>
 #include <private/qdeclarativepropertychanges_p.h>
 #include <private/qdeclarativestategroup_p.h>
 #include <private/qdeclarativeitem_p.h>
@@ -121,6 +120,9 @@ private slots:
     void anchorChanges3();
     void anchorChanges4();
     void anchorChanges5();
+    void anchorChangesRTL();
+    void anchorChangesRTL2();
+    void anchorChangesRTL3();
     void anchorChangesCrash();
     void anchorRewindBug();
     void anchorRewindBug2();
@@ -143,6 +145,7 @@ private slots:
     void returnToBase();
     void extendsBug();
     void editProperties();
+    void QTBUG_14830();
 };
 
 void tst_qdeclarativestates::initTestCase()
@@ -813,6 +816,125 @@ void tst_qdeclarativestates::anchorChanges5()
     delete rect;
 }
 
+void mirrorAnchors(QDeclarativeItem *item) {
+    QDeclarativeItemPrivate *itemPrivate = QDeclarativeItemPrivate::get(item);
+    itemPrivate->setLayoutMirror(true);
+}
+
+qreal offsetRTL(QDeclarativeItem *anchorItem, QDeclarativeItem *item) {
+    return anchorItem->width()+2*anchorItem->x()-item->width();
+}
+
+void tst_qdeclarativestates::anchorChangesRTL()
+{
+    QDeclarativeEngine engine;
+
+    QDeclarativeComponent rectComponent(&engine, SRCDIR "/data/anchorChanges1.qml");
+    QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(rectComponent.create());
+    QVERIFY(rect != 0);
+    QDeclarativeItemPrivate *rectPrivate = QDeclarativeItemPrivate::get(rect);
+
+    QDeclarativeRectangle *innerRect = qobject_cast<QDeclarativeRectangle*>(rect->findChild<QDeclarativeRectangle*>("MyRect"));
+    QVERIFY(innerRect != 0);
+    mirrorAnchors(innerRect);
+
+    QDeclarativeListReference list(rect, "states");
+    QDeclarativeState *state = qobject_cast<QDeclarativeState*>(list.at(0));
+    QVERIFY(state != 0);
+
+    qmlExecuteDeferred(state);
+    QDeclarativeAnchorChanges *aChanges = qobject_cast<QDeclarativeAnchorChanges*>(state->operationAt(0));
+    QVERIFY(aChanges != 0);
+
+    rectPrivate->setState("right");
+    QCOMPARE(innerRect->x(), offsetRTL(rect, innerRect) - qreal(150));
+    QCOMPARE(aChanges->object(), qobject_cast<QDeclarativeItem*>(innerRect));
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->left().anchorLine, QDeclarativeAnchorLine::Invalid);  //### was reset (how do we distinguish from not set at all)
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->right().item, rectPrivate->right().item);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->right().anchorLine, rectPrivate->right().anchorLine);
+
+    rectPrivate->setState("");
+    QCOMPARE(innerRect->x(), offsetRTL(rect, innerRect) -qreal(5));
+
+    delete rect;
+}
+
+void tst_qdeclarativestates::anchorChangesRTL2()
+{
+    QDeclarativeEngine engine;
+
+    QDeclarativeComponent rectComponent(&engine, SRCDIR "/data/anchorChanges2.qml");
+    QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(rectComponent.create());
+    QVERIFY(rect != 0);
+    QDeclarativeItemPrivate *rectPrivate = QDeclarativeItemPrivate::get(rect);
+
+    QDeclarativeRectangle *innerRect = qobject_cast<QDeclarativeRectangle*>(rect->findChild<QDeclarativeRectangle*>("MyRect"));
+    QVERIFY(innerRect != 0);
+    mirrorAnchors(innerRect);
+
+    rectPrivate->setState("right");
+    QCOMPARE(innerRect->x(), offsetRTL(rect, innerRect) - qreal(150));
+
+    rectPrivate->setState("");
+    QCOMPARE(innerRect->x(), offsetRTL(rect, innerRect) - qreal(5));
+
+    delete rect;
+}
+
+void tst_qdeclarativestates::anchorChangesRTL3()
+{
+    QDeclarativeEngine engine;
+
+    QDeclarativeComponent rectComponent(&engine, SRCDIR "/data/anchorChanges3.qml");
+    QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(rectComponent.create());
+    QVERIFY(rect != 0);
+    QDeclarativeItemPrivate *rectPrivate = QDeclarativeItemPrivate::get(rect);
+
+    QDeclarativeRectangle *innerRect = qobject_cast<QDeclarativeRectangle*>(rect->findChild<QDeclarativeRectangle*>("MyRect"));
+    QVERIFY(innerRect != 0);
+    mirrorAnchors(innerRect);
+
+    QDeclarativeItem *leftGuideline = qobject_cast<QDeclarativeItem*>(rect->findChild<QDeclarativeItem*>("LeftGuideline"));
+    QVERIFY(leftGuideline != 0);
+
+    QDeclarativeItem *bottomGuideline = qobject_cast<QDeclarativeItem*>(rect->findChild<QDeclarativeItem*>("BottomGuideline"));
+    QVERIFY(bottomGuideline != 0);
+
+    QDeclarativeListReference list(rect, "states");
+    QDeclarativeState *state = qobject_cast<QDeclarativeState*>(list.at(0));
+    QVERIFY(state != 0);
+
+    qmlExecuteDeferred(state);
+    QDeclarativeAnchorChanges *aChanges = qobject_cast<QDeclarativeAnchorChanges*>(state->operationAt(0));
+    QVERIFY(aChanges != 0);
+
+    rectPrivate->setState("reanchored");
+    QCOMPARE(aChanges->object(), qobject_cast<QDeclarativeItem*>(innerRect));
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->left().item, QDeclarativeItemPrivate::get(leftGuideline)->left().item);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->left().anchorLine, QDeclarativeItemPrivate::get(leftGuideline)->left().anchorLine);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->right().item, rectPrivate->right().item);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->right().anchorLine, rectPrivate->right().anchorLine);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->top().item, rectPrivate->top().item);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->top().anchorLine, rectPrivate->top().anchorLine);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->bottom().item, QDeclarativeItemPrivate::get(bottomGuideline)->bottom().item);
+    QCOMPARE(QDeclarativeItemPrivate::get(aChanges->object())->anchors()->bottom().anchorLine, QDeclarativeItemPrivate::get(bottomGuideline)->bottom().anchorLine);
+
+    QCOMPARE(innerRect->x(), offsetRTL(leftGuideline, innerRect) - qreal(10));
+    QCOMPARE(innerRect->y(), qreal(0));
+    // between left side of parent and leftGuideline.x: 10, which has width 0
+    QCOMPARE(innerRect->width(), qreal(10));
+    QCOMPARE(innerRect->height(), qreal(150));
+
+    rectPrivate->setState("");
+    QCOMPARE(innerRect->x(), offsetRTL(rect, innerRect) - qreal(0));
+    QCOMPARE(innerRect->y(), qreal(10));
+    // between right side of parent and left side of rightGuideline.x: 150, which has width 0
+    QCOMPARE(innerRect->width(), qreal(50));
+    QCOMPARE(innerRect->height(), qreal(190));
+
+    delete rect;
+}
+
 //QTBUG-9609
 void tst_qdeclarativestates::anchorChangesCrash()
 {
@@ -1125,15 +1247,15 @@ void tst_qdeclarativestates::reset()
     QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(c.create());
     QVERIFY(rect != 0);
 
-    QDeclarativeText *text = rect->findChild<QDeclarativeText*>();
-    QVERIFY(text != 0);
-    QCOMPARE(text->width(), qreal(40.));
-    QVERIFY(text->width() < text->height());
+    QDeclarativeImage *image = rect->findChild<QDeclarativeImage*>();
+    QVERIFY(image != 0);
+    QCOMPARE(image->width(), qreal(40.));
+    QCOMPARE(image->height(), qreal(20.));
 
     QDeclarativeItemPrivate::get(rect)->setState("state1");
 
-    QVERIFY(text->width() > 41);
-    QVERIFY(text->width() > text->height());
+    QCOMPARE(image->width(), 20.0);
+    QCOMPARE(image->height(), qreal(20.));
 }
 
 void tst_qdeclarativestates::illegalObjectCreation()
@@ -1373,6 +1495,18 @@ void tst_qdeclarativestates::editProperties()
     rectPrivate->setState("blue");
     QCOMPARE(childRect->width(), qreal(402));
     QCOMPARE(childRect->height(), qreal(40));
+}
+
+void tst_qdeclarativestates::QTBUG_14830()
+{
+    QDeclarativeEngine engine;
+
+    QDeclarativeComponent c(&engine, SRCDIR "/data/QTBUG-14830.qml");
+    QDeclarativeRectangle *rect = qobject_cast<QDeclarativeRectangle*>(c.create());
+    QVERIFY(rect != 0);
+    QDeclarativeItem *item = rect->findChild<QDeclarativeItem*>("area");
+
+    QCOMPARE(item->width(), qreal(171));
 }
 
 QTEST_MAIN(tst_qdeclarativestates)

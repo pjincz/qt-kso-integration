@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -132,9 +132,9 @@ void Generator::generateData(const QAudioFormat &format, qint64 durationUs, int 
 qint64 Generator::readData(char *data, qint64 len)
 {
     qint64 total = 0;
-    while (len - total) {
+    while (len - total > 0) {
         const qint64 chunk = qMin((m_buffer.size() - m_pos), len - total);
-        memcpy(data, m_buffer.constData() + m_pos, chunk);
+        memcpy(data + total, m_buffer.constData() + m_pos, chunk);
         m_pos = (m_pos + chunk) % m_buffer.size();
         total += chunk;
     }

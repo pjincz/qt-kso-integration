@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -45,32 +45,29 @@
 #include <qurl.h>
 #include <private/qcore_symbian_p.h>
 
-#include <txtrich.h>                // CRichText
 #include <f32file.h>                // TDriveUnit etc
+#include <pathinfo.h>               // PathInfo
+
+#ifndef USE_SCHEMEHANDLER
+#ifdef Q_WS_S60
+// This flag changes the implementation to use S60 CDcoumentHandler
+// instead of apparc when opening the files
+#define USE_DOCUMENTHANDLER
+#endif
+
+#include <txtrich.h>                // CRichText
 #include <eikenv.h>                 // CEikonEnv
 #include <apgcli.h>                 // RApaLsSession
 #include <apgtask.h>                // TApaTaskList, TApaTask
 #include <rsendas.h>                // RSendAs
 #include <rsendasmessage.h>         // RSendAsMessage
 
-#ifdef Q_WS_S60
-// This flag changes the implementation to use S60 CDcoumentHandler
-// instead of apparch when opening the files
-#define USE_DOCUMENTHANDLER
+#ifdef USE_DOCUMENTHANDLER
+#include <DocumentHandler.h>        // CDocumentHandler
+#include <AknServerApp.h>
 #endif
-
-// copied from miutset.h, so we don't get a dependency into the app layer
-const TUid KUidMsgTypeSMTP			= {0x10001028};	// 268439592
-
-#ifdef Q_OS_SYMBIAN
-#  include <pathinfo.h>             // PathInfo
-#  ifdef USE_DOCUMENTHANDLER
-#    include <DocumentHandler.h>    // CDocumentHandler
-#    include <AknServerApp.h>
-#  endif
-#else
-#  warning CDocumentHandler requires support for S60
-#  undef USE_DOCUMENTHANDLER        // Fallback to RApaLsSession based implementation
+#else // USE_SCHEMEHANDLER
+#include <schemehandler.h>
 #endif
 
 QT_BEGIN_NAMESPACE
@@ -79,6 +76,10 @@ _LIT(KCacheSubDir, "Cache\\");
 _LIT(KSysBin, "\\Sys\\Bin\\");
 _LIT(KBrowserPrefix, "4 " );
 _LIT(KFontsDir, "z:\\resource\\Fonts\\");
+
+#ifndef USE_SCHEMEHANDLER
+// copied from miutset.h, so we don't get a dependency into the app layer
+const TUid KUidMsgTypeSMTP = {0x10001028}; // 268439592
 const TUid KUidBrowser = { 0x10008D39 };
 
 template<class R>
@@ -137,7 +138,6 @@ private:
 Q_GLOBAL_STATIC(QS60DocumentHandler, qt_s60_documenthandler);
 #endif
 
-
 static void handleMailtoSchemeLX(const QUrl &url)
 {
     // this function has many intermingled leaves and throws. Qt and Symbian objects do not have
@@ -155,11 +155,9 @@ static void handleMailtoSchemeLX(const QUrl &url)
     QStringList ccs = cc.split(QLatin1String(","), QString::SkipEmptyParts);
     QStringList bccs = bcc.split(QLatin1String(","), QString::SkipEmptyParts);
 
-
     RSendAs sendAs;
     User::LeaveIfError(sendAs.Connect());
     QAutoClose<RSendAs> sendAsCleanup(sendAs);
-
 
     CSendAsAccounts* accounts = CSendAsAccounts::NewL();
     CleanupStack::PushL(accounts);
@@ -249,47 +247,6 @@ static bool handleOtherSchemes(const QUrl &url)
     return err ? false : true;
 }
 
-static TDriveUnit exeDrive()
-{
-    RProcess me;
-    TFileName processFileName = me.FileName();
-    TDriveUnit drive(processFileName);
-    return drive;
-}
-
-static TDriveUnit writableExeDrive()
-{
-    TDriveUnit drive = exeDrive();
-    if(drive.operator TInt() == EDriveZ)
-        return TDriveUnit(EDriveC);
-    return drive;
-}
-
-static TPtrC writableDataRoot()
-{
-    TDriveUnit drive = exeDrive();
-#ifdef Q_OS_SYMBIAN
-    switch(drive.operator TInt()){
-        case EDriveC:
-            return PathInfo::PhoneMemoryRootPath();
-            break;
-        case EDriveE:
-            return PathInfo::MemoryCardRootPath();
-            break;
-        case EDriveZ:
-            // It is not possible to write on ROM drive ->
-            // return phone mem root path instead
-            return PathInfo::PhoneMemoryRootPath();
-            break;
-        default:
-            return PathInfo::PhoneMemoryRootPath();
-            break;
-    }
-#else
-#warning No fallback implementation of writableDataRoot()
-    return 0;
-#endif
-}
 
 static void openDocumentL(const TDesC& aUrl)
 {
@@ -314,42 +271,6 @@ static void openDocumentL(const TDesC& aUrl)
 #endif
 }
 
-#ifdef USE_SCHEMEHANDLER
-// The schemehandler component only exist in private SDK. This implementation
-// exist here just for convenience in case that we need to use it later on
-// The schemehandle based implementation is not yet tested.
-
-// The biggest advantage of schemehandler is that it can handle
-// wide range of schemes and is extensible by plugins
-static bool handleUrl(const QUrl &url)
-{
-    if (!url.isValid())
-        return false;
-
-    QString urlString(url.toString());
-    TPtrC urlPtr(qt_QString2TPtrC(urlString));
-    TRAPD( err, handleUrlL(urlPtr));
-    return err ? false : true;
-}
-
-static void handleUrlL(const TDesC& aUrl)
-{
-    CSchemeHandler* schemeHandler = CSchemeHandler::NewL(aUrl);
-    CleanupStack::PushL(schemeHandler);
-    schemeHandler->HandleUrlStandaloneL(); // Process the Url in standalone mode
-    CleanupStack::PopAndDestroy();
-}
-static bool launchWebBrowser(const QUrl &url)
-{
-    return handleUrl(url);
-}
-
-static bool openDocument(const QUrl &file)
-{
-    return handleUrl(url);
-}
-#endif
-
 static bool launchWebBrowser(const QUrl &url)
 {
     if (!url.isValid())
@@ -371,6 +292,83 @@ static bool openDocument(const QUrl &file)
     TPtrC filePathPtr(qt_QString2TPtrC(filePath));
     TRAPD(err, openDocumentL(filePathPtr));
     return err ? false : true;
+}
+
+#else //USE_SCHEMEHANDLER
+// The schemehandler component only exist in private SDK. This implementation
+// exist here just for convenience in case that we need to use it later on
+// The schemehandle based implementation is not yet tested.
+
+// The biggest advantage of schemehandler is that it can handle
+// wide range of schemes and is extensible by plugins
+static void handleUrlL(const TDesC& aUrl)
+{
+    CSchemeHandler* schemeHandler = CSchemeHandler::NewL(aUrl);
+    CleanupStack::PushL(schemeHandler);
+    schemeHandler->HandleUrlStandaloneL(); // Process the Url in standalone mode
+    CleanupStack::PopAndDestroy();
+}
+
+static bool handleUrl(const QUrl &url)
+{
+    if (!url.isValid())
+        return false;
+
+    QString urlString(url.toEncoded());
+    TPtrC urlPtr(qt_QString2TPtrC(urlString));
+    TRAPD( err, handleUrlL(urlPtr));
+    return err ? false : true;
+}
+
+static bool launchWebBrowser(const QUrl &url)
+{
+    return handleUrl(url);
+}
+
+static bool openDocument(const QUrl &file)
+{
+    return handleUrl(file);
+}
+
+#endif //USE_SCHEMEHANDLER
+
+// Common functions to all implementations
+
+static TDriveUnit exeDrive()
+{
+    RProcess me;
+    TFileName processFileName = me.FileName();
+    TDriveUnit drive(processFileName);
+    return drive;
+}
+
+static TDriveUnit writableExeDrive()
+{
+    TDriveUnit drive = exeDrive();
+    if (drive.operator TInt() == EDriveZ)
+        return TDriveUnit(EDriveC);
+    return drive;
+}
+
+static TPtrC writableDataRoot()
+{
+    TDriveUnit drive = exeDrive();
+    switch (drive.operator TInt()){
+        case EDriveC:
+            return PathInfo::PhoneMemoryRootPath();
+            break;
+        case EDriveE:
+            return PathInfo::MemoryCardRootPath();
+            break;
+        case EDriveZ:
+            // It is not possible to write on ROM drive ->
+            // return phone mem root path instead
+            return PathInfo::PhoneMemoryRootPath();
+            break;
+        default:
+            return PathInfo::PhoneMemoryRootPath();
+            break;
+    }
 }
 
 QString QDesktopServices::storageLocation(StandardLocation type)
@@ -395,21 +393,15 @@ QString QDesktopServices::storageLocation(StandardLocation type)
         break;
     case MusicLocation:
         path.Append(writableDataRoot());
-#ifdef Q_OS_SYMBIAN
         path.Append(PathInfo::SoundsPath());
-#endif
         break;
     case MoviesLocation:
         path.Append(writableDataRoot());
-#ifdef Q_OS_SYMBIAN
         path.Append(PathInfo::VideosPath());
-#endif
         break;
     case PicturesLocation:
         path.Append(writableDataRoot());
-#ifdef Q_OS_SYMBIAN
         path.Append(PathInfo::ImagesPath());
-#endif
         break;
     case TempLocation:
         return QDir::tempPath();

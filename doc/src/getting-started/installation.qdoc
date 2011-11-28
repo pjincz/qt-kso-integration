@@ -1,26 +1,26 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the documentation of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:FDL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in a
-** written agreement between you and Nokia.
-**
 ** GNU Free Documentation License
 ** Alternatively, this file may be used under the terms of the GNU Free
 ** Documentation License version 1.3 as published by the Free Software
-** Foundation and appearing in the file included in the packaging of this
-** file.
+** Foundation and appearing in the file included in the packaging of
+** this file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms
+** and conditions contained in a signed written agreement between you
+** and Nokia.
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -40,7 +40,7 @@ for your platform from the following list.
 */
 
 /*! \page install-x11.html
-\title Installing Qt on X11 Platforms
+\title Installing Qt for X11 Platforms
 \ingroup installation
 \brief How to install Qt on platforms with X11.
 \previouspage Installation
@@ -151,7 +151,7 @@ for your platform from the following list.
 
 /*!
 \page install-win.html
-\title Installing Qt on Windows
+\title Installing Qt for Windows
 \ingroup installation
 \brief How to install Qt on Windows.
 \previouspage Installation
@@ -269,7 +269,7 @@ for your platform from the following list.
 */
 
 /*! \page install-mac.html
-\title Installing Qt on Mac OS X
+\title Installing Qt for Mac OS X
 \ingroup installation
 \brief How to install Qt on Mac OS X.
 \previouspage Installation
@@ -392,10 +392,10 @@ must be run as root.
 */
 
 /*! \page install-wince.html
-\title Installing Qt on Windows CE
+\title Installing Qt for Windows CE
 \ingroup installation
 \ingroup qtce
-\brief How to install Qt on Windows CE.
+\brief How to install Qt for Windows CE.
 \previouspage Installation
 \tableofcontents
 
@@ -492,9 +492,9 @@ in the \l{Qt for Windows CE Requirements} document.
 */
 
 /*! \page install-Symbian-installer.html
-\title Installing Qt on the Symbian platform from a Binary Package
+\title Installing Qt for the Symbian platform from a Binary Package
 \ingroup qtsymbian
-\brief How to install Qt on the Symbian platform from a binary package.
+\brief How to install Qt for the Symbian platform from a binary package.
 \previouspage Installation
 
 \tableofcontents
@@ -551,10 +551,10 @@ Symbian platform,
 
 */
 /*! \page install-Symbian.html
-\title Installing Qt on the Symbian platform
+\title Installing Qt for the Symbian platform
 \ingroup installation
 \ingroup qtsymbian
-\brief How to install Qt on the Symbian platform.
+\brief How to install Qt for the Symbian platform.
 \previouspage Installation
 \tableofcontents
 
@@ -563,7 +563,7 @@ in the \l{Qt for the Symbian platform Requirements} document.
 
 This document describes how to install and configure Qt for
 the Symbian platform from scratch. If you are using pre-built binaries, follow 
-the instructions given in the \l{Installing Qt on the Symbian platform from a 
+the instructions given in the \l{Installing Qt for the Symbian platform from a 
 Binary Package} document.
 
 \section1 Step 1: Set Up the Development Environment
@@ -684,11 +684,11 @@ Binary Package} document.
     We hope you will enjoy using Qt.
 
 */
-/*! \page install-Symbian-linux.html
-\title Installing Qt on the Symbian platform using Linux (experimental)
+/*! \page install-symbian-linux.html
+\title Installing Qt for the Symbian platform using Linux (experimental)
 \ingroup installation
 \ingroup qtsymbian
-\brief How to install Qt on the Symbian platform using Linux.
+\brief How to install Qt for the Symbian platform using Linux.
 \previouspage Installation
 \tableofcontents
 
@@ -697,187 +697,225 @@ the Symbian platform from scratch, using Linux as the build host.
 Qt for Symbian binaries can be downloaded directly so development of
 applications using Qt for Symbian can start right away.
 
-\section1 Step 1:  Setup the development environment
+\section1 Step 1: Setup the Development Environment
 
-    Qt for the Symbian platform has some requirements on the development
-    platform. The Symbian SDK for Linux as well as a cross compiler for the ARM
-    processor used on Symbian devices should be present on the development 
-    machine.
-    
-    See \l{http://qt.gitorious.org/qt/pages/QtCreatorSymbianLinux} for more details.
+Qt for the Symbian platform has some requirements on the development
+platform. The Symbian SDK for Linux as well as a cross compiler for the ARM
+processor used on Symbian devices should be present on the development 
+machine.
+
+See \l{http://qt.gitorious.org/qt/pages/QtCreatorSymbianLinux} for more details.
+
+
 \section1 Step 2: Unpack the Archive
 
-    Uncompress the \l{http://qt.nokia.com/downloads}{downloaded} source package into the
-        directory you want Qt installed, e.g. \c{/home/user/qt/%VERSION%}.
+Uncompress the \l{http://qt.nokia.com/downloads}{downloaded} source package into the
+directory you want Qt installed, e.g. \c{/home/user/qt/%VERSION%}.
+
 
 \section1 Step 3: Set the Environment Variables
 
-    In order to build and use Qt, the \c PATH environment variable needs
-    to be extended to fine Qt tools and also to find the Symbian platform tools:
+In order to build and use Qt, the \c PATH environment variable needs
+to be extended to fine Qt tools and also to find the Symbian platform tools:
 
-    First you need to set the \c EPOCROOT environment variable to point to the 
-    location of your S60 SDK:
+First you need to set the \c EPOCROOT environment variable to point to the 
+location of your S60 SDK:
 
 \snippet doc/src/snippets/code/doc_src_installation.qdoc 36
 
-    Then you can update the PATH variable;
+Then you can update the PATH variable;
 
-        \snippet doc/src/snippets/code/doc_src_installation.qdoc 37
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 37
+
 
 \section1 Step 4: Configure Qt
 
-    To configure Qt for the Symbian platform, do:
+To configure Qt for the Symbian platform, do:
 
 \snippet doc/src/snippets/code/doc_src_installation.qdoc 38
-    to build the libraries using RVCT or
+
+to build the libraries using RVCT or
 
 \snippet doc/src/snippets/code/doc_src_installation.qdoc 39
-    to build the libraries using GCCE.
+
+to build the libraries using GCCE.
+
 
 \section1 Step 5: Build Qt
 
-    To build Qt for the device, type:
+To build Qt for the device, type:
 
 \snippet doc/src/snippets/code/doc_src_installation.qdoc 40
 
-    Congratulations, Qt is now ready to use.
+Congratulations, Qt is now ready to use.
 
-\section1 Step 6: Building Qt packages for the Device
 
-    To run any application or demo on a real device, you need to install it
-    on the device. To do this you first have to create a a package for the
-    device, containing the libraries:
+\section1 Step 6: Building Qt Packages for the Device
 
-    \bold{Building a Qt package without a certificate}
+To run any application or demo on a real device, you need to install it
+on the device. To do this you first have to create a a package for the
+device, containing the libraries:
 
-            If you have no certificate, build a self signed Qt:
+\bold{Building a Qt package without a certificate}
 
-            \snippet doc/src/snippets/code/doc_src_installation.qdoc 41
+If you have no certificate, build a self signed Qt:
 
-            The Qt libraries are built with "All -Tcb" capability, so that
-            they can support all types of applications. However, these
-            capabilities are automatically lowered if you make a self-signed
-            package.
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 41
 
-    \bold{Building a Qt package with a Symbian developer certificate}
+The Qt libraries are built with "All -Tcb" capability, so that
+they can support all types of applications. However, these
+capabilities are automatically lowered if you make a self-signed
+package.
 
-            If you have a symbian-signed developer certificate, specify the
-            capabilities you can sign for, for example:
+\bold{Building a Qt package with a Symbian developer certificate}
 
-            \snippet doc/src/snippets/code/doc_src_installation.qdoc 42
-   
-    \section2  Installing Qt packages to the device.
+If you have a Symbian-signed developer certificate, specify the
+capabilities you can sign for, for example:
 
-        It is possible to install packages to a phone in Linux by putting
-        the package on the phone memory card and then installing manually
-        from the phone menu. However, this is tedious and will not work
-        on phones without a memory card, so the method recommended by Qt is
-        to use the App TRK tool.
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 42
 
-        \section3 Obtaining the App TRK package.
+\section2 Installing Qt Packages to the Device.
 
-                Download the package from the following location.
+It is possible to install packages to a phone in Linux by putting
+the package on the phone memory card and then installing manually
+from the phone menu. However, this is tedious and will not work
+on phones without a memory card, so the method recommended by Qt is
+to use the App TRK tool.
 
-                \list
-                    \o \l{http://tools.ext.nokia.com/trk/}{Application TRK}.
-                       Choose the correct installation package based on the
-                       S60 version of your device
-                       (\c{S60_<S60-version>_app_trk_<TRK-version>.sisx}).
-                \endlist
+\section3 Obtaining the App TRK package.
 
-                This package currently has to be installed by putting the
-                package on the memory card and installing from the phone
-                menu, or using a Windows PC for doing the install. However,
-                the installation only has to be done once.
+Download the package from the following location.
 
-         \section3 Configuring App TRK on the phone.
+\list
+\o \l{http://tools.ext.nokia.com/trk/}{Application TRK}.
+   Choose the correct installation package based on the
+   S60 version of your device
+   (\c{S60_<S60-version>_app_trk_<TRK-version>.sisx}).
+\endlist
 
-                When App TRK is installed, connect the phone to the PC using
-                the USB cable. Select "PCSuite" as connection type. Then run
-                App TRK on the phone, and make sure that the connection type is
-                USB. This can be changed under
-                the \c Settings menu entry. If necessary, choose \c Connect
-                from the menu.
+This package currently has to be installed by putting the
+package on the memory card and installing from the phone
+menu, or using a Windows PC for doing the install. However,
+the installation only has to be done once.
 
-         \section3 Configuring the USB serial driver on the Linux system.
+\section3 Configuring App TRK on the Phone
 
-               On Linux, phone should appear as the \c /dev/ttyUSB1 device,
-               however if you are running an old kernel, you may need to
-               force the USB module to be loaded correctly before the device
-               will appear:
+When App TRK is installed, connect the phone to the PC using
+the USB cable. Select "PCSuite" as connection type. Then run
+App TRK on the phone, and make sure that the connection type is
+USB. This can be changed under the \c Settings menu entry.
+If necessary, choose \c Connect from the menu.
 
-               \snippet doc/src/snippets/code/doc_src_installation.qdoc 43
+\section3 Configuring the USB Serial Driver on the Linux System
 
-               Note the identifier on the line where your Symbian device
-               appears. Then execute the following, using the first and
-               second part of the identifier in place of \c XXX,
-               respectively.
+On Linux, phone should appear as the \c /dev/ttyUSB1 device,
+however if you are running an old kernel, you may need to
+force the USB module to be loaded correctly before the device
+will appear:
 
-               \snippet doc/src/snippets/code/doc_src_installation.qdoc 44
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 43
 
-               The \c rmmod step may fail if the module is not already
-               loaded, but that is harmless.
+Note the identifier on the line where your Symbian device
+appears. Then execute the following, using the first and
+second part of the identifier in place of \c XXX,
+respectively.
 
-          \section3 Building the \c runonphone tool.
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 44
 
-               Note that building the \c runonphone tool requires a separate
-               installation of Qt for Linux. If there is a version of Qt
-               installed by your distribution's package mechanism, that that
-               should do fine. Some distributions separate the libraries from
-               the development setup which includes qmake. Make sure you have
-               both installed.
+The \c rmmod step may fail if the module is not already
+loaded, but that is harmless.
 
-               First make sure that the \c qmake you use is taken from the
-               Linux installation of Qt. The easiest way to make sure of this
-               is to open a new shell and run the following command:
+\section3 Building the runonphone Tool.
 
-               \snippet doc/src/snippets/code/doc_src_installation.qdoc 45
+Note that building the \c runonphone tool requires a separate
+installation of Qt for Linux. If there is a version of Qt
+installed by your distribution's package mechanism, that that
+should do fine. Some distributions separate the libraries from
+the development setup which includes \c qmake. Make sure you
+have both installed.
 
-               \c qmake will tell you where it is installed.
+You will also need the \l{libusb} libraries and header files
+installed. Usually, installing a development package such as
+\c{libusb-dev} will ensure that you have all the necessary
+dependencies installed.
 
-               Copy the \c{%QTDIR%/tools/runonphone} folder to a place outside
-               of the Qt tree. Then go to the folder in a shell and build it:
+First, make sure that the \c qmake you use is taken from the
+Linux installation of Qt. The easiest way to make sure of this
+is to open a new shell and run the following command:
 
-               \snippet doc/src/snippets/code/doc_src_installation.qdoc 46
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 45
 
-               Copy the resulting executable to a folder which is in your
-               \c PATH environment variable.
+\c qmake will tell you where it is installed.
 
-           \section3 Installing the built package onto the phone.
+Copy the \c{%QTDIR%/tools/runonphone} folder to a place outside
+of the Qt tree. Then go to the folder in a shell and build it:
 
-               Return to the root of the Qt tree configured for Symbian. Then
-               install the Qt libraries by running the following:
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 46
 
-               \snippet doc/src/snippets/code/doc_src_installation.qdoc 47
+Copy the resulting executable to a folder which is in your
+\c PATH environment variable.
 
-               \note If the installation fails, please make sure that there is
-                     no previously installed version of Qt on the phone.
+\section3 Installing the Built Package onto the Phone
 
-               Qt requires some dependent packages to be installed on the device,
-               they are shipped in the Symbian SDK and can be installed using the
-               runonphone tool as well.
-               The packages can be found in the EPOCROOT at the following locations;
+\note Before starting, please make sure that there is no previously
+installed version of Qt on the phone.
 
-               \snippet doc/src/snippets/code/doc_src_installation.qdoc 50
+Return to the root of the Qt tree configured for Symbian. Then
+install the Qt libraries by running the following:
 
-\section1 Running Qt demos
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 47
 
-        We've included a subset of the Qt demos in this package for you
-        to try out. An excellent starting point is the "fluidlauncher"
-        demo.
+You may need to supply the path of the serial device file using
+the \c{-p} option:
 
-        Install and run the demo by using the following commands:
+\snippet doc/src/snippets/code/doc_src_installation.qdoc runonphone with device file path
 
-        \snippet doc/src/snippets/code/doc_src_installation.qdoc 48
+If the installation fails, please make sure that there is
+no previously installed version of Qt on the phone.
 
-        The same command can be used for other applications:
+Qt requires some dependent packages to be installed on the device,
+which can be installed using the runonphone tool as well. One is
+the \c{sqlite3.sis}, which is included in the Qt distribution, while
+the others are shipped with the Symbian SDK. The required packages
+can be found from the following locations:
 
-        \snippet doc/src/snippets/code/doc_src_installation.qdoc 49
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 50
 
-        For more information about building and running Qt programs on the
-        Symbian platform, see \l{The Symbian platform - Introduction to Qt}.
+It is also possible to install packages onto the device using the
+\c runonphone build rule that \c qmake automatically generates for
+each Qt project. Options can be supplied to the \c runonphone tool
+that is invoked begind the scenes:
 
-    We hope you will enjoy using Qt.
+\snippet doc/src/snippets/code/doc_src_installation.qdoc make runonphone with options
+
+If you are running \c runonphone or invoking the \c runonphone
+build rule often, it is possible to set the \c QT_RUN_ON_PHONE_OPTIONS
+environment variable with the options you normally use:
+
+\snippet doc/src/snippets/code/doc_src_installation.qdoc make runonphone with preset environment variable
+
+This makes installation of packages onto a device easier and less
+error-prone.
+
+
+\section1 Running Qt Demos
+
+We've included a subset of the Qt demos in this package for you
+to try out. An excellent starting point is the "fluidlauncher"
+demo.
+
+Install and run the demo by using the following commands:
+
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 48
+
+The same command can be used for other applications:
+
+\snippet doc/src/snippets/code/doc_src_installation.qdoc 49
+
+For more information about building and running Qt programs on the
+Symbian platform, see \l{The Symbian platform - Introduction to Qt}.
+
+We hope you will enjoy using Qt.
 */
 
 /*!
@@ -926,6 +964,7 @@ applications using Qt for Symbian can start right away.
     first install the Visual Studio Service Pack 1 available
     \l{http://www.microsoft.com/downloads/details.aspx?FamilyId=BB4A75AB-E2D4-4C96-B39D-37BAF6B5B1DC&amp;displaylang=en}{here}
     to avoid runtime conflicts.
+    Additionally, you must use the Check for Updates feature in the Help menu of the Visual Studio 2005 IDE to apply at least the following security updates: KB937061, KB971023, KB971090, KB973673.
 
     If you are using a source edition of Qt, you must first install Perl so
     that the syncqt script invoked by configure can be executed. You can download
@@ -970,78 +1009,113 @@ applications using Qt for Symbian can start right away.
 
     \image x11_dependencies.png Qt for X11 Dependencies
 
-    \raw HTML
-    <style type="text/css" id="colorstyles">
-     #QtGuiColor { background-color: #98fd00; color: black }
-     #QtCoreColor { background-color: #9c9cff; color: black }
-     #DefaultColor { background-color: #f6f6dc; color: black }
-     #FreetypeColor { background-color: #e6e6fa; color: black }
-     #GLColor { background-color: #ffc0cb; color: black }
-     #PthreadColor { background-color: #bdb76b; color: black }
-     #OptionalColor { background-color: #cae1ff; color: black }
-     #SMColor { background-color: #c2fafa; color: black }
-     #MiscColor { background-color: #f0f9ff; color: black }
-     #GlibColor { background-color: #b3b3b3; color: black }
-    </style>
-    \endraw
-
     The QtGui module and the QtCore module, which provides the non-GUI features required
     by QtGui, depend on the libraries described in the following table. To build
     Qt from its source code, you will also need to install the development
     packages for these libraries for your system.
 
-    \table 90%
-    \header \o Name \o Library \o Notes \o Configuration options \o Minimum working version
-    \raw HTML
-    <tr id="OptionalColor">
-    <td> XRender </td><td> libXrender </td><td> X Rendering Extension; used for anti-aliasing</td>
-    <td><tt>-xrender</tt> or auto-detected</td><td>0.9.0</td>
-    </tr><tr id="OptionalColor">
-    <td> Xrandr </td><td> libXrandr </td><td> X Resize and Rotate Extension</td>
-    <td><tt>-xrandr</tt> or auto-detected</td><td>1.0.2</td>
-    </tr><tr id="OptionalColor">
-    <td> Xcursor </td><td> libXcursor </td><td> X Cursor Extension</td>
-    <td><tt>-xcursor</tt> or auto-detected</td><td>1.1.4</td>
-    </tr><tr id="OptionalColor">
-    <td> Xfixes </td><td> libXfixes </td><td> X Fixes Extension</td>
-    <td><tt>-xfixes</tt> or auto-detected</td><td>3.0.0</td>
-    </tr><tr id="OptionalColor">
-    <td> Xinerama </td><td> libXinerama </td><td> Multi-head support</td>
-    <td><tt>-xinerama</tt> or auto-detected</td><td>1.1.0</td>
+    \table 100% 
+    \header
+    \o Name
+    \o Library
+    \o Notes
+    \o Configuration options
+    \o Minimum working version 
+    \row {id="OptionalColor"}
+    \o XRender
+    \o libXrender
+    \o X Rendering Extension; used for anti-aliasing
+    \o \tt{-xrender} or auto-detected
+    \o 0.9.0
+    \row {id="OptionalColor"}
+    \o Xrandr 
+    \o libXrandr
+    \o X Resize and Rotate Extension
+    \o \tt{-xrandr} or auto-detected
+    \o 1.0.2
+    \row {id="OptionalColor"}
+    \o Xcursor 
+    \o libXcursor
+    \o X Cursor Extension
+    \o \tt{-xcursor} or auto-detected
+    \o 1.1.4
+    \row {id="OptionalColor"}
+    \o Xfixes
+    \o libXfixes
+    \o X Fixes Extension
+    \o \tt{-xfixes} or auto-detected
+    \o 3.0.0
+    \row {id="OptionalColor"}
+    \o Xinerama 
+    \o libXinerama
+    \o Multi-head support
+    \o \tt{-xinerama} or auto-detected
+    \o 1.1.0
 
-    </tr><tr id="OptionalColor">
-    <td> Fontconfig </td><td> libfontconfig </td><td> Font customization and configuration</td>
-    <td><tt>-fontconfig</tt> or auto-detected</td><td>2.1</td>
-    </tr><tr id="OptionalColor">
-    <td> FreeType </td><td> libfreetype </td><td> Font engine</td>
-    <td></td><td>2.1.3</td>
+    \row {id="OptionalColor"}
+    \o Fontconfig
+    \o libfontconfig
+    \o Font customization and configuration
+    \o \tt{-fontconfig} or auto-detected
+    \o 2.1
+    \row {id="OptionalColor"}
+    \o FreeType
+    \o libfreetype
+    \o Font engine
+    \o 
+    \o 2.1.3
 
-    </tr><tr id="DefaultColor">
-    <td> Xi </td><td> libXi </td><td> X11 Input Extensions</td>
-    <td><tt>-xinput</tt> or auto-detected</td><td>1.3.0</td>
-    </tr><tr id="DefaultColor">
-    <td> Xt </td><td> libXt </td><td> Xt Intrinsics</td><td></td><td>0.99</td>
-    </tr><tr id="DefaultColor">
-    <td> Xext </td><td> libXext </td><td> X Extensions</td><td></td><td>6.4.3</td>
-    </tr><tr id="DefaultColor">
-    <td> X11 </td><td> libX11 </td><td> X11 Client-Side Library</td><td></td><td>6.2.1</td>
+    \row {id="DefaultColor"}
+    \o Xi
+    \o libXi
+    \o X11 Input Extensions
+    \o \tt{-xinput} or auto-detected
+    \o 1.3.0
+    \row {id="DefaultColor"}
+    \o Xt
+    \o libXt
+    \o Xt Intrinsics
+    \o
+    \o 0.99
+    \row {id="DefaultColor"}
+    \o Xext
+    \o libXext
+    \o X Extensions
+    \o
+    \o 6.4.3
+    \row {id="DefaultColor"}
+    \o X11
+    \o libX11
+    \o X11 Client-Side Library
+    \o
+    \o 6.2.1
 
-    </tr><tr id="SMColor">
-    <td> SM </td><td> libSM </td><td> X Session Management</td>
-    <td><tt>-sm</tt> or auto-detected</td><td>6.0.4</td>
-    </tr><tr id="SMColor">
-    <td> ICE </td><td> libICE </td><td> Inter-Client Exchange</td>
-    <td><tt>-sm</tt> or auto-detected</td><td>6.3.5</td>
+    \row {id="SMColor"}
+    \o SM
+    \o libSM
+    \o X Session Management
+    \o \tt{-sm} or auto-detected
+    \o 6.0.4
+    \row {id="SMColor"}
+    \o ICE
+    \o libICE
+    \o Inter-Client Exchange
+    \o \tt{-sm} or auto-detected
+    \o 6.3.5
 
-    </tr><tr id="GlibColor">
-    <td> glib </td><td> libglib-2.0 </td><td> Common event loop handling</td>
-    <td><tt>-glib</tt> or auto-detected</td><td>2.8.3</td>
-    </tr><tr id="PthreadColor">
-    <td> pthread </td><td> libpthread </td><td> Multithreading</td>
-    <td></td><td>2.3.5</td>
-    </tr>
-    \endraw
-    \endtable
+    \row {id="GlibColor"}
+    \o glib
+    \o libglib-2.0
+    \o Common event loop handling
+    \o \tt{-glib} or auto-detected
+    \o 2.8.3
+    \row {id="PthreadColor"}
+    \o pthread
+    \o libpthread
+    \o Multithreading
+    \o
+    \o 2.3.5
+    \endtable  
 
     \note You must compile with XRender support to get alpha transparency
     support for pixmaps and images.
@@ -1103,7 +1177,7 @@ applications using Qt for Symbian can start right away.
     \brief Setting up the Windows CE environment for Qt.
     \previouspage General Qt Requirements
 
-    Qt is known to work with Visual Studio 2005/2008 and the following SDKs for
+    Qt is known to work with Visual Studio 2005/2008/2010 and the following SDKs for
     Windows CE development on Windows XP and Windows Vista:
 
     \list
@@ -1129,8 +1203,9 @@ applications using Qt for Symbian can start right away.
             {Windows Mobile 6 Professional/Standard}
     \endlist
 
+    \bold{Note:}
     \table
-        \row \bold{Note:}
+        \row
             \o
             \list 1
                 \o Currently, there is only compile support for Windows CE 5.0
@@ -1140,14 +1215,37 @@ applications using Qt for Symbian can start right away.
             \endlist
     \endtable
 
-
     Device manufacturers may prefer to make their own customized version of
     Windows CE using Platform Builder. In order for Qt for Windows CE to
     support a custom SDK, a build specification needs to be created. More
     information on Windows CE Customization can be found
     \l{Windows CE - Working with Custom SDKs}{here}.
 
-    \sa {Known Issues}
+	\section3 Requirements
+	\list
+		\o Development environment: 
+		\list
+			\o Microsoft Visual Studio 2005 (Standard Edition) or higher
+			\o ActivePerl
+		\endlist
+		\o Footprint
+		\list
+			\o Lean configuration - 4.8 MB
+			\o Full configuration - 8.4 MB
+		\endlist
+		\o Operating Systems
+		\list
+			\o Windows CE 5 or higher
+			\o Windows Mobile 5 or higher
+		\endlist
+		\o Hardware Platform
+		\list
+			\o Supported on ARM, x86
+			\o (Compiles on SH4 and MIPS)
+		\endlist
+	\endlist
+
+		\sa {Known Issues}
 */
 
 /*!
@@ -1235,10 +1333,18 @@ applications using Qt for Symbian can start right away.
            in this release.
     \endlist
 
-    Running Qt on real device requires the Open C to be installed on the device.
-    The Open C installation packages are embedded into \c{qt_installer.sis}, which is included in
-    Qt for Symbian binary package. If you are building Qt from scratch, you can find the
-    required packages in the Symbian SDK where you installed Open C/C++:
+    Running Qt on real device requires the Open C and sqlite3 to be installed on the device.
+    These installation packages are embedded into \c{qt_installer.sis}, which is included in
+    Qt for Symbian binary package.
+
+    If you are building Qt from scratch, you can find the sqlite3 package from
+    under your Qt installation:
+
+    \list
+        \o \c{src\s60installs\sqlite3.sis}
+    \endlist
+
+    The Open C packages you can find in the Symbian SDK where you installed Open C/C++:
     \list
         \o \c{nokia_plugin\openc\s60opencsis\pips_s60_<version>.sis}
         \o \c{nokia_plugin\openc\s60opencsis\openc_ssl_s60_<version>.sis}
@@ -1258,4 +1364,291 @@ applications using Qt for Symbian can start right away.
     to get more information about how to setup the development environment.
 
     \sa {Known Issues}
+*/
+
+/*!
+    \page configure-options.html
+    \title Configure options for Qt
+    \ingroup installation
+    \brief Brief description of available options building Qt.
+	
+	This page gives a brief description of the different options
+	available when building Qt using configure. To build Qt using
+	default options, just call configure from the command line like
+	showed below. If you would like to customize your build, please
+	use the options listed in the following tables.
+	
+ 	\c {.\configure.exe}
+ 
+	\section2 Cross platform options:
+ 
+   \table
+   \header \o Option  \o Description \o Note
+   \row   \o \c {-buildkey } <key> \o Build the Qt library and plugins
+   using the specified \o
+   \row   \o \c {<key>} \o When the library loads plugins, it will only
+   load those that have a matching <key>. \o
+   \row   \o \c {-release } \o Compile and link Qt with debugging turned off. \o
+   \row   \o \c {-debug } \o Compile and link Qt with debugging turned on.
+   \o Default value.
+   \row   \o \c {-debug-and-release} \o Compile and link two Qt libraries,
+   with and without debugging turned on. \o This option denotes a default
+   value and needs to be evaluated. If the evaluation succeeds, the
+   feature is included.
+   \row   \o \c {-opensource} \o Compile and link the Open-Source Edition
+   of Qt. \o
+   \row   \o \c {-commercial } \o Compile and link the Commercial Edition
+   of Qt. \o
+   \row   \o \c {-developer-build} \o Compile and link Qt with Qt developer
+   options including auto-tests exporting) \o
+   \row   \o \c {-shared} \o Create and use shared Qt libraries. \o Default
+   value.
+   \row   \o \c {-static} \o Create and use static Qt libraries. \o
+   \row   \o \c {-ltcg} \o Use Link Time Code Generation. \o Apply to release
+   builds only.
+   \row   \o \c {-no-ltcg} \o Do not use Link Time Code Generation. \o Default
+   value.
+   \row   \o \c {-no-fast} \o Configure Qt normally by generating Makefiles for
+   all project files. \o Default value.
+   \row   \o \c {-fast} \o Configure Qt quickly by generating Makefiles only for
+   library and subdirectory targets. \o All other Makefiles are created as
+   wrappers which will in turn run qmake.
+   \row   \o \c {-no-exceptions} \o Disable exceptions on platforms that support
+   it. \o 
+   \row   \o \c {-exceptions} \o Enable exceptions on platforms that support it.
+   \o Default value.
+   \row   \o \c {-no-accessibility} \o Do not compile Windows Active
+   Accessibility support. \o
+   \row   \o \c {-accessibility} \o Compile Windows Active Accessibility
+   support. \o Default value.
+   \row   \o \c {-no-stl} \o Do not compile STL support. \o
+   \row   \o \c {-stl} \o Compile STL support. \o Default value.
+   \row   \o \c {-no-sql-<driver>} \o Disable SQL <driver> entirely, by default
+   none are turned on. \o
+   \row   \o \c {-qt-sql-<driver>} \o Enable a SQL <driver> in the Qt Library.
+   \o
+   \row   \o \c {-plugin-sql-<driver>} \o Enable SQL <driver> as a plugin to be
+   linked to at run time. \o Available values for <driver>: mysql, psql,
+   oci, odbc, tds, db2, sqlite, sqlite2, ibase. Drivers marked with a
+   '+' during configure have been detected as available on this system.
+   \row   \o \c {-system-sqlite} \o Use sqlite from the operating system. \o
+   \row   \o \c {-no-qt3support} \o Disables the Qt 3 support functionality. \o
+   \row   \o \c {-no-opengl} \o Disables OpenGL functionality \o
+   \row   \o \c {-opengl <api>} \o Enable OpenGL support with specified API
+   version. \o Available values for <api>: desktop - Enable support for
+   Desktop OpenGL (Default), es1 - Enable support for OpenGL ES Common
+   Profile, es2 - Enable support for OpenGL ES 2.0. 
+   \row   \o \c {-no-openvg} \o Disables OpenVG functionality \o Default value.
+   \row   \o \c {-openvg} \o Enables OpenVG functionality \o Requires EGL
+   support, typically supplied by an OpenGL or other graphics
+   implementation. 
+   \row   \o \c {-platform <spec> } \o The operating system and compiler you
+   are building on. \o The default value is %QMAKESPEC%.
+   \row   \o \c {-xplatform <spec> } \o The operating system and compiler you
+   are cross compiling for. \o See the README file for a list of supported
+   operating systems and compilers.
+   \row   \o \c {-qtnamespace <namespace>} \o Wraps all Qt library code in
+   'namespace name {..} \o
+   \row   \o \c {-qtlibinfix <infix>} \o Renames all Qt* libs to Qt*<infix>
+   \o
+   \row   \o \c {-D <define>} \o Add an explicit define to the preprocessor.
+   \o
+   \row   \o \c {-I <includepath>} \o Add an explicit include path. \o
+   \row   \o \c {-L <librarypath>} \o Add an explicit library path. \o
+   \row   \o \c {-l <libraryname>} \o Add an explicit library name, residing
+   in a librarypath. \o
+   \row   \o \c {-graphicssystem <sys>} \o Specify which graphics system should
+   be used. \o Available values for <sys>: * raster - Software rasterizer,
+   opengl - Using OpenGL acceleration, experimental!, openvg - Using
+   OpenVG acceleration, experimental! 
+   \row   \o \c {-help, -h, -?} \o Display this information. \o
+   \endtable
+	
+ \section2 Third Party Libraries:
+   \table
+		\header \o Option  \o Description \o Note
+		\row   \o \c {-qt-zlib} \o Use the zlib bundled with Qt. \o
+		\row   \o \c {-system-zlib} \o Use zlib from the operating system.
+		\o See http://www.gzip.org/zlib
+		\row   \o \c {-no-gif} \o Do not compile GIF reading support. 
+		\o This option denotes a default value and needs to be evaluated.
+		If the evaluation succeeds, the feature is included.
+		\row   \o \c {-qt-gif} \o Compile GIF reading support. \o See also
+		src/gui/image/qgifhandler_p.h
+		\row   \o \c {-no-libpng} \o Do not compile PNG support. \o
+		\row   \o \c {-qt-libpng} \o Use the libpng bundled with Qt.
+		\o This option denotes a default value and needs to be evaluated.
+		If the evaluation succeeds, the feature is included.
+		\row   \o \c {-system-libpng} \o Use libpng from the operating system.
+		\o See http://www.libpng.org/pub/png
+		\row   \o \c {-no-libmng} \o Do not compile MNG support. \o This option
+		denotes a default value and needs to be evaluated. If the evaluation
+		succeeds, the feature is included.
+		\row   \o \c {-qt-libmng} \o Use the libmng bundled with Qt. \o
+		\row   \o \c {-system-libmng} \o Use libmng from the operating system.
+		\o See http://www.libmng.com
+		\row   \o \c {-no-libtiff} \o Do not compile TIFF support. \o This option
+		denotes a default value and needs to be evaluated. If the evaluation
+		succeeds, the feature is included.
+		\row   \o \c {-qt-libtiff} \o Use the libtiff bundled with Qt. \o
+		\row   \o \c {-system-libtiff} \o Use libtiff from the operating system.
+		\o See http://www.libtiff.org
+		\row   \o \c {-no-libjpeg} \o Do not compile JPEG support. \o This option
+		denotes a default value and needs to be evaluated. If the evaluation
+		succeeds, the feature is included.
+		\row   \o \c {-qt-libjpeg} \o Use the libjpeg bundled with Qt. \o
+		\row   \o \c {-system-libjpeg} \o Use libjpeg from the operating system.
+		\o See http://www.ijg.org. This option denotes a default value and
+		needs to be evaluated. If the evaluation succeeds, the feature is
+		included.
+	\endtable
+	
+  \section2 Qt for Windows only:
+  \table
+   \header \o Option  \o Description \o Note
+   \row   \o \c {-no-dsp} \o Do not generate VC++ .dsp files. \o
+   \row   \o \c {-dsp} \o Generate VC++ .dsp files, only if spec "win32-msvc".
+   \o Default value.
+   \row   \o \c {-no-vcproj} \o Do not generate VC++ .vcproj files. \o
+   \row   \o \c {-vcproj} \o Generate VC++ .vcproj files, only if platform
+   "win32-msvc.net". \o Default value.
+   \row   \o \c {-no-incredibuild-xge} \o Do not add IncrediBuild XGE distribution
+   commands to custom build steps. \o
+   \row   \o \c {-incredibuild-xge} \o Add IncrediBuild XGE distribution commands
+   to custom build steps. This will distribute MOC and UIC steps, and other
+   custom buildsteps which are added to the INCREDIBUILD_XGE variable.
+   \o The IncrediBuild distribution commands are only added to Visual Studio
+   projects. This option denotes a default value and needs to be evaluated.
+   If the evaluation succeeds, the feature is included.
+   \row   \o \c {-no-plugin-manifests} \o Do not embed manifests in plugins. \o
+   \row   \o \c {-plugin-manifests} \o Embed manifests in plugins. 
+   \o Default value.
+   \row   \o \c {-no-qmake} \o Do not compile qmake. \o
+   \row   \o \c {-qmake} \o Compile qmake. \o Default value
+   \row   \o \c {-dont-process} \o Do not generate Makefiles/Project files. This
+   will override -no-fast if specified. \o
+   \row   \o \c {-process} \o Generate Makefiles/Project files. \o Default value.
+   \row   \o \c {-no-rtti} \o Do not compile runtime type information. \o
+   \row   \o \c {-rtti} \o Compile runtime type information. \o Default value.
+   \row   \o \c {-no-mmx} \o Do not compile with use of MMX instructions \o
+   \row   \o \c {-mmx} \o Compile with use of MMX instructions \o This option
+   denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-no-3dnow} \o Do not compile with use of 3DNOW instructions \o
+   \row   \o \c {-3dnow} \o Compile with use of 3DNOW instructions \o This
+   option denotes a default value and needs to be evaluated. If the
+   evaluation succeeds, the feature is included.
+   \row   \o \c {-no-sse} \o Do not compile with use of SSE instructions \o
+   \row   \o \c {-sse} \o Compile with use of SSE instructions \o This option
+   denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-no-sse2} \o Do not compile with use of SSE2 instructions \o
+   \row   \o \c {-sse2} \o Compile with use of SSE2 instructions \o This option
+   denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-no-openssl} \o Do not compile in OpenSSL support \o
+   \row   \o \c {-openssl} \o Compile in run-time OpenSSL support \o This option
+   denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-openssl-linked} \o Compile in linked OpenSSL support \o
+   \row   \o \c {-no-dbus} \o Do not compile in D-Bus support \o
+   \row   \o \c {-dbus} \o Compile in D-Bus support and load libdbus-1 dynamically.
+   \o This option denotes a default value and needs to be evaluated.
+   If the evaluation succeeds, the feature is included.
+   \row   \o \c {-dbus-linked} \o Compile in D-Bus support and link to
+   libdbus-1 \o
+   \row   \o \c {-no-phonon} \o Do not compile in the Phonon module \o
+   \row   \o \c {-phonon} \o Compile the Phonon module. \o Phonon is built if a
+   decent C++ compiler is used. This option denotes a default value and needs
+   to be evaluated. If the evaluation succeeds, the feature is included.
+   \row   \o \c {-no-phonon-backend} \o Do not compile the platform-specific
+   Phonon backend-plugin \o
+   \row   \o \c {-phonon-backend} \o Compile in the platform-specific Phonon
+   backend-plugin \o Default value.
+   \row   \o \c {-no-multimedia} \o Do not compile the multimedia module \o
+   \row   \o \c {-multimedia} \o Compile in multimedia module \o Default value.
+   \row   \o \c {-no-audio-backend} \o Do not compile in the platform audio
+   backend into QtMultimedia \o
+   \row   \o \c {-audio-backend} \o Compile in the platform audio backend into
+   QtMultimedia \o This option denotes a default value and needs to be
+   evaluated. If the evaluation succeeds, the feature is included.
+   \row   \o \c {-no-webkit} \o Do not compile in the WebKit module \o
+   \row   \o \c {-webkit} \o Compile in the WebKit module \o WebKit is built
+   if a decent C++ compiler is used. This option denotes a default value
+   and needs to be evaluated. If the evaluation succeeds, the feature is
+   included.
+   \row   \o \c {-webkit-debug} \o Compile in the WebKit module with debug
+   symbols. \o
+   \row   \o \c {-no-script} \o Do not build the QtScript module. \o
+   \row   \o \c {-script} \o Build the QtScript module. \o This option
+   denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-no-scripttools} \o Do not build the QtScriptTools module. \o
+   \row   \o \c {-scripttools} \o Build the QtScriptTools module. \o This
+   option denotes a default value and needs to be evaluated. If the
+   evaluation succeeds, the feature is included.
+   \row   \o \c {-no-declarative} \o Do not build the declarative module \o
+   \row   \o \c {-declarative} \o Build the declarative module \o This option
+   denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-no-declarative-debug} \o Do not build the declarative debugging
+   support \o
+   \row   \o \c {-declarative-debug} \o Build the declarative debugging support 
+   \o Default value.
+   \row   \o \c {-arch <arch>} \o Specify an architecture. \o Available values for
+   <arch>:  * windows, windowsce, symbian, boundschecker, generic.
+   \row   \o \c {-no-style-<style>} \o Disable <style> entirely. \o
+   \row   \o \c {-qt-style-<style>} \o Enable <style> in the Qt Library. 
+   \o Available styles: * windows, + windowsxp, + windowsvista,  
+   * plastique, * cleanlooks, * motif, * cde, windowsce, windowsmobile,
+   s60
+   \row   \o \c {-no-native-gestures} \o Do not use native gestures on Windows 7.
+   \o 
+   \row   \o \c {-native-gestures} \o Use native gestures on Windows 7.
+   \o Default value.
+   \row   \o \c {-no-mp} \o Do not use multiple processors for compiling with MSVC
+   \o Default value.
+   \row   \o \c {-mp} \o Use multiple processors for compiling with MSVC (-MP) \o
+   \row   \o \c {-loadconfig <config>} \o Run configure with the parameters from file 
+   configure_<config>.cache. \o
+   \row   \o \c {-saveconfig <config>} \o Run configure and save the parameters in
+   file configure_<config>.cache. \o
+   \row   \o \c {-redo} \o Run configure with the same parameters as last time. \o
+\endtable
+
+\section2 Qt for Windows CE only:
+   \table
+   \header \o Option  \o Description \o Note
+   \row   \o \c {-no-iwmmxt} \o Do not compile with use of IWMMXT instructions \o
+   \row   \o \c {-iwmmxt} \o Do compile with use of IWMMXT instructions. \o This is
+   for Qt for Windows CE on Arm only. This option denotes a default value and
+   needs to be evaluated. If the evaluation succeeds, the feature is included.
+   \row   \o \c {-no-crt} \o Do not add the C runtime to default deployment rules.
+   \o Default value.
+   \row   \o \c {-qt-crt} \o Qt identifies C runtime during project generation \o
+   \row   \o \c {-crt <path>} \o Specify path to C runtime used for project
+   generation. \o
+   \row   \o \c {-no-cetest} \o Do not compile Windows CE remote test application \o
+   \row   \o \c {-cetest} \o Compile Windows CE remote test application \o This
+   option denotes a default value and needs to be evaluated. If the evaluation
+   succeeds, the feature is included.
+   \row   \o \c {-signature <file>} \o Use file for signing the target project \o
+   \row   \o \c {-phonon-wince-ds9} \o Enable Phonon Direct Show 9 backend for
+   Windows CE \o Default value
+   \endtable
+	
+ \section2 Qt for Symbian OS only:
+   \table
+   \header \o Option  \o Description \o Note
+   \row   \o \c {-no-freetype} \o Do not compile in Freetype2 support.
+   \o Default value.
+   \row   \o \c {-qt-freetype} \o Use the libfreetype bundled with Qt. \o
+   \row   \o \c {-fpu <flags>} \o VFP type on ARM, supported options:
+   softvfp(default) |vfpv2 | softvfp+vfpv2 \o
+   \row   \o \c {-no-s60} \o Do not compile in S60 support. \o
+   \row   \o \c {-s60} \o Compile with support for the S60 UI Framework 
+   \o Default value.
+   \row   \o \c {-no-usedeffiles} \o Disable the usage of DEF files. \o
+   \row   \o \c {-usedeffiles} \o Enable the usage of DEF files. \o
+ \endtable	
 */

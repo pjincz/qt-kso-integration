@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -60,8 +60,8 @@ using namespace std;
 #include <qt_windows.h>
 #endif
 
-#include <symbian/epocroot.h> // from tools/shared
-#include <windows/registry.h> // from tools/shared
+#include <symbian/epocroot_p.h> // from tools/shared
+#include <windows/registry_p.h> // from tools/shared
 
 QT_BEGIN_NAMESPACE
 
@@ -163,7 +163,7 @@ Compiler Environment::detectCompiler()
     QString paths = qgetenv("PATH");
     QStringList pathlist = paths.toLower().split(";");
     for(int i = 0; compiler_info[i].compiler; ++i) {
-        QString productPath = readRegistryKey(HKEY_LOCAL_MACHINE, compiler_info[i].regKey).toLower();
+        QString productPath = qt_readRegistryKey(HKEY_LOCAL_MACHINE, compiler_info[i].regKey).toLower();
         if (productPath.length()) {
             QStringList::iterator it;
             for(it = pathlist.begin(); it != pathlist.end(); ++it) {
@@ -407,10 +407,25 @@ int Environment::execute(QStringList arguments, const QStringList &additionalEnv
     return exitCode;
 }
 
-bool Environment::cpdir(const QString &srcDir, const QString &destDir)
+/*!
+    Copies the \a srcDir contents into \a destDir.
+
+    If \a includeSrcDir is not empty, any files with 'h', 'prf', or 'conf' suffixes
+    will not be copied over from \a srcDir. Instead a new file will be created
+    in \a destDir with the same name and that file will include a file with the
+    same name from the \a includeSrcDir using relative path and appropriate
+    syntax for the file type.
+
+    Returns true if copying was successful.
+*/
+bool Environment::cpdir(const QString &srcDir,
+                        const QString &destDir,
+                        const QString &includeSrcDir)
 {
     QString cleanSrcName = QDir::cleanPath(srcDir);
     QString cleanDstName = QDir::cleanPath(destDir);
+    QString cleanIncludeName = QDir::cleanPath(includeSrcDir);
+
 #ifdef CONFIGURE_DEBUG_CP_DIR
     qDebug() << "Attempt to cpdir " << cleanSrcName << "->" << cleanDstName;
 #endif
@@ -421,21 +436,59 @@ bool Environment::cpdir(const QString &srcDir, const QString &destDir)
 
     bool result = true;
     QDir dir = QDir(cleanSrcName);
+    QDir destinationDir = QDir(cleanDstName);
     QFileInfoList allEntries = dir.entryInfoList(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);
     for (int i = 0; result && (i < allEntries.count()); ++i) {
         QFileInfo entry = allEntries.at(i);
 	bool intermediate = true;
         if (entry.isDir()) {
+            QString newIncSrcDir;
+            if (!includeSrcDir.isEmpty())
+                newIncSrcDir = QString("%1/%2").arg(cleanIncludeName).arg(entry.fileName());
+
             intermediate = cpdir(QString("%1/%2").arg(cleanSrcName).arg(entry.fileName()),
-                            QString("%1/%2").arg(cleanDstName).arg(entry.fileName()));
+                                 QString("%1/%2").arg(cleanDstName).arg(entry.fileName()),
+                                 newIncSrcDir);
         } else {
             QString destFile = QString("%1/%2").arg(cleanDstName).arg(entry.fileName());
 #ifdef CONFIGURE_DEBUG_CP_DIR
 	    qDebug() << "About to cp (file)" << entry.absoluteFilePath() << "->" << destFile;
 #endif
 	    QFile::remove(destFile);
-            intermediate = QFile::copy(entry.absoluteFilePath(), destFile);
-            SetFileAttributes((wchar_t*)destFile.utf16(), FILE_ATTRIBUTE_NORMAL);
+            QString suffix = entry.suffix();
+            if (!includeSrcDir.isEmpty() && (suffix == "prf" || suffix == "conf" || suffix == "h")) {
+                QString relativeIncludeFilePath = QString("%1/%2").arg(cleanIncludeName).arg(entry.fileName());
+                relativeIncludeFilePath = destinationDir.relativeFilePath(relativeIncludeFilePath);
+#ifdef CONFIGURE_DEBUG_CP_DIR
+                qDebug() << "...instead generate relative include to" << relativeIncludeFilePath;
+#endif
+                QFile currentFile(destFile);
+                if (currentFile.open(QFile::WriteOnly | QFile::Text)) {
+                    QTextStream fileStream;
+                    fileStream.setDevice(&currentFile);
+
+                    if (suffix == "prf" || suffix == "conf") {
+                        if (entry.fileName() == "qmake.conf") {
+                            // While QMAKESPEC_ORIGINAL being relative or absolute doesn't matter for the
+                            // primary use of this variable by qmake to identify the original mkspec, the
+                            // variable is also used for few special cases where the absolute path is required.
+                            // Conversely, the include of the original qmake.conf must be done using relative path,
+                            // as some Qt binary deployments are done in a manner that doesn't allow for patching
+                            // the paths at the installation time.
+                            fileStream << "QMAKESPEC_ORIGINAL=" << cleanSrcName << endl << endl;
+                        }
+                        fileStream << "include(" << relativeIncludeFilePath << ")" << endl << endl;
+                    } else if (suffix == "h") {
+                        fileStream << "#include \"" << relativeIncludeFilePath << "\"" << endl << endl;
+                    }
+
+                    fileStream.flush();
+                    currentFile.close();
+                }
+            } else {
+                intermediate = QFile::copy(entry.absoluteFilePath(), destFile);
+                SetFileAttributes((wchar_t*)destFile.utf16(), FILE_ATTRIBUTE_NORMAL);
+            }
         }
 	if(!intermediate) {
 	    qDebug() << "cpdir: Failure for " << entry.fileName() << entry.isDir();
@@ -466,8 +519,8 @@ bool Environment::rmdir(const QString &name)
 
 QString Environment::symbianEpocRoot()
 {
-    // Call function defined in tools/shared/symbian/epocroot.h
-    return ::epocRoot();
+    // Call function defined in tools/shared/symbian/epocroot_p.h
+    return ::qt_epocRoot();
 }
 
 QT_END_NAMESPACE

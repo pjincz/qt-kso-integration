@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -127,6 +127,22 @@ void QDeclarativeVME::runDeferred(QObject *object)
     run(stack, ctxt, comp, start, count, QBitField());
 }
 
+inline bool fastHasBinding(QObject *o, int index) 
+{
+    QDeclarativeData *ddata = static_cast<QDeclarativeData *>(QObjectPrivate::get(o)->declarativeData);
+
+    return ddata && (ddata->bindingBitsSize > index) && 
+           (ddata->bindingBits[index / 32] & (1 << (index % 32)));
+}
+
+static void removeBindingOnProperty(QObject *o, int index)
+{
+    QDeclarativeAbstractBinding *binding = QDeclarativePropertyPrivate::setBinding(o, index, -1, 0);
+    if (binding) binding->destroy();
+}
+
+#define CLEAN_PROPERTY(o, index) if (fastHasBinding(o, index)) removeBindingOnProperty(o, index)
+
 QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack, 
                               QDeclarativeContextData *ctxt, 
                               QDeclarativeCompiledData *comp, 
@@ -154,7 +170,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
     QDeclarativeEnginePrivate *ep = QDeclarativeEnginePrivate::get(ctxt->engine);
 
     int status = -1;    //for dbus
-    QDeclarativePropertyPrivate::WriteFlags flags = QDeclarativePropertyPrivate::BypassInterceptor;
+    QDeclarativePropertyPrivate::WriteFlags flags = QDeclarativePropertyPrivate::BypassInterceptor |
+                                                    QDeclarativePropertyPrivate::RemoveBindingOnAliasWrite;
 
     for (int ii = start; !isError() && ii < (start + count); ++ii) {
         const QDeclarativeInstruction &instr = comp->bytecode.at(ii);
@@ -185,12 +202,9 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
                     bindings = bindings.united(bindingSkipList);
 
                 QObject *o = 
-                    types.at(instr.create.type).createInstance(ctxt, bindings);
+                    types.at(instr.create.type).createInstance(ctxt, bindings, &vmeErrors);
 
                 if (!o) {
-                    if(types.at(instr.create.type).component)
-                        vmeErrors << types.at(instr.create.type).component->errors();
-
                     VME_EXCEPTION(QCoreApplication::translate("QDeclarativeVME","Unable to create object of type %1").arg(QString::fromLatin1(types.at(instr.create.type).className)));
                 }
 
@@ -249,8 +263,12 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
                 ::memset(o, 0, instr.createSimple.typeSize + sizeof(QDeclarativeData));
                 instr.createSimple.create(o);
 
-                QDeclarativeData *ddata = 
-                    (QDeclarativeData *)(((const char *)o) + instr.createSimple.typeSize);
+                QDeclarativeData *ddata = (QDeclarativeData *)(((const char *)o) + instr.createSimple.typeSize);
+                const QDeclarativeCompiledData::TypeReference &ref = types.at(instr.createSimple.type);
+                if (!ddata->propertyCache && ref.typePropertyCache) {
+                    ddata->propertyCache = ref.typePropertyCache;
+                    ddata->propertyCache->addref();
+                }
                 ddata->lineNumber = instr.line;
                 ddata->columnNumber = instr.createSimple.column;
 
@@ -322,16 +340,20 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
 
                 (void)new QDeclarativeVMEMetaObject(target, &mo, data, comp);
 
-                QDeclarativeData *ddata = QDeclarativeData::get(target, true);
-                if (ddata->propertyCache) ddata->propertyCache->release();
-                ddata->propertyCache = propertyCaches.at(instr.storeMeta.propertyCache);
-                ddata->propertyCache->addref();
+                if (instr.storeMeta.propertyCache != -1) {
+                    QDeclarativeData *ddata = QDeclarativeData::get(target, true);
+                    if (ddata->propertyCache) ddata->propertyCache->release();
+                    ddata->propertyCache = propertyCaches.at(instr.storeMeta.propertyCache);
+                    ddata->propertyCache->addref();
+                }
             }
             break;
 
         case QDeclarativeInstruction::StoreVariant:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeString.propertyIndex);
+
                 // XXX - can be more efficient
                 QVariant v = QDeclarativeStringConverters::variantFromString(primitives.at(instr.storeString.value));
                 void *a[] = { &v, 0, &status, &flags };
@@ -343,6 +365,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreVariantInteger:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeString.propertyIndex);
+
                 QVariant v(instr.storeInteger.value);
                 void *a[] = { &v, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
@@ -353,6 +377,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreVariantDouble:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeString.propertyIndex);
+
                 QVariant v(instr.storeDouble.value);
                 void *a[] = { &v, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
@@ -363,6 +389,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreVariantBool:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeString.propertyIndex);
+
                 QVariant v(instr.storeBool.value);
                 void *a[] = { &v, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
@@ -373,6 +401,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreString:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeString.propertyIndex);
+
                 void *a[] = { (void *)&primitives.at(instr.storeString.value), 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
                                       instr.storeString.propertyIndex, a);
@@ -382,6 +412,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreUrl:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeUrl.propertyIndex);
+
                 void *a[] = { (void *)&urls.at(instr.storeUrl.value), 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
                                       instr.storeUrl.propertyIndex, a);
@@ -391,6 +423,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreFloat:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeFloat.propertyIndex);
+
                 float f = instr.storeFloat.value;
                 void *a[] = { &f, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty,
@@ -401,6 +435,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreDouble:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeDouble.propertyIndex);
+
                 double d = instr.storeDouble.value;
                 void *a[] = { &d, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty,
@@ -411,6 +447,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreBool:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeBool.propertyIndex);
+
                 void *a[] = { (void *)&instr.storeBool.value, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
                                       instr.storeBool.propertyIndex, a);
@@ -420,6 +458,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreInteger:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeInteger.propertyIndex);
+
                 void *a[] = { (void *)&instr.storeInteger.value, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
                                       instr.storeInteger.propertyIndex, a);
@@ -429,6 +469,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreColor:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeColor.propertyIndex);
+
                 QColor c = QColor::fromRgba(instr.storeColor.value);
                 void *a[] = { &c, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
@@ -439,6 +481,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreDate:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeDate.propertyIndex);
+
                 QDate d = QDate::fromJulianDay(instr.storeDate.value);
                 void *a[] = { &d, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
@@ -449,6 +493,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreTime:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeTime.propertyIndex);
+
                 QTime t;
                 t.setHMS(intData.at(instr.storeTime.valueIndex),
                          intData.at(instr.storeTime.valueIndex+1),
@@ -463,6 +509,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreDateTime:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeDateTime.propertyIndex);
+
                 QTime t;
                 t.setHMS(intData.at(instr.storeDateTime.valueIndex+1),
                          intData.at(instr.storeDateTime.valueIndex+2),
@@ -478,6 +526,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StorePoint:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeRealPair.propertyIndex);
+
                 QPoint p = QPointF(floatData.at(instr.storeRealPair.valueIndex),
                                    floatData.at(instr.storeRealPair.valueIndex+1)).toPoint();
                 void *a[] = { &p, 0, &status, &flags };
@@ -489,6 +539,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StorePointF:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeRealPair.propertyIndex);
+
                 QPointF p(floatData.at(instr.storeRealPair.valueIndex),
                           floatData.at(instr.storeRealPair.valueIndex+1));
                 void *a[] = { &p, 0, &status, &flags };
@@ -500,6 +552,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreSize:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeRealPair.propertyIndex);
+
                 QSize p = QSizeF(floatData.at(instr.storeRealPair.valueIndex),
                                  floatData.at(instr.storeRealPair.valueIndex+1)).toSize();
                 void *a[] = { &p, 0, &status, &flags };
@@ -511,6 +565,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreSizeF:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeRealPair.propertyIndex);
+
                 QSizeF s(floatData.at(instr.storeRealPair.valueIndex),
                          floatData.at(instr.storeRealPair.valueIndex+1));
                 void *a[] = { &s, 0, &status, &flags };
@@ -522,6 +578,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreRect:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeRect.propertyIndex);
+
                 QRect r = QRectF(floatData.at(instr.storeRect.valueIndex),
                                  floatData.at(instr.storeRect.valueIndex+1),
                                  floatData.at(instr.storeRect.valueIndex+2),
@@ -535,6 +593,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreRectF:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeRect.propertyIndex);
+
                 QRectF r(floatData.at(instr.storeRect.valueIndex),
                          floatData.at(instr.storeRect.valueIndex+1),
                          floatData.at(instr.storeRect.valueIndex+2),
@@ -548,6 +608,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::StoreVector3D:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeVector3D.propertyIndex);
+
                 QVector3D p(floatData.at(instr.storeVector3D.valueIndex),
                             floatData.at(instr.storeVector3D.valueIndex+1),
                             floatData.at(instr.storeVector3D.valueIndex+2));
@@ -561,6 +623,7 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
             {
                 QObject *assignObj = stack.pop();
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeObject.propertyIndex);
 
                 void *a[] = { (void *)&assignObj, 0, &status, &flags };
                 QMetaObject::metacall(target, QMetaObject::WriteProperty, 
@@ -572,6 +635,8 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::AssignCustomType:
             {
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.assignCustomType.propertyIndex);
+
                 QDeclarativeCompiledData::CustomTypeData data = customTypeData.at(instr.assignCustomType.valueIndex);
                 const QString &primitive = primitives.at(data.index);
                 QDeclarativeMetaType::StringConverter converter = 
@@ -608,7 +673,7 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
                     if (!QMetaObject::checkConnectArgs(prop.method().signature(), method.signature()))
                         VME_EXCEPTION(QCoreApplication::translate("QDeclarativeVME","Cannot connect mismatched signal/slot %1 %vs. %2").arg(QString::fromLatin1(method.signature())).arg(QString::fromLatin1(prop.method().signature())));
 
-                    QMetaObject::connect(target, prop.index(), assign, method.methodIndex());
+                    QDeclarativePropertyPrivate::connect(target, prop.index(), assign, method.methodIndex());
 
                 } else {
                     VME_EXCEPTION(QCoreApplication::translate("QDeclarativeVME","Cannot assign an object to signal property %1").arg(QString::fromUtf8(pr)));
@@ -667,6 +732,7 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
             break;
 
         case QDeclarativeInstruction::StoreBinding:
+        case QDeclarativeInstruction::StoreBindingOnAlias:
             {
                 QObject *target = 
                     stack.at(stack.count() - 1 - instr.assignBinding.owner);
@@ -678,14 +744,20 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
 
                 int coreIndex = mp.index();
 
-                if (stack.count() == 1 && bindingSkipList.testBit(coreIndex))  
+                if ((stack.count() - instr.assignBinding.owner) == 1 && bindingSkipList.testBit(coreIndex)) 
                     break;
 
                 QDeclarativeBinding *bind = new QDeclarativeBinding((void *)datas.at(instr.assignBinding.value).constData(), comp, context, ctxt, comp->name, instr.line, 0);
                 bindValues.append(bind);
                 bind->m_mePtr = &bindValues.values[bindValues.count - 1];
                 bind->setTarget(mp);
-                bind->addToObject(target);
+
+                if (instr.type == QDeclarativeInstruction::StoreBindingOnAlias) {
+                    QDeclarativeAbstractBinding *old = QDeclarativePropertyPrivate::setBindingNoEnable(target, coreIndex, QDeclarativePropertyPrivate::valueTypeCoreIndex(mp), bind);
+                    if (old) { old->destroy(); }
+                } else {
+                    bind->addToObject(target, QDeclarativePropertyPrivate::bindingIndex(mp));
+                }
             }
             break;
 
@@ -704,7 +776,7 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
                     ctxt->optimizedBindings->configBinding(instr.assignBinding.value, target, scope, property);
                 bindValues.append(binding);
                 binding->m_mePtr = &bindValues.values[bindValues.count - 1];
-                binding->addToObject(target);
+                binding->addToObject(target, property);
             }
             break;
 
@@ -769,6 +841,7 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
             {
                 QObject *assign = stack.pop();
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeObject.propertyIndex);
 
                 QVariant v = QVariant::fromValue(assign);
                 void *a[] = { &v, 0, &status, &flags };
@@ -781,6 +854,7 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
             {
                 QObject *assign = stack.pop();
                 QObject *target = stack.top();
+                CLEAN_PROPERTY(target, instr.storeObject.propertyIndex);
 
                 int coreIdx = instr.storeObject.propertyIndex;
                 QMetaProperty prop = target->metaObject()->property(coreIdx);
@@ -877,8 +951,26 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
         case QDeclarativeInstruction::FetchValueType:
             {
                 QObject *target = stack.top();
-                QDeclarativeValueType *valueHandler = 
-                    ep->valueTypes[instr.fetchValue.type];
+
+                if (instr.fetchValue.bindingSkipList != 0) {
+                    // Possibly need to clear bindings
+                    QDeclarativeData *targetData = QDeclarativeData::get(target);
+                    if (targetData) {
+                        QDeclarativeAbstractBinding *binding = 
+                            QDeclarativePropertyPrivate::binding(target, instr.fetchValue.property, -1);
+
+                        if (binding && binding->bindingType() != QDeclarativeAbstractBinding::ValueTypeProxy) {
+                            QDeclarativePropertyPrivate::setBinding(target, instr.fetchValue.property, -1, 0);
+                            binding->destroy();
+                        } else if (binding) {
+                            QDeclarativeValueTypeProxyBinding *proxy = 
+                                static_cast<QDeclarativeValueTypeProxyBinding *>(binding);
+                            proxy->removeBindings(instr.fetchValue.bindingSkipList);
+                        }
+                    }
+                }
+
+                QDeclarativeValueType *valueHandler = ep->valueTypes[instr.fetchValue.type];
                 valueHandler->read(target, instr.fetchValue.property);
                 stack.push(valueHandler);
             }
@@ -909,14 +1001,18 @@ QObject *QDeclarativeVME::run(QDeclarativeVMEStack<QObject *> &stack,
 
         QDeclarativeEnginePrivate::clear(bindValues);
         QDeclarativeEnginePrivate::clear(parserStatus);
-        ep->finalizedParserStatus.clear();
         return 0;
     }
 
     if (bindValues.count)
         ep->bindValues << bindValues;
+    else if (bindValues.values)
+        bindValues.clear();
+
     if (parserStatus.count)
         ep->parserStatus << parserStatus;
+    else if (parserStatus.values)
+        parserStatus.clear();
 
     Q_ASSERT(stack.count() == 1);
     return stack.top();
@@ -933,8 +1029,9 @@ QList<QDeclarativeError> QDeclarativeVME::errors() const
 }
 
 QObject *
-QDeclarativeCompiledData::TypeReference::createInstance(QDeclarativeContextData *ctxt, 
-                                                        const QBitField &bindings) const
+QDeclarativeCompiledData::TypeReference::createInstance(QDeclarativeContextData *ctxt,
+                                                        const QBitField &bindings,
+                                                        QList<QDeclarativeError> *errors) const
 {
     if (type) {
         QObject *rv = 0;
@@ -945,10 +1042,15 @@ QDeclarativeCompiledData::TypeReference::createInstance(QDeclarativeContextData 
         ddata->ownMemory = false;
         QObjectPrivate::get(rv)->declarativeData = ddata;
 
+        if (typePropertyCache && !ddata->propertyCache) {
+            ddata->propertyCache = typePropertyCache;
+            ddata->propertyCache->addref();
+        }
+
         return rv;
     } else {
         Q_ASSERT(component);
-        return QDeclarativeComponentPrivate::get(component)->create(ctxt, bindings);
+        return QDeclarativeComponentPrivate::begin(ctxt, 0, component, -1, -1, 0, errors, bindings);
     } 
 }
 

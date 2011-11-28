@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -43,12 +43,14 @@
 #include <QtDeclarative/qdeclarativeengine.h>
 #include <QtDeclarative/qdeclarativecomponent.h>
 #include <private/qdeclarativetext_p.h>
+#include <private/qdeclarativetext_p_p.h>
 #include <private/qdeclarativevaluetype_p.h>
 #include <QFontMetrics>
 #include <QGraphicsSceneMouseEvent>
 #include <qmath.h>
 #include <QDeclarativeView>
 #include <private/qapplication_p.h>
+#include <limits.h>
 
 #include "../../../shared/util.h"
 #include "testhttpserver.h"
@@ -78,8 +80,12 @@ private slots:
     void embeddedImages_data();
     void embeddedImages();
 
+    void lineCount();
+    void lineHeight();
+
     // ### these tests may be trivial    
     void horizontalAlignment();
+    void horizontalAlignment_RightToLeft();
     void verticalAlignment();
     void font();
     void style();
@@ -98,7 +104,12 @@ private slots:
     void clickLink();
 
     void QTBUG_12291();
+    void implicitSize_data();
+    void implicitSize();
+    void testQtQuick11Attributes();
+    void testQtQuick11Attributes_data();
 
+    void qtbug_14734();
 private:
     QStringList standard;
     QStringList richText;
@@ -379,6 +390,13 @@ void tst_qdeclarativetext::elide()
             QCOMPARE(textObject->width(), 100.);
         }
     }
+
+    // QTBUG-18627
+    QUrl qmlfile = QUrl::fromLocalFile(SRCDIR "/data/elideimplicitwidth.qml");
+    QDeclarativeComponent textComponent(&engine, qmlfile);
+    QDeclarativeItem *item = qobject_cast<QDeclarativeItem*>(textComponent.create());
+    QVERIFY(item != 0);
+    QVERIFY(item->implicitWidth() > item->width());
 }
 
 void tst_qdeclarativetext::textFormat()
@@ -460,6 +478,8 @@ void tst_qdeclarativetext::alignments()
         QCOMPARE(actual,expect);
     }
 #endif
+
+    delete canvas;
 }
 
 //the alignment tests may be trivial o.oa
@@ -495,6 +515,124 @@ void tst_qdeclarativetext::horizontalAlignment()
 
 }
 
+void tst_qdeclarativetext::horizontalAlignment_RightToLeft()
+{
+    QDeclarativeView *canvas = createView(SRCDIR "/data/horizontalAlignment_RightToLeft.qml");
+    QDeclarativeText *text = canvas->rootObject()->findChild<QDeclarativeText*>("text");
+    QVERIFY(text != 0);
+    canvas->show();
+
+    QDeclarativeTextPrivate *textPrivate = QDeclarativeTextPrivate::get(text);
+    QVERIFY(textPrivate != 0);
+
+    // implicit alignment should follow the reading direction of RTL text
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() > canvas->width()/2);
+
+    // explicitly left aligned text
+    text->setHAlign(QDeclarativeText::AlignLeft);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignLeft);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() < canvas->width()/2);
+
+    // explicitly right aligned text
+    text->setHAlign(QDeclarativeText::AlignRight);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() > canvas->width()/2);
+
+    // change to rich text
+    QString textString = text->text();
+    text->setText(QString("<i>") + textString + QString("</i>"));
+    text->setTextFormat(QDeclarativeText::RichText);
+    text->resetHAlign();
+
+    // implicitly aligned rich text should follow the reading direction of text
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->textDocument()->defaultTextOption().alignment() & Qt::AlignLeft);
+
+    // explicitly left aligned rich text
+    text->setHAlign(QDeclarativeText::AlignLeft);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignLeft);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->textDocument()->defaultTextOption().alignment() & Qt::AlignRight);
+
+    // explicitly right aligned rich text
+    text->setHAlign(QDeclarativeText::AlignRight);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->textDocument()->defaultTextOption().alignment() & Qt::AlignLeft);
+
+    text->setText(textString);
+    text->setTextFormat(QDeclarativeText::PlainText);
+
+    // explicitly center aligned
+    text->setHAlign(QDeclarativeText::AlignHCenter);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignHCenter);
+    QCOMPARE(text->effectiveHAlign(), text->hAlign());
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() < canvas->width()/2);
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().right() > canvas->width()/2);
+
+    // reseted alignment should go back to following the text reading direction
+    text->resetHAlign();
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() > canvas->width()/2);
+
+    // mirror the text item
+    QDeclarativeItemPrivate::get(text)->setLayoutMirror(true);
+
+    // mirrored implicit alignment should continue to follow the reading direction of the text
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QCOMPARE(text->effectiveHAlign(), QDeclarativeText::AlignRight);
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() > canvas->width()/2);
+
+    // mirrored explicitly right aligned behaves as left aligned
+    text->setHAlign(QDeclarativeText::AlignRight);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+    QCOMPARE(text->effectiveHAlign(), QDeclarativeText::AlignLeft);
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() < canvas->width()/2);
+
+    // mirrored explicitly left aligned behaves as right aligned
+    text->setHAlign(QDeclarativeText::AlignLeft);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignLeft);
+    QCOMPARE(text->effectiveHAlign(), QDeclarativeText::AlignRight);
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() > canvas->width()/2);
+
+    // disable mirroring
+    QDeclarativeItemPrivate::get(text)->setLayoutMirror(false);
+    text->resetHAlign();
+
+    // English text should be implicitly left aligned
+    text->setText("Hello world!");
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignLeft);
+    QVERIFY(textPrivate->layout.lineAt(0).naturalTextRect().left() < canvas->width()/2);
+
+#ifndef Q_OS_MAC    // QTBUG-18040
+    // empty text with implicit alignment follows the system locale-based
+    // keyboard input direction from QApplication::keyboardInputDirection
+    text->setText("");
+    QCOMPARE(text->hAlign(), QApplication::keyboardInputDirection() == Qt::LeftToRight ?
+                                  QDeclarativeText::AlignLeft : QDeclarativeText::AlignRight);
+    text->setHAlign(QDeclarativeText::AlignRight);
+    QCOMPARE(text->hAlign(), QDeclarativeText::AlignRight);
+#endif
+
+    delete canvas;
+
+#ifndef Q_OS_MAC    // QTBUG-18040
+    // alignment of Text with no text set to it
+    QString componentStr = "import QtQuick 1.0\nText {}";
+    QDeclarativeComponent textComponent(&engine);
+    textComponent.setData(componentStr.toLatin1(), QUrl::fromLocalFile(""));
+    QDeclarativeText *textObject = qobject_cast<QDeclarativeText*>(textComponent.create());
+    QCOMPARE(textObject->hAlign(), QApplication::keyboardInputDirection() == Qt::LeftToRight ?
+                                  QDeclarativeText::AlignLeft : QDeclarativeText::AlignRight);
+    delete textObject;
+#endif
+}
+
 void tst_qdeclarativetext::verticalAlignment()
 {
     //test one align each, and then test if two align fails.
@@ -527,6 +665,24 @@ void tst_qdeclarativetext::verticalAlignment()
         }
     }
 
+    //confirm that bounding rect is correctly positioned.
+    QString componentStr = "import QtQuick 1.0\nText { height: 80; text: \"Hello\" }";
+    QDeclarativeComponent textComponent(&engine);
+    textComponent.setData(componentStr.toLatin1(), QUrl::fromLocalFile(""));
+    QDeclarativeText *textObject = qobject_cast<QDeclarativeText*>(textComponent.create());
+    QVERIFY(textObject != 0);
+    QRectF br = textObject->boundingRect();
+    QVERIFY(br.y() == 0);
+
+    textObject->setVAlign(QDeclarativeText::AlignVCenter);
+    br = textObject->boundingRect();
+    QCOMPARE(qFloor(br.y()), qFloor((80.0 - br.height())/2));
+
+    textObject->setVAlign(QDeclarativeText::AlignBottom);
+    br = textObject->boundingRect();
+    QCOMPARE(qFloor(br.y()), qFloor(80.0 - br.height()));
+
+    delete textObject;
 }
 
 void tst_qdeclarativetext::font()
@@ -926,6 +1082,8 @@ void tst_qdeclarativetext::QTBUG_12291()
     QDeclarativeText *text = ob->findChild<QDeclarativeText*>("text");
     QVERIFY(text);
     QVERIFY(text->boundingRect().isValid());
+
+    delete canvas;
 }
 
 class EventSender : public QGraphicsItem
@@ -1018,6 +1176,161 @@ void tst_qdeclarativetext::embeddedImages()
         QCOMPARE(textObject->width(), 16.0); // default size of QTextDocument broken image icon
         QCOMPARE(textObject->height(), 16.0);
     }
+
+    delete textObject;
+}
+
+void tst_qdeclarativetext::lineCount()
+{
+    QDeclarativeView *canvas = createView(SRCDIR "/data/lineCount.qml");
+
+    QDeclarativeText *myText = canvas->rootObject()->findChild<QDeclarativeText*>("myText");
+    QVERIFY(myText != 0);
+
+    QVERIFY(myText->lineCount() > 1);
+    QVERIFY(!myText->truncated());
+    QCOMPARE(myText->maximumLineCount(), INT_MAX);
+
+    myText->setMaximumLineCount(2);
+    QCOMPARE(myText->lineCount(), 2);
+    QCOMPARE(myText->truncated(), true);
+    QCOMPARE(myText->maximumLineCount(), 2);
+
+    myText->resetMaximumLineCount();
+    QCOMPARE(myText->maximumLineCount(), INT_MAX);
+    QCOMPARE(myText->truncated(), false);
+
+    myText->setElideMode(QDeclarativeText::ElideRight);
+    myText->setMaximumLineCount(2);
+    QCOMPARE(myText->lineCount(), 2);
+    QCOMPARE(myText->truncated(), true);
+    QCOMPARE(myText->maximumLineCount(), 2);
+
+    delete canvas;
+}
+
+void tst_qdeclarativetext::lineHeight()
+{
+    QDeclarativeView *canvas = createView(SRCDIR "/data/lineHeight.qml");
+
+    QDeclarativeText *myText = canvas->rootObject()->findChild<QDeclarativeText*>("myText");
+    QVERIFY(myText != 0);
+
+    QVERIFY(myText->lineHeight() == 1);
+    QVERIFY(myText->lineHeightMode() == QDeclarativeText::ProportionalHeight);
+
+    qreal h = myText->height();
+    myText->setLineHeight(1.5);
+    QVERIFY(myText->height() == h * 1.5);
+
+    myText->setLineHeightMode(QDeclarativeText::FixedHeight);
+    myText->setLineHeight(20);
+    QCOMPARE(myText->height(), myText->lineCount() * 20.0);
+
+    myText->setText("Lorem ipsum sit <b>amet</b>, consectetur adipiscing elit. Integer felis nisl, varius in pretium nec, venenatis non erat. Proin lobortis interdum dictum.");
+    myText->setLineHeightMode(QDeclarativeText::ProportionalHeight);
+    myText->setLineHeight(1.0);
+
+    qreal h2 = myText->height();
+    myText->setLineHeight(2.0);
+    QVERIFY(myText->height() == h2 * 2.0);
+
+    myText->setLineHeightMode(QDeclarativeText::FixedHeight);
+    myText->setLineHeight(10);
+    QCOMPARE(myText->height(), myText->lineCount() * 10.0);
+
+    delete canvas;
+}
+
+void tst_qdeclarativetext::implicitSize_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<QString>("wrap");
+    QTest::newRow("plain") << "The quick red fox jumped over the lazy brown dog" << "Text.NoWrap";
+    QTest::newRow("richtext") << "<b>The quick red fox jumped over the lazy brown dog</b>" << "Text.NoWrap";
+    QTest::newRow("plain_wrap") << "The quick red fox jumped over the lazy brown dog" << "Text.Wrap";
+    QTest::newRow("richtext_wrap") << "<b>The quick red fox jumped over the lazy brown dog</b>" << "Text.Wrap";
+}
+
+void tst_qdeclarativetext::implicitSize()
+{
+    QFETCH(QString, text);
+    QFETCH(QString, wrap);
+    QString componentStr = "import QtQuick 1.1\nText { text: \"" + text + "\"; width: 50; wrapMode: " + wrap + " }";
+    QDeclarativeComponent textComponent(&engine);
+    textComponent.setData(componentStr.toLatin1(), QUrl::fromLocalFile(""));
+    QDeclarativeText *textObject = qobject_cast<QDeclarativeText*>(textComponent.create());
+
+    QVERIFY(textObject->width() < textObject->implicitWidth());
+    QVERIFY(textObject->height() == textObject->implicitHeight());
+
+    textObject->resetWidth();
+    QVERIFY(textObject->width() == textObject->implicitWidth());
+    QVERIFY(textObject->height() == textObject->implicitHeight());
+}
+
+void tst_qdeclarativetext::testQtQuick11Attributes()
+{
+    QFETCH(QString, code);
+    QFETCH(QString, warning);
+    QFETCH(QString, error);
+
+    QDeclarativeEngine engine;
+    QObject *obj;
+
+    QDeclarativeComponent valid(&engine);
+    valid.setData("import QtQuick 1.1; Text { " + code.toUtf8() + " }", QUrl(""));
+    obj = valid.create();
+    QVERIFY(obj);
+    QVERIFY(valid.errorString().isEmpty());
+    delete obj;
+
+    QDeclarativeComponent invalid(&engine);
+    invalid.setData("import QtQuick 1.0; Text { " + code.toUtf8() + " }", QUrl(""));
+    QTest::ignoreMessage(QtWarningMsg, warning.toUtf8());
+    obj = invalid.create();
+    QCOMPARE(invalid.errorString(), error);
+    delete obj;
+}
+
+void tst_qdeclarativetext::testQtQuick11Attributes_data()
+{
+    QTest::addColumn<QString>("code");
+    QTest::addColumn<QString>("warning");
+    QTest::addColumn<QString>("error");
+
+    QTest::newRow("maximumLineCount") << "maximumLineCount: 4"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Text.maximumLineCount\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("lineHeight") << "lineHeight: 2"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Text.lineHeight\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("lineHeightMode") << "lineHeightMode: Text.ProportionalHeight"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Text.lineHeightMode\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("lineCount") << "property int foo: lineCount"
+        << "<Unknown File>:1: ReferenceError: Can't find variable: lineCount"
+        << "";
+
+    QTest::newRow("truncated") << "property bool foo: truncated"
+        << "<Unknown File>:1: ReferenceError: Can't find variable: truncated"
+        << "";
+}
+
+void tst_qdeclarativetext::qtbug_14734()
+{
+    QDeclarativeView *canvas = createView(SRCDIR "/data/qtbug_14734.qml");
+    QVERIFY(canvas);
+
+    canvas->show();
+    QApplication::setActiveWindow(canvas);
+    QTest::qWaitForWindowShown(canvas);
+    QTRY_COMPARE(QApplication::activeWindow(), static_cast<QWidget *>(canvas));
+
+    delete canvas;
 }
 
 QTEST_MAIN(tst_qdeclarativetext)

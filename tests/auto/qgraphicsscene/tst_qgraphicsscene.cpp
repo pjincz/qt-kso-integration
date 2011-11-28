@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -288,6 +288,8 @@ private slots:
     void taskQT657_paintIntoCacheWithTransparentParts();
     void taskQTBUG_7863_paintIntoCacheWithTransparentParts();
     void taskQT_3674_doNotCrash();
+    void taskQTBUG_15977_renderWithDeviceCoordinateCache();
+    void taskQTBUG_16401_focusItem();
 };
 
 void tst_QGraphicsScene::initTestCase()
@@ -2617,59 +2619,70 @@ void tst_QGraphicsScene::render_data()
     QTest::addColumn<QRectF>("sourceRect");
     QTest::addColumn<Qt::AspectRatioMode>("aspectRatioMode");
     QTest::addColumn<QMatrix>("matrix");
+    QTest::addColumn<QPainterPath>("clip");
+
+    QPainterPath clip_rect;
+    clip_rect.addRect(50, 100, 200, 150);
+
+    QPainterPath clip_ellipse;
+    clip_ellipse.addEllipse(100,50,150,200);
 
     QTest::newRow("all-all-untransformed") << QRectF() << QRectF()
-                                           << Qt::IgnoreAspectRatio << QMatrix();
+                                           << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("all-topleft-untransformed") << QRectF(0, 0, 150, 150)
-                                               << QRectF() << Qt::IgnoreAspectRatio << QMatrix();
+                                               << QRectF() << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("all-topright-untransformed") << QRectF(150, 0, 150, 150)
-                                                << QRectF() << Qt::IgnoreAspectRatio << QMatrix();
+                                                << QRectF() << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("all-bottomleft-untransformed") << QRectF(0, 150, 150, 150)
-                                                  << QRectF() << Qt::IgnoreAspectRatio << QMatrix();
+                                                  << QRectF() << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("all-bottomright-untransformed") << QRectF(150, 150, 150, 150)
-                                                   << QRectF() << Qt::IgnoreAspectRatio << QMatrix();
+                                                   << QRectF() << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("topleft-all-untransformed") << QRectF() << QRectF(-10, -10, 10, 10)
-                                               << Qt::IgnoreAspectRatio << QMatrix();
+                                               << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("topright-all-untransformed") << QRectF() << QRectF(0, -10, 10, 10)
-                                                << Qt::IgnoreAspectRatio << QMatrix();
+                                                << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("bottomleft-all-untransformed") << QRectF() << QRectF(-10, 0, 10, 10)
-                                                  << Qt::IgnoreAspectRatio << QMatrix();
+                                                  << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("bottomright-all-untransformed") << QRectF() << QRectF(0, 0, 10, 10)
-                                                   << Qt::IgnoreAspectRatio << QMatrix();
+                                                   << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("topleft-topleft-untransformed") << QRectF(0, 0, 150, 150) << QRectF(-10, -10, 10, 10)
-                                                   << Qt::IgnoreAspectRatio << QMatrix();
+                                                   << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("topright-topleft-untransformed") << QRectF(150, 0, 150, 150) << QRectF(-10, -10, 10, 10)
-                                                    << Qt::IgnoreAspectRatio << QMatrix();
+                                                    << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("bottomleft-topleft-untransformed") << QRectF(0, 150, 150, 150) << QRectF(-10, -10, 10, 10)
-                                                      << Qt::IgnoreAspectRatio << QMatrix();
+                                                      << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("bottomright-topleft-untransformed") << QRectF(150, 150, 150, 150) << QRectF(-10, -10, 10, 10)
-                                                       << Qt::IgnoreAspectRatio << QMatrix();
+                                                       << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("top-topleft-untransformed") << QRectF(0, 0, 300, 150) << QRectF(-10, -10, 10, 10)
-                                               << Qt::IgnoreAspectRatio << QMatrix();
+                                               << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("bottom-topleft-untransformed") << QRectF(0, 150, 300, 150) << QRectF(-10, -10, 10, 10)
-                                                  << Qt::IgnoreAspectRatio << QMatrix();
+                                                  << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("left-topleft-untransformed") << QRectF(0, 0, 150, 300) << QRectF(-10, -10, 10, 10)
-                                                << Qt::IgnoreAspectRatio << QMatrix();
+                                                << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("right-topleft-untransformed") << QRectF(150, 0, 150, 300) << QRectF(-10, -10, 10, 10)
-                                                 << Qt::IgnoreAspectRatio << QMatrix();
+                                                 << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("top-bottomright-untransformed") << QRectF(0, 0, 300, 150) << QRectF(0, 0, 10, 10)
-                                                   << Qt::IgnoreAspectRatio << QMatrix();
+                                                   << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("bottom-bottomright-untransformed") << QRectF(0, 150, 300, 150) << QRectF(0, 0, 10, 10)
-                                                      << Qt::IgnoreAspectRatio << QMatrix();
+                                                      << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("left-bottomright-untransformed") << QRectF(0, 0, 150, 300) << QRectF(0, 0, 10, 10)
-                                                    << Qt::IgnoreAspectRatio << QMatrix();
+                                                    << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("right-bottomright-untransformed") << QRectF(150, 0, 150, 300) << QRectF(0, 0, 10, 10)
-                                                     << Qt::IgnoreAspectRatio << QMatrix();
+                                                     << Qt::IgnoreAspectRatio << QMatrix() << QPainterPath();
     QTest::newRow("all-all-45-deg-right") << QRectF() << QRectF()
-                                          << Qt::IgnoreAspectRatio << QMatrix().rotate(-45);
+                                          << Qt::IgnoreAspectRatio << QMatrix().rotate(-45) << QPainterPath();
     QTest::newRow("all-all-45-deg-left") << QRectF() << QRectF()
-                                         << Qt::IgnoreAspectRatio << QMatrix().rotate(45);
+                                         << Qt::IgnoreAspectRatio << QMatrix().rotate(45) << QPainterPath();
     QTest::newRow("all-all-scale-2x") << QRectF() << QRectF()
-                                      << Qt::IgnoreAspectRatio << QMatrix().scale(2, 2);
+                                      << Qt::IgnoreAspectRatio << QMatrix().scale(2, 2) << QPainterPath();
     QTest::newRow("all-all-translate-50-0") << QRectF() << QRectF()
-                                            << Qt::IgnoreAspectRatio << QMatrix().translate(50, 0);
+                                            << Qt::IgnoreAspectRatio << QMatrix().translate(50, 0) << QPainterPath();
     QTest::newRow("all-all-translate-0-50") << QRectF() << QRectF()
-                                            << Qt::IgnoreAspectRatio << QMatrix().translate(0, 50);
+                                            << Qt::IgnoreAspectRatio << QMatrix().translate(0, 50) << QPainterPath();
+    QTest::newRow("all-all-untransformed-clip-rect") << QRectF() << QRectF()
+                                           << Qt::IgnoreAspectRatio << QMatrix() << clip_rect;
+    QTest::newRow("all-all-untransformed-clip-ellipse") << QRectF() << QRectF()
+                                           << Qt::IgnoreAspectRatio << QMatrix() << clip_ellipse;
 }
 
 void tst_QGraphicsScene::render()
@@ -2678,16 +2691,19 @@ void tst_QGraphicsScene::render()
     QFETCH(QRectF, sourceRect);
     QFETCH(Qt::AspectRatioMode, aspectRatioMode);
     QFETCH(QMatrix, matrix);
+    QFETCH(QPainterPath, clip);
 
     QPixmap pix(30, 30);
     pix.fill(Qt::blue);
 
-    QGraphicsScene scene;
+    QGraphicsView view;
+    QGraphicsScene scene(&view);
     scene.addEllipse(QRectF(-10, -10, 20, 20), QPen(Qt::black), QBrush(Qt::white));
     scene.addEllipse(QRectF(-2, -7, 4, 4), QPen(Qt::black), QBrush(Qt::yellow))->setZValue(1);
     QGraphicsPixmapItem *item = scene.addPixmap(pix);
     item->setZValue(2);
     item->setOffset(QPointF(3, 3));
+    view.show();
 
     scene.setSceneRect(scene.itemsBoundingRect());
 
@@ -2703,6 +2719,7 @@ void tst_QGraphicsScene::render()
     painter.drawLine(0, 150, 300, 150);
     painter.drawLine(150, 0, 150, 300);
     painter.setMatrix(matrix);
+    if (!clip.isEmpty()) painter.setClipPath(clip);
     scene.render(&painter, targetRect, sourceRect, aspectRatioMode);
     painter.end();
 
@@ -2807,6 +2824,8 @@ void tst_QGraphicsScene::contextMenuEvent()
 
     QGraphicsView view(&scene);
     view.show();
+    QTest::qWaitForWindowShown(&view);
+    view.activateWindow();
 #ifdef Q_WS_X11
         qt_x11_wait_for_window_manager(&view);
 #endif
@@ -2838,12 +2857,14 @@ void tst_QGraphicsScene::contextMenuEvent_ItemIgnoresTransformations()
     item->setFlag(QGraphicsItem::ItemIgnoresTransformations);
     scene.addItem(item);
 
-    QGraphicsView view(&scene);
+    QWidget topLevel;
+    QGraphicsView view(&scene, &topLevel);
     view.resize(200, 200);
-    view.show();
+    topLevel.show();
 #ifdef Q_WS_X11
     qt_x11_wait_for_window_manager(&view);
 #endif
+    QTest::qWaitForWindowShown(&topLevel);
 
     {
         QPoint pos(50, 50);
@@ -3818,6 +3839,23 @@ public:
     mutable int queryCalls;
 };
 
+class TestInputContext : public QInputContext
+{
+public:
+    TestInputContext() {}
+
+    QString identifierName() { return QString(); }
+    QString language() { return QString(); }
+
+    void reset() {
+        ++resetCalls;
+        sendEvent(QInputMethodEvent()); }
+
+    bool isComposing() const { return false; }
+
+    int resetCalls;
+};
+
 void tst_QGraphicsScene::inputMethod()
 {
     QFETCH(int, flags);
@@ -3827,14 +3865,22 @@ void tst_QGraphicsScene::inputMethod()
     item->setFlags((QGraphicsItem::GraphicsItemFlags)flags);
 
     QGraphicsScene scene;
-    QEvent activate(QEvent::WindowActivate);
-    QApplication::sendEvent(&scene, &activate);
+    QGraphicsView view(&scene);
+    TestInputContext inputContext;
+    view.setInputContext(&inputContext);
+    view.show();
+    QApplication::setActiveWindow(&view);
+    view.setFocus();
+    QTest::qWaitForWindowShown(&view);
+    QTRY_COMPARE(QApplication::activeWindow(), static_cast<QWidget *>(&view));
 
+    inputContext.resetCalls = 0;
     scene.addItem(item);
     QInputMethodEvent event;
 
     scene.setFocusItem(item);
     QCOMPARE(!!(item->flags() & QGraphicsItem::ItemIsFocusable), scene.focusItem() == item);
+    QCOMPARE(inputContext.resetCalls, 0);
 
     item->eventCalls = 0;
     qApp->sendEvent(&scene, &event);
@@ -3845,6 +3891,9 @@ void tst_QGraphicsScene::inputMethod()
     QCOMPARE(item->queryCalls, callFocusItem ? 1 : 0);
 
     scene.setFocusItem(0);
+    // the input context is reset twice, once because an item has lost focus and again because
+    // the Qt::WA_InputMethodEnabled flag is cleared because no item has focus.
+    QCOMPARE(inputContext.resetCalls, callFocusItem ? 2 : 0);
     QCOMPARE(item->eventCalls, callFocusItem ? 2 : 0); // verify correct delivery of "reset" event
     QCOMPARE(item->queryCalls, callFocusItem ? 1 : 0); // verify that value is unaffected
 
@@ -4608,6 +4657,58 @@ void tst_QGraphicsScene::zeroScale()
     rect1->setPos(20,20);
     QApplication::processEvents();
     QTRY_COMPARE(cl.changes.count(), 2);
+}
+
+void tst_QGraphicsScene::taskQTBUG_15977_renderWithDeviceCoordinateCache()
+{
+    QGraphicsScene scene;
+    scene.setSceneRect(0, 0, 100, 100);
+    QGraphicsRectItem *rect = scene.addRect(0, 0, 100, 100);
+    rect->setPen(Qt::NoPen);
+    rect->setBrush(Qt::red);
+    rect->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+
+    QImage image(100, 100, QImage::Format_RGB32);
+    QPainter p(&image);
+    scene.render(&p);
+    p.end();
+
+    QImage expected(100, 100, QImage::Format_RGB32);
+    p.begin(&expected);
+    p.fillRect(expected.rect(), Qt::red);
+    p.end();
+
+    QCOMPARE(image, expected);
+}
+
+void tst_QGraphicsScene::taskQTBUG_16401_focusItem()
+{
+    QGraphicsScene scene;
+    QGraphicsView view(&scene);
+    QGraphicsRectItem *rect = scene.addRect(0, 0, 100, 100);
+    rect->setFlag(QGraphicsItem::ItemIsFocusable);
+
+    view.show();
+    QTest::qWaitForWindowShown(&view);
+    QApplication::setActiveWindow(&view);
+
+    QVERIFY(!scene.focusItem());
+
+    rect->setFocus();
+    QCOMPARE(scene.focusItem(), rect);
+    QFocusEvent focusOut(QEvent::FocusOut);
+    QApplication::sendEvent(&view, &focusOut);
+    QVERIFY(!scene.focusItem());
+    QFocusEvent focusIn(QEvent::FocusIn);
+    QApplication::sendEvent(&view, &focusIn);
+    QCOMPARE(scene.focusItem(), rect);
+
+    rect->clearFocus();
+    QVERIFY(!scene.focusItem());
+    QApplication::sendEvent(&view, &focusOut);
+    QVERIFY(!scene.focusItem());
+    QApplication::sendEvent(&view, &focusIn);
+    QVERIFY(!scene.focusItem());
 }
 
 QTEST_MAIN(tst_QGraphicsScene)

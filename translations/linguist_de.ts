@@ -85,6 +85,10 @@
 <context>
     <name>DataModel</name>
     <message>
+        <source>The translation file &apos;%1&apos; will not be loaded because it is empty.</source>
+        <translation>Die Übersetzungsdatei &apos;%1&apos; ist leer und wird daher nicht geladen.</translation>
+    </message>
+    <message>
         <source>&lt;qt&gt;Duplicate messages found in &apos;%1&apos;:</source>
         <translation>&lt;qt&gt;Mehrfach vorhandene Meldungen in &apos;%1&apos;:</translation>
     </message>
@@ -724,7 +728,8 @@ Options:
     <message>
         <source>Updating &apos;%1&apos;...
 </source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Bringe &apos;%1&apos; auf aktuellen Stand...
+</translation>
     </message>
     <message>
         <source>Stripping non plural forms in &apos;%1&apos;...
@@ -908,7 +913,7 @@ Options:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Illegal escape squence</source>
+        <source>Illegal escape sequence</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1638,7 +1643,7 @@ Alle Dateien (*)</translation>
         <translation>Version %1</translation>
     </message>
     <message>
-        <source>&lt;center&gt;&lt;img src=&quot;:/images/splash.png&quot;/&gt;&lt;/img&gt;&lt;p&gt;%1&lt;/p&gt;&lt;/center&gt;&lt;p&gt;Qt Linguist is a tool for adding translations to Qt applications.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).</source>
+        <source>&lt;center&gt;&lt;img src=&quot;:/images/splash.png&quot;/&gt;&lt;/img&gt;&lt;p&gt;%1&lt;/p&gt;&lt;/center&gt;&lt;p&gt;Qt Linguist is a tool for adding translations to Qt applications.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

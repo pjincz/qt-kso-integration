@@ -1,51 +1,57 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
 #include "qmeegopixmapdata.h"
 #include "qmeegoextensions.h"
+#include "qmeegorasterpixmapdata.h"
 #include <private/qimage_p.h>
 #include <private/qwindowsurface_gl_p.h>
 #include <private/qeglcontext_p.h>
 #include <private/qapplication_p.h>
 #include <private/qgraphicssystem_runtime_p.h>
+
+// from dithering.cpp
+extern unsigned short* convertRGB32_to_RGB565(const unsigned char *in, int width, int height, int stride);
+extern unsigned short* convertARGB32_to_RGBA4444(const unsigned char *in, int width, int height, int stride);
+extern unsigned char* convertBGRA32_to_RGBA32(const unsigned char *in, int width, int height, int stride);
 
 static EGLint preserved_image_attribs[] = { EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE };
 
@@ -103,12 +109,10 @@ void QMeeGoPixmapData::fromEGLSharedImage(Qt::HANDLE handle, const QImage &si)
     glGenTextures(1, &newTextureId);
     glBindTexture(GL_TEXTURE_2D, newTextureId);
     
-    glFinish();
     EGLImageKHR image = QEgl::eglCreateImageKHR(QEgl::display(), EGL_NO_CONTEXT, EGL_SHARED_IMAGE_NOK,
                                                 (EGLClientBuffer)handle, preserved_image_attribs);
 
     if (image != EGL_NO_IMAGE_KHR) {
-        glFinish();
         glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
         GLint err = glGetError();
         if (err == GL_NO_ERROR)
@@ -118,14 +122,12 @@ void QMeeGoPixmapData::fromEGLSharedImage(Qt::HANDLE handle, const QImage &si)
         QMeeGoExtensions::eglQueryImageNOK(QEgl::display(), image, EGL_HEIGHT, &newHeight);
           
         QEgl::eglDestroyImageKHR(QEgl::display(), image);
-        glFinish();
     }
         
     if (textureIsBound) {
-        // FIXME Remove this ugly hasAlphaChannel check when Qt lands the NoOpaqueCheck flag fix
-        // for QGLPixmapData.
         fromTexture(newTextureId, newWidth, newHeight, 
                     (si.hasAlphaChannel() && const_cast<QImage &>(si).data_ptr()->checkForAlphaPixels()));
+        texture()->options &= ~QGLContext::InvertedYBindOption;
         softImage = si;
         QMeeGoPixmapData::registerSharedImage(handle, softImage);
     } else {
@@ -140,22 +142,34 @@ Qt::HANDLE QMeeGoPixmapData::imageToEGLSharedImage(const QImage &image)
 
     QMeeGoExtensions::ensureInitialized();
 
-    glFinish();
-    QGLPixmapData pixmapData(QPixmapData::PixmapType);
-    pixmapData.fromImage(image, 0);
-    GLuint textureId = pixmapData.bind();
+    GLuint textureId;
 
-    glFinish();
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+    if (image.hasAlphaChannel() && const_cast<QImage &>(image).data_ptr()->checkForAlphaPixels()) {
+        void *converted = convertBGRA32_to_RGBA32(image.bits(), image.width(), image.height(), image.bytesPerLine());
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, converted);
+        free(converted);
+    } else {
+        void *converted = convertRGB32_to_RGB565(image.bits(), image.width(), image.height(), image.bytesPerLine());
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.width(), image.height(), 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, converted);
+        free(converted);
+    }
+
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     EGLImageKHR eglimage = QEgl::eglCreateImageKHR(QEgl::display(), QEglContext::currentContext(QEgl::OpenGL)->context(),
                                                                                                 EGL_GL_TEXTURE_2D_KHR,
                                                                                                 (EGLClientBuffer) textureId,
                                                                                                 preserved_image_attribs);
-    glFinish();
-
+    glDeleteTextures(1, &textureId);
     if (eglimage) {
         EGLNativeSharedImageTypeNOK handle = QMeeGoExtensions::eglCreateSharedImageNOK(QEgl::display(), eglimage, NULL);
         QEgl::eglDestroyImageKHR(QEgl::display(), eglimage);
-        glFinish();
         return (Qt::HANDLE) handle;
     } else {
         qWarning("Failed to create shared image from pixmap/texture!");
@@ -165,6 +179,7 @@ Qt::HANDLE QMeeGoPixmapData::imageToEGLSharedImage(const QImage &image)
 
 void QMeeGoPixmapData::updateFromSoftImage()
 {
+    // FIXME That's broken with recent 16bit textures changes.
     m_dirty = true;
     m_source = softImage;
     ensureCreated();
@@ -203,4 +218,9 @@ void QMeeGoPixmapData::registerSharedImage(Qt::HANDLE handle, const QImage &si)
         if (info->handle != handle || info->rawFormat != si.format())
             qWarning("Inconsistency detected: overwriting entry in sharedImagesMap but handle/format different");
     }
+}
+
+QPixmapData *QMeeGoPixmapData::createCompatiblePixmapData() const
+{
+    return new QMeeGoRasterPixmapData(pixelType());
 }

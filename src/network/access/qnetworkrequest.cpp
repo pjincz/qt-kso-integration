@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -194,15 +194,11 @@ QT_BEGIN_NAMESPACE
     \value CookieLoadControlAttribute
         Requests only, type: QVariant::Int (default: QNetworkRequest::Automatic)
         Indicates whether to send 'Cookie' headers in the request.
-
         This attribute is set to false by QtWebKit when creating a cross-origin
         XMLHttpRequest where withCredentials has not been set explicitly to true by the
         Javascript that created the request.
-
         See \l{http://www.w3.org/TR/XMLHttpRequest2/#credentials-flag}{here} for more information.
-
         (This value was introduced in 4.7.)
-
 
     \value CookieSaveControlAttribute
         Requests only, type: QVariant::Int (default: QNetworkRequest::Automatic)
@@ -211,9 +207,7 @@ QT_BEGIN_NAMESPACE
         This attribute is set to false by QtWebKit when creating a cross-origin
         XMLHttpRequest where withCredentials has not been set explicitly to true by the
         Javascript that created the request.
-
         See \l{http://www.w3.org/TR/XMLHttpRequest2/#credentials-flag} {here} for more information.
-
         (This value was introduced in 4.7.)
 
     \value AuthenticationReuseAttribute
@@ -225,16 +219,12 @@ QT_BEGIN_NAMESPACE
         This attribute is set to QNetworkRequest::Manual by QtWebKit when creating a cross-origin
         XMLHttpRequest where withCredentials has not been set explicitly to true by the
         Javascript that created the request.
-
         See \l{http://www.w3.org/TR/XMLHttpRequest2/#credentials-flag} {here} for more information.
-
         (This value was introduced in 4.7.)
 
     \omitvalue MaximumDownloadBufferSizeAttribute
-        (This value was introduced in 4.7.)
 
     \omitvalue DownloadBufferAttribute
-        (This value was introduced in 4.7.)
 
     \value User
         Special type. Additional information can be passed in
@@ -539,8 +529,9 @@ QSslConfiguration QNetworkRequest::sslConfiguration() const
 /*!
     Sets this network request's SSL configuration to be \a config. The
     settings that apply are the private key, the local certificate,
-    the SSL protocol (SSLv2, SSLv3, TLSv1 where applicable) and the
-    ciphers that the SSL backend is allowed to use.
+    the SSL protocol (SSLv2, SSLv3, TLSv1 where applicable), the CA
+    certificates and the ciphers that the SSL backend is allowed to
+    use.
 
     By default, no SSL configuration is set, which allows the backends
     to choose freely what configuration is best for them.
@@ -909,10 +900,16 @@ void QNetworkHeadersPrivate::parseAndSetHeader(const QByteArray &key, const QByt
     // is it a known header?
     QNetworkRequest::KnownHeaders parsedKey = parseHeaderName(key);
     if (parsedKey != QNetworkRequest::KnownHeaders(-1)) {
-        if (value.isNull())
+        if (value.isNull()) {
             cookedHeaders.remove(parsedKey);
-        else
+        } else if (parsedKey == QNetworkRequest::ContentLengthHeader
+                 && cookedHeaders.contains(QNetworkRequest::ContentLengthHeader)) {
+            // Only set the cooked header "Content-Length" once.
+            // See bug QTBUG-15311
+        } else {
             cookedHeaders.insert(parsedKey, parseHeaderValue(parsedKey, value));
+        }
+
     }
 }
 

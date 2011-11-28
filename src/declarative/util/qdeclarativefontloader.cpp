@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -49,7 +49,6 @@
 #include <QDebug>
 #include <QNetworkRequest>
 #include <QNetworkReply>
-#include <QFile>
 #include <QFontDatabase>
 
 #include <private/qobject_p.h>
@@ -221,15 +220,15 @@ void QDeclarativeFontLoader::setSource(const QUrl &url)
             fo->download(d->url, qmlEngine(this)->networkAccessManager());
             d->status = Loading;
             emit statusChanged();
-            QObject::connect(fo, SIGNAL(fontDownloaded(QString, QDeclarativeFontLoader::Status)),
-                this, SLOT(updateFontInfo(QString, QDeclarativeFontLoader::Status)));
+            QObject::connect(fo, SIGNAL(fontDownloaded(QString,QDeclarativeFontLoader::Status)),
+                this, SLOT(updateFontInfo(QString,QDeclarativeFontLoader::Status)));
         } else {
             QDeclarativeFontObject *fo = d->fonts[d->url];
             if (fo->id == -1) {
                 d->status = Loading;
                 emit statusChanged();
-                QObject::connect(fo, SIGNAL(fontDownloaded(QString, QDeclarativeFontLoader::Status)),
-                    this, SLOT(updateFontInfo(QString, QDeclarativeFontLoader::Status)));
+                QObject::connect(fo, SIGNAL(fontDownloaded(QString,QDeclarativeFontLoader::Status)),
+                    this, SLOT(updateFontInfo(QString,QDeclarativeFontLoader::Status)));
             }
             else
                 updateFontInfo(QFontDatabase::applicationFontFamilies(fo->id).at(0), Ready);
@@ -263,8 +262,18 @@ void QDeclarativeFontLoader::updateFontInfo(const QString& name, QDeclarativeFon
 
     Example:
     \qml
-    FontLoader { id: webFont; source: "http://www.mysite.com/myfont.ttf" }
-    Text { text: "Fancy font"; font.family: webFont.name }
+    Item {
+        width: 200; height: 50
+
+        FontLoader {
+            id: webFont
+            source: "http://www.mysite.com/myfont.ttf"
+        }
+        Text {
+            text: "Fancy font"
+            font.family: webFont.name
+        }
+    }
     \endqml
 */
 QString QDeclarativeFontLoader::name() const
@@ -298,23 +307,25 @@ void QDeclarativeFontLoader::setName(const QString &name)
     Use this status to provide an update or respond to the status change in some way.
     For example, you could:
 
-    \e {Trigger a state change:}
-    \qml 
-        State { name: 'loaded'; when: loader.status = FontLoader.Ready }
+    \list
+    \o Trigger a state change:
+    \qml
+        State { name: 'loaded'; when: loader.status == FontLoader.Ready }
     \endqml
 
-    \e {Implement an \c onStatusChanged signal handler:}
-    \qml 
+    \o Implement an \c onStatusChanged signal handler:
+    \qml
         FontLoader {
             id: loader
             onStatusChanged: if (loader.status == FontLoader.Ready) console.log('Loaded')
         }
     \endqml
 
-    \e {Bind to the status value:}
+    \o Bind to the status value:
     \qml
-        Text { text: loader.status != FontLoader.Ready ? 'Not Loaded' : 'Loaded' }
+        Text { text: loader.status == FontLoader.Ready ? 'Loaded' : 'Not loaded' }
     \endqml
+    \endlist
 */
 QDeclarativeFontLoader::Status QDeclarativeFontLoader::status() const
 {

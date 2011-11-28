@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -52,6 +52,7 @@
 #include <qsplashscreen.h>
 
 #include <private/qpixmapdata_p.h>
+#include <private/qdrawhelper_p.h>
 
 #include <QSet>
 
@@ -68,6 +69,10 @@
 #include <fbs.h>
 #include <gdi.h>
 #include <bitdev.h>
+#if !defined(QT_NO_OPENVG)
+#include <QtOpenVG/qvg.h>
+#include <QtOpenVG/private/qpixmapdata_vg_p.h>
+#endif
 #endif
 
 #ifdef Q_WS_X11
@@ -129,10 +134,7 @@ private slots:
     void isNull();
     void task_246446();
 
-#ifdef Q_WS_QWS
     void convertFromImageNoDetach();
-#endif
-
     void convertFromImageDetach();
 
 #if defined(Q_WS_WIN)
@@ -185,7 +187,16 @@ private slots:
     void preserveDepth();
     void splash_crash();
 
+    void toImageDeepCopy();
+
     void loadAsBitmapOrPixmap();
+
+#if defined(Q_OS_SYMBIAN) && !defined(QT_NO_OPENVG)
+    void vgImageReadBack();
+#endif
+
+    void drawPixmapWhilePainterOpen();
+    void scaled_QTBUG19157();
 };
 
 static bool lenientCompare(const QPixmap &actual, const QPixmap &expected)
@@ -633,9 +644,12 @@ void tst_QPixmap::mask()
 
     QVERIFY(!pm.isNull());
     QVERIFY(!bm.isNull());
-    // hw: todo: this will fail if the default pixmap format is
-    // argb32_premultiplied. The mask will be all 1's
-    QVERIFY(pm.mask().isNull());
+    if (!pm.hasAlphaChannel()) {
+        // This would fail if the default pixmap format is
+        // argb32_premultiplied. The mask will be all 1's.
+        // Therefore this is skipped when the alpha channel is present.
+        QVERIFY(pm.mask().isNull());
+    }
 
     QImage img = bm.toImage();
     QVERIFY(img.format() == QImage::Format_MonoLSB
@@ -812,33 +826,43 @@ void tst_QPixmap::drawBitmap()
 
 void tst_QPixmap::grabWidget()
 {
-    QWidget widget;
-    QImage image(128, 128, QImage::Format_ARGB32_Premultiplied);
-    for (int row = 0; row < image.height(); ++row) {
-        QRgb *line = reinterpret_cast<QRgb *>(image.scanLine(row));
-        for (int col = 0; col < image.width(); ++col)
-            line[col] = qRgb(rand() & 255, row, col);
+    for (int opaque = 0; opaque < 2; ++opaque) {
+        QWidget widget;
+        QImage image(128, 128, opaque ? QImage::Format_RGB32 : QImage::Format_ARGB32_Premultiplied);
+        for (int row = 0; row < image.height(); ++row) {
+            QRgb *line = reinterpret_cast<QRgb *>(image.scanLine(row));
+            for (int col = 0; col < image.width(); ++col)
+                line[col] = qRgba(rand() & 255, row, col, opaque ? 255 : 127);
+        }
+
+        QPalette pal = widget.palette();
+        pal.setBrush(QPalette::Window, QBrush(image));
+        widget.setPalette(pal);
+        widget.resize(128, 128);
+
+        QPixmap expected(64, 64);
+        if (!opaque)
+            expected.fill(Qt::transparent);
+
+        QPainter p(&expected);
+        p.translate(-64, -64);
+        p.drawTiledPixmap(0, 0, 128, 128, pal.brush(QPalette::Window).texture(), 0, 0);
+        p.end();
+
+        QPixmap actual = QPixmap::grabWidget(&widget, QRect(64, 64, 64, 64));
+        QVERIFY(lenientCompare(actual, expected));
+
+        actual = QPixmap::grabWidget(&widget, 64, 64);
+        QVERIFY(lenientCompare(actual, expected));
+
+        // Make sure a widget that is not yet shown is grabbed correctly.
+        QTreeWidget widget2;
+        actual = QPixmap::grabWidget(&widget2);
+        widget2.show();
+        expected = QPixmap::grabWidget(&widget2);
+
+        QVERIFY(lenientCompare(actual, expected));
     }
-
-    QPalette pal = widget.palette();
-    pal.setBrush(QPalette::Window, QBrush(image));
-    widget.setPalette(pal);
-    widget.resize(128, 128);
-
-    QPixmap expected = QPixmap::fromImage(QImage(image.scanLine(64) + 64 * 4, 64, 64, image.bytesPerLine(), image.format()));
-    QPixmap actual = QPixmap::grabWidget(&widget, QRect(64, 64, 64, 64));
-    QVERIFY(lenientCompare(actual, expected));
-
-    actual = QPixmap::grabWidget(&widget, 64, 64);
-    QVERIFY(lenientCompare(actual, expected));
-
-    // Make sure a widget that is not yet shown is grabbed correctly.
-    QTreeWidget widget2;
-    actual = QPixmap::grabWidget(&widget2);
-    widget2.show();
-    expected = QPixmap::grabWidget(&widget2);
-
-    QVERIFY(lenientCompare(actual, expected));
 }
 
 void tst_QPixmap::grabWindow()
@@ -901,11 +925,13 @@ void tst_QPixmap::isNull()
     }
 }
 
-#ifdef Q_WS_QWS
 void tst_QPixmap::convertFromImageNoDetach()
 {
+    QPixmap randomPixmap(10, 10);
+    if (randomPixmap.pixmapData()->classId() != QPixmapData::RasterClass)
+        QSKIP("Test only valid for raster pixmaps", SkipAll);
+
     //first get the screen format
-    QPixmap randomPixmap(10,10);
     QImage::Format screenFormat = randomPixmap.toImage().format();
     QVERIFY(screenFormat != QImage::Format_Invalid);
 
@@ -920,7 +946,6 @@ void tst_QPixmap::convertFromImageNoDetach()
     const QImage constCopy = copy;
     QVERIFY(constOrig.bits() == constCopy.bits());
 }
-#endif //Q_WS_QWS
 
 void tst_QPixmap::convertFromImageDetach()
 {
@@ -1160,6 +1185,8 @@ void tst_QPixmap::fromSymbianCFbsBitmap_data()
     const int smallHeight = 20;
     const int largeWidth = 240;
     const int largeHeight = 320;
+    const int notAlignedWidth = 250;
+    const int notAlignedHeight = 250;
 
     // Indexed Color Formats - Disabled since images seem to be blank -> no palette?
 //    QTest::newRow("EGray2 small") << EGray2 << smallWidth << smallHeight << QColor(Qt::black);
@@ -1172,14 +1199,19 @@ void tst_QPixmap::fromSymbianCFbsBitmap_data()
     // Direct Color Formats
     QTest::newRow("EColor4K small") << EColor4K << smallWidth << smallHeight << QColor(Qt::red);
     QTest::newRow("EColor4K big") << EColor4K << largeWidth << largeHeight << QColor(Qt::red);
+    QTest::newRow("EColor4K not aligned") << EColor4K << notAlignedWidth << notAlignedHeight << QColor(Qt::red);
     QTest::newRow("EColor64K small") << EColor64K << smallWidth << smallHeight << QColor(Qt::green);
     QTest::newRow("EColor64K big") << EColor64K << largeWidth << largeHeight << QColor(Qt::green);
+    QTest::newRow("EColor64K not aligned") << EColor64K << notAlignedWidth << notAlignedHeight << QColor(Qt::green);
     QTest::newRow("EColor16M small") << EColor16M << smallWidth << smallHeight << QColor(Qt::yellow);
     QTest::newRow("EColor16M big") << EColor16M << largeWidth << largeHeight << QColor(Qt::yellow);
+    QTest::newRow("EColor16M not aligned") << EColor16M << notAlignedWidth << notAlignedHeight << QColor(Qt::yellow);
     QTest::newRow("EColor16MU small") << EColor16MU << smallWidth << smallHeight << QColor(Qt::red);
     QTest::newRow("EColor16MU big") << EColor16MU << largeWidth << largeHeight << QColor(Qt::red);
+    QTest::newRow("EColor16MU not aligned") << EColor16MU << notAlignedWidth << notAlignedHeight << QColor(Qt::red);
     QTest::newRow("EColor16MA small opaque") << EColor16MA << smallWidth << smallHeight << QColor(255, 255, 0);
     QTest::newRow("EColor16MA big opaque") << EColor16MA << largeWidth << largeHeight << QColor(255, 255, 0);
+    QTest::newRow("EColor16MA not aligned opaque") << EColor16MA << notAlignedWidth << notAlignedHeight << QColor(255, 255, 0);
 
     // Semi-transparent Colors - Disabled for now, since the QCOMPARE fails, but visually confirmed to work
 //    QTest::newRow("EColor16MA small semi") << EColor16MA << smallWidth << smallHeight << QColor(255, 255, 0, 127);
@@ -1237,6 +1269,13 @@ void tst_QPixmap::fromSymbianCFbsBitmap()
 
         QColor actualColor(image.pixel(1, 1));
         QCOMPARE(actualColor, color);
+
+        QImage shouldBe(pixmap.width(), pixmap.height(), image.format());
+        if (image.format() == QImage::Format_RGB16)
+            shouldBe.fill(qrgb565(color.rgba()).rawValue());
+        else
+            shouldBe.fill(color.rgba());
+        QCOMPARE(image, shouldBe);
     }
     __UHEAP_MARKEND;
 
@@ -1730,7 +1769,186 @@ void tst_QPixmap::loadAsBitmapOrPixmap()
     QVERIFY(bitmap.isQBitmap());
 }
 
+void tst_QPixmap::toImageDeepCopy()
+{
+    QPixmap pixmap(64, 64);
+    pixmap.fill(Qt::white);
 
+    QPainter painter(&pixmap);
+    QImage first = pixmap.toImage();
+
+    painter.setBrush(Qt::black);
+    painter.drawEllipse(pixmap.rect());
+
+    QImage second = pixmap.toImage();
+
+    QVERIFY(first != second);
+}
+
+#if defined(Q_OS_SYMBIAN) && !defined(QT_NO_OPENVG)
+Q_OPENVG_EXPORT VGImage qPixmapToVGImage(const QPixmap& pixmap);
+class FriendlyVGPixmapData : public QVGPixmapData
+{
+public:
+    FriendlyVGPixmapData(PixelType type) : QVGPixmapData(type) { }
+    bool sourceIsNull() { return source.isNull(); }
+    friend QPixmap pixmapFromVGImage(VGImage image);
+};
+QPixmap pixmapFromVGImage(VGImage image)
+{
+    if (image != VG_INVALID_HANDLE) {
+        int w = vgGetParameteri(image, VG_IMAGE_WIDTH);
+        int h = vgGetParameteri(image, VG_IMAGE_HEIGHT);
+        FriendlyVGPixmapData *pd = new FriendlyVGPixmapData(QPixmapData::PixmapType);
+        pd->resize(w, h);
+        pd->vgImage = image;
+        pd->recreate = false;
+        pd->prevSize = QSize(pd->w, pd->h);
+        return QPixmap(pd);
+    }
+    return QPixmap();
+}
+class Content : public QWidget
+{
+public:
+    void paintEvent(QPaintEvent *) {
+        QPainter painter(this);
+        QColor testPixel(qRgb(200, 150, 100));
+        if (pm.isNull()) { // first phase: create a VGImage
+            painter.beginNativePainting();
+            vgimage = vgCreateImage(VG_sARGB_8888_PRE, w, h, VG_IMAGE_QUALITY_FASTER);
+            QImage img(20, 10, QImage::Format_ARGB32_Premultiplied);
+            img.fill(qRgb(0, 0, 0));
+            QPainter p(&img);
+            p.fillRect(0, 0, img.width(), img.height(), testPixel);
+            p.end();
+            vgImageSubData(vgimage, img.bits(), img.bytesPerLine(), VG_sARGB_8888_PRE, 0, 0, img.width(), img.height());
+            // Now the area 0,0 20x10 (in OpenVG coords) is filled with some color.
+            painter.endNativePainting();
+        } else { // second phase: check if readback works
+            painter.drawPixmap(0, 0, pm);
+            // Drawing should not cause readback, this is important for performance;
+            noreadback_ok = static_cast<FriendlyVGPixmapData *>(pm.pixmapData())->sourceIsNull();
+            // However toImage() requires readback.
+            QImage img = pm.toImage();
+            readback_ok = img.width() == pm.width();
+            readback_ok &= img.height() == pm.height();
+            readback_ok &= !static_cast<FriendlyVGPixmapData *>(pm.pixmapData())->sourceIsNull();
+            uint pix = img.pixel(1, 1);
+            content_ok = qRed(pix) == testPixel.red();
+            content_ok &= qGreen(pix) == testPixel.green();
+            content_ok &= qBlue(pix) == testPixel.blue();
+            pix = img.pixel(img.width() - 1, img.height() - 1);
+            content_ok &= qRed(pix) == 0;
+            content_ok &= qGreen(pix) == 0;
+            content_ok &= qBlue(pix) == 0;
+        }
+    }
+    int w;
+    int h;
+    VGImage vgimage;
+    QPixmap pm;
+    bool noreadback_ok;
+    bool readback_ok;
+    bool content_ok;
+};
+void tst_QPixmap::vgImageReadBack()
+{
+    QPixmap tmp(10, 20);
+    if (tmp.pixmapData()->classId() == QPixmapData::OpenVGClass) {
+        Content c;
+        c.w = 50;
+        c.h = 60;
+        c.vgimage = VG_INVALID_HANDLE;
+        c.noreadback_ok = c.readback_ok = c.content_ok = false;
+        c.showFullScreen();
+        QTest::qWaitForWindowShown(&c);
+        QVERIFY(c.vgimage != VG_INVALID_HANDLE);
+        QPixmap pm = pixmapFromVGImage(c.vgimage);
+        QVERIFY(!pm.isNull());
+        QCOMPARE(pm.width(), c.w);
+        QCOMPARE(pm.height(), c.h);
+        QVERIFY(qPixmapToVGImage(pm) == c.vgimage);
+        QVERIFY(static_cast<FriendlyVGPixmapData *>(pm.pixmapData())->sourceIsNull());
+        c.pm = pm;
+        // Make sure the second phase in paintEvent is executed too.
+        c.hide();
+        c.showFullScreen();
+        QTest::qWaitForWindowShown(&c);
+        QVERIFY(c.noreadback_ok);
+        QVERIFY(c.readback_ok);
+        QVERIFY(c.content_ok);
+    } else {
+        QSKIP("Not using openvg graphicssystem", SkipSingle);
+    }
+}
+#endif // Symbian & OpenVG
+
+class PixmapWidget : public QWidget
+{
+public:
+    PixmapWidget(QPixmap &pixmap) : QWidget(0), m_pixmap(pixmap)
+    {
+        resize(pixmap.width(), pixmap.height());
+    }
+
+protected:
+    void paintEvent(QPaintEvent *)
+    {
+        QPainter p(this);
+        p.drawPixmap(0, 0, m_pixmap);
+    }
+
+private:
+    QPixmap &m_pixmap;
+};
+
+void tst_QPixmap::drawPixmapWhilePainterOpen()
+{
+    const int delay = 1000;
+    const int size = 100;
+    const QColor colors[] = { Qt::red, Qt::blue, Qt::green };
+
+    QPixmap pix(size, size);
+    pix.fill(colors[0]);
+
+    PixmapWidget w(pix);
+    w.show();
+    QTest::qWaitForWindowShown(&w);
+    QTest::qWait(delay);
+
+    QPainter p(&pix);
+    p.fillRect(0, 0, size, size, colors[1]);
+    w.update();
+    QTest::qWait(delay);
+
+    p.fillRect(0, 0, size, size, colors[2]);
+    w.update();
+    QTest::qWait(delay);
+
+    QPixmap actual = QPixmap::grabWindow(w.effectiveWinId(), 0, 0, size, size);
+
+    // If we captured some bogus content with grabWindow(), the comparison makes no sense
+    // because it cannot prove the feature is broken.
+    QPixmap guard(size, size);
+    bool matchesColors = false;
+    for (size_t i = 0; i < sizeof(colors) / sizeof(const QColor); ++i) {
+        guard.fill(colors[i]);
+        matchesColors |= lenientCompare(actual, guard);
+    }
+    if (!matchesColors) {
+        QSKIP("Skipping verification due to grabWindow() issue", SkipSingle);
+    } else {
+        QVERIFY(lenientCompare(actual, pix));
+    }
+}
+
+void tst_QPixmap::scaled_QTBUG19157()
+{
+    QPixmap foo(5000, 1);
+    foo = foo.scaled(1024, 1024, Qt::KeepAspectRatio);
+    QVERIFY(!foo.isNull());
+}
 
 QTEST_MAIN(tst_QPixmap)
 #include "tst_qpixmap.moc"

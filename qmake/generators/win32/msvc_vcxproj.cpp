@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the qmake application of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -380,9 +380,9 @@ void VcxprojGenerator::initPostBuildEventTools()
 {
     VCXConfiguration &conf = vcxProject.Configuration;
     if(!project->values("QMAKE_POST_LINK").isEmpty()) {
-        QString cmdline = var("QMAKE_POST_LINK");
+        QStringList cmdline = VCToolBase::fixCommandLine(var("QMAKE_POST_LINK"));
         conf.postBuild.CommandLine = cmdline;
-        conf.postBuild.Description = cmdline;
+        conf.postBuild.Description = cmdline.join(QLatin1String("\r\n"));
         conf.postBuild.UseInBuild = _True;
     }
 
@@ -390,14 +390,12 @@ void VcxprojGenerator::initPostBuildEventTools()
     bool useSignature = !signature.isEmpty() && !project->isActiveConfig("staticlib") &&
                         !project->isEmpty("CE_SDK") && !project->isEmpty("CE_ARCH");
     if(useSignature) {
-         conf.postBuild.CommandLine.prepend(QLatin1String("signtool sign /F ") + signature + " \"$(TargetPath)\"\n" +
-             (!conf.postBuild.CommandLine.isEmpty() ? " && " : ""));
+        conf.postBuild.CommandLine.prepend(
+                QLatin1String("signtool sign /F ") + signature + QLatin1String(" \"$(TargetPath)\""));
         conf.postBuild.UseInBuild = _True;
     }
 
     if(!project->values("MSVCPROJ_COPY_DLL").isEmpty()) {
-        if(!conf.postBuild.CommandLine.isEmpty())
-            conf.postBuild.CommandLine += " && ";
         conf.postBuild.Description += var("MSVCPROJ_COPY_DLL_DESC");
         conf.postBuild.CommandLine += var("MSVCPROJ_COPY_DLL");
         conf.postBuild.UseInBuild = _True;
@@ -530,9 +528,9 @@ void VcxprojGenerator::initPreLinkEventTools()
 {
     VCXConfiguration &conf = vcxProject.Configuration;
     if(!project->values("QMAKE_PRE_LINK").isEmpty()) {
-        QString cmdline = var("QMAKE_PRE_LINK");
-        conf.preLink.Description = cmdline;
+        QStringList cmdline = VCToolBase::fixCommandLine(var("QMAKE_PRE_LINK"));
         conf.preLink.CommandLine = cmdline;
+        conf.preLink.Description = cmdline.join(QLatin1String("\r\n"));
         conf.preLink.UseInBuild = _True;
     }
 }
@@ -656,6 +654,9 @@ void VcxprojGenerator::initResourceFiles()
 
                 dep_cmd = Option::fixPathToLocalOS(dep_cmd, true, false);
                 if(canExecute(dep_cmd)) {
+                    dep_cmd.prepend(QLatin1String("cd ")
+                                    + escapeFilePath(Option::fixPathToLocalOS(Option::output_dir, false))
+                                    + QLatin1String(" && "));
                     if(FILE *proc = QT_POPEN(dep_cmd.toLatin1().constData(), "r")) {
                         QString indeps;
                         while(!feof(proc)) {
@@ -666,7 +667,8 @@ void VcxprojGenerator::initResourceFiles()
                         }
                         QT_PCLOSE(proc);
                         if(!indeps.isEmpty())
-                            deps += fileFixify(indeps.replace('\n', ' ').simplified().split(' '));
+                            deps += fileFixify(indeps.replace('\n', ' ').simplified().split(' '),
+                                               QString(), Option::output_dir);
                     }
                 }
             }

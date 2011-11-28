@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -334,7 +334,8 @@ void tst_QListView::cursorMove()
     int columns = 6;
 
     QStandardItemModel model(rows, columns);
-    QListView view;
+    QWidget topLevel;
+    QListView view(&topLevel);
     view.setModel(&model);
 
     for (int j = 0; j < columns; ++j) {
@@ -358,7 +359,7 @@ void tst_QListView::cursorMove()
     view.setGridSize(cellsize);
     view.setViewMode(QListView::IconMode);
     view.doItemsLayout();
-    view.show();
+    topLevel.show();
 
     QVector<Qt::Key> keymoves;
     keymoves << Qt::Key_Up << Qt::Key_Up << Qt::Key_Right << Qt::Key_Right << Qt::Key_Up
@@ -1108,7 +1109,8 @@ void tst_QListView::selection()
     QFETCH(QRect, selectionRect);
     QFETCH(IntList, expectedItems);
 
-    PublicListView v;
+    QWidget topLevel;
+    PublicListView v(&topLevel);
     QtTestModel model;
     model.colCount = 1;
     model.rCount = itemCount;
@@ -1142,7 +1144,7 @@ void tst_QListView::selection()
     v.resize(525,525);
 #endif
 
-    v.show();
+    topLevel.show();
     QTest::qWaitForWindowShown(&v);
     QApplication::processEvents();
 
@@ -1158,7 +1160,8 @@ void tst_QListView::selection()
 
 void tst_QListView::scrollTo()
 {
-    QListView lv;
+    QWidget topLevel;
+    QListView lv(&topLevel);
     QStringListModel model(&lv);
     QStringList list;
     list << "Short item 1";
@@ -1194,8 +1197,8 @@ void tst_QListView::scrollTo()
     model.setStringList(list);
     lv.setModel(&model);
     lv.setFixedSize(100, 200);
-    lv.show();
-    QTest::qWaitForWindowShown(&lv);
+    topLevel.show();
+    QTest::qWaitForWindowShown(&topLevel);
 
     //by default, the list view scrolls per item and has no wrapping
     QModelIndex index = model.index(6,0);
@@ -1266,7 +1269,8 @@ void tst_QListView::scrollBarRanges()
     const int rowCount = 10;
     const int rowHeight = 20;
 
-    QListView lv;
+    QWidget topLevel;
+    QListView lv(&topLevel);
     QStringListModel model(&lv);
     QStringList list;
     for (int i = 0; i < rowCount; ++i)
@@ -1278,7 +1282,7 @@ void tst_QListView::scrollBarRanges()
     TestDelegate *delegate = new TestDelegate(&lv);
     delegate->m_sizeHint = QSize(100, rowHeight);
     lv.setItemDelegate(delegate);
-    lv.show();
+    topLevel.show();
 
     for (int h = 30; h <= 210; ++h) {
         lv.resize(250, h);
@@ -1354,14 +1358,15 @@ void tst_QListView::scrollBarAsNeeded()
 
     const int rowCounts[3] = {0, 1, 20};
 
-    QListView lv;
+    QWidget topLevel;
+    QListView lv(&topLevel);
     lv.setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     lv.setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     lv.setFlow((QListView::Flow)flow);
     QStringListModel model(&lv);
     lv.setModel(&model);
     lv.resize(size);
-    lv.show();
+    topLevel.show();
 
     for (uint r = 0; r < sizeof(rowCounts)/sizeof(int); ++r) {
         QStringList list;
@@ -1631,6 +1636,7 @@ void tst_QListView::task254449_draggingItemToNegativeCoordinates()
     list.setViewMode(QListView::IconMode);
     list.show();
     QTest::qWaitForWindowShown(&list);
+    list.activateWindow();
 
     class MyItemDelegate : public QStyledItemDelegate
     {
@@ -1815,7 +1821,8 @@ void tst_QListView::taskQTBUG_2233_scrollHiddenItems()
     QFETCH(int, flow);
     const int rowCount = 200;
 
-    QListView view;
+    QWidget topLevel;
+    QListView view(&topLevel);
     QStringListModel model(&view);
     QStringList list;
     for (int i = 0; i < rowCount; ++i)
@@ -1839,8 +1846,8 @@ void tst_QListView::taskQTBUG_2233_scrollHiddenItems()
     }
 
     //QTBUG-7929  should not crash
-    view.show();
-    QTest::qWaitForWindowShown(&view);
+    topLevel.show();
+    QTest::qWaitForWindowShown(&topLevel);
     QScrollBar *bar = view.flow() == QListView::TopToBottom
             ? view.verticalScrollBar() : view.horizontalScrollBar();
 
@@ -1886,7 +1893,8 @@ void tst_QListView::taskQTBUG_435_deselectOnViewportClick()
     QCOMPARE(view.selectionModel()->selectedIndexes().count(), model.rowCount());
 
 
-    QPoint p = view.visualRect(model.index(model.rowCount() - 1)).center() + QPoint(0, 20);
+    const QRect itemRect = view.visualRect(model.index(model.rowCount() - 1));
+    QPoint p = view.visualRect(model.index(model.rowCount() - 1)).center() + QPoint(0, itemRect.height());
     //first the left button
     QTest::mouseClick(view.viewport(), Qt::LeftButton, 0, p);
     QVERIFY(!view.selectionModel()->hasSelection());

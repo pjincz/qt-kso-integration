@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -88,6 +88,12 @@
 #define CSIDL_APPDATA		0x001a	// <username>\Application Data
 #endif
 
+#ifdef Q_AUTOTEST_EXPORT
+#  define Q_AUTOTEST_EXPORT_HELPER Q_AUTOTEST_EXPORT
+#else
+#  define Q_AUTOTEST_EXPORT_HELPER static
+#endif
+
 // ************************************************************************
 // QConfFile
 
@@ -134,7 +140,7 @@ QT_BEGIN_INCLUDE_NAMESPACE
 # include <sys/mount.h>
 QT_END_INCLUDE_NAMESPACE
 
-static bool isLikelyToBeNfs(int handle)
+Q_AUTOTEST_EXPORT_HELPER bool qIsLikelyToBeNfs(int handle)
 {
     struct statfs buf;
     if (fstatfs(handle, &buf) != 0)
@@ -160,7 +166,7 @@ QT_END_INCLUDE_NAMESPACE
 #  define AUTOFSNG_SUPER_MAGIC  0x7d92b1a0
 # endif
 
-static bool isLikelyToBeNfs(int handle)
+Q_AUTOTEST_EXPORT_HELPER bool qIsLikelyToBeNfs(int handle)
 {
     struct statfs buf;
     if (fstatfs(handle, &buf) != 0)
@@ -177,7 +183,7 @@ QT_BEGIN_INCLUDE_NAMESPACE
 # include <sys/statvfs.h>
 QT_END_INCLUDE_NAMESPACE
 
-static bool isLikelyToBeNfs(int handle)
+Q_AUTOTEST_EXPORT_HELPER bool qIsLikelyToBeNfs(int handle)
 {
     struct statvfs buf;
     if (fstatvfs(handle, &buf) != 0)
@@ -189,7 +195,7 @@ static bool isLikelyToBeNfs(int handle)
 #endif
 }
 #else
-static inline bool isLikelyToBeNfs(int /* handle */)
+Q_AUTOTEST_EXPORT_HELPER inline bool qIsLikelyToBeNfs(int /* handle */)
 {
     return true;
 }
@@ -203,7 +209,7 @@ static bool unixLock(int handle, int lockType)
         now is to disable locking when we detect NFS (or AutoFS or
         CacheFS, which are probably wrapping NFS).
     */
-    if (isLikelyToBeNfs(handle))
+    if (qIsLikelyToBeNfs(handle))
         return false;
 
     struct flock fl;
@@ -1231,16 +1237,21 @@ QConfFileSettingsPrivate::~QConfFileSettingsPrivate()
         if (confFiles[i] && !confFiles[i]->ref.deref()) {
             if (confFiles[i]->size == 0) {
                 delete confFiles[i].take();
-            } else if (unusedCache) {
+            } else {
                 if (usedHash)
                     usedHash->remove(confFiles[i]->name);
-                QT_TRY {
-                    // compute a better size?
-                    unusedCache->insert(confFiles[i]->name, confFiles[i].data(),
-                                    10 + (confFiles[i]->originalKeys.size() / 4));
-                    confFiles[i].take();
-                } QT_CATCH(...) {
-                    // out of memory. Do not cache the file.
+                if (unusedCache) {
+                    QT_TRY {
+                        // compute a better size?
+                        unusedCache->insert(confFiles[i]->name, confFiles[i].data(),
+                                        10 + (confFiles[i]->originalKeys.size() / 4));
+                        confFiles[i].take();
+                    } QT_CATCH(...) {
+                        // out of memory. Do not cache the file.
+                        delete confFiles[i].take();
+                    }
+                } else {
+                    // unusedCache is gone - delete the entry to prevent a memory leak
                     delete confFiles[i].take();
                 }
             }
@@ -3506,7 +3517,7 @@ void QSettings::setPath(Format format, Scope scope, const QString &path)
     \threadsafe
 
     Registers a custom storage format. On success, returns a special
-    Format value that can then be passed to the QSettings constuctor.
+    Format value that can then be passed to the QSettings constructor.
     On failure, returns InvalidFormat.
 
     The \a extension is the file

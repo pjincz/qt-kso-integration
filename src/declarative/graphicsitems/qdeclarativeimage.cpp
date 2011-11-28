@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -136,19 +136,17 @@ void QDeclarativeImagePrivate::setPixmap(const QPixmap &pixmap)
     Q_Q(QDeclarativeImage);
     pix.setPixmap(pixmap);
 
-    q->setImplicitWidth(pix.width());
-    q->setImplicitHeight(pix.height());
+    q->pixmapChange();
     status = pix.isNull() ? QDeclarativeImageBase::Null : QDeclarativeImageBase::Ready;
 
     q->update();
-    q->pixmapChange();
 }
 
 /*!
     \qmlproperty enumeration Image::fillMode
 
-    Set this property to define what happens when the image set for the item is smaller
-    than the size of the item.
+    Set this property to define what happens when the source image has a different size
+    than the item.
 
     \list
     \o Image.Stretch - the image is scaled to fit
@@ -234,6 +232,9 @@ void QDeclarativeImagePrivate::setPixmap(const QPixmap &pixmap)
 
     \endtable
 
+    Note that \c clip is \c false by default which means that the element might
+    paint outside its bounding rectangle even if the fillMode is set to \c PreserveAspectCrop.
+
     \sa {declarative/imageelements/image}{Image example}
 */
 QDeclarativeImage::FillMode QDeclarativeImage::fillMode() const
@@ -253,6 +254,17 @@ void QDeclarativeImage::setFillMode(FillMode mode)
     emit fillModeChanged();
 }
 
+/*!
+
+    \qmlproperty real Image::paintedWidth
+    \qmlproperty real Image::paintedHeight
+
+    These properties hold the size of the image that is actually painted.
+    In most cases it is the same as \c width and \c height, but when using a 
+    \c fillMode \c PreserveAspectFit or \c fillMode \c PreserveAspectCrop 
+    \c paintedWidth or \c paintedHeight can be smaller or larger than 
+    \c width and \c height of the Image element.
+*/
 qreal QDeclarativeImage::paintedWidth() const
 {
     Q_D(const QDeclarativeImage);
@@ -279,23 +291,25 @@ qreal QDeclarativeImage::paintedHeight() const
     Use this status to provide an update or respond to the status change in some way.
     For example, you could:
 
-    \e {Trigger a state change:}
-    \qml 
-        State { name: 'loaded'; when: image.status = Image.Ready }
+    \list
+    \o Trigger a state change:
+    \qml
+        State { name: 'loaded'; when: image.status == Image.Ready }
     \endqml
 
-    \e {Implement an \c onStatusChanged signal handler:}
-    \qml 
+    \o Implement an \c onStatusChanged signal handler:
+    \qml
         Image {
             id: image
             onStatusChanged: if (image.status == Image.Ready) console.log('Loaded')
         }
     \endqml
 
-    \e {Bind to the status value:}
+    \o Bind to the status value:
     \qml
-        Text { text: image.status != Image.Ready ? 'Not Loaded' : 'Loaded' }
+        Text { text: image.status == Image.Ready ? 'Loaded' : 'Not loaded' }
     \endqml
+    \endlist
 
     \sa progress
 */
@@ -361,6 +375,9 @@ qreal QDeclarativeImage::paintedHeight() const
     If the source is a non-scalable image (eg. JPEG), the loaded image will
     be no greater than this property specifies. For some formats (currently only JPEG),
     the whole image will never actually be loaded into memory.
+
+    Since QtQuick 1.1 the sourceSize can be cleared to the natural size of the image
+    by setting sourceSize to \c undefined.
  
     \note \e {Changing this property dynamically causes the image source to be reloaded,
     potentially even from the network, if it is not in the disk cache.}
@@ -371,23 +388,45 @@ void QDeclarativeImage::updatePaintedGeometry()
     Q_D(QDeclarativeImage);
 
     if (d->fillMode == PreserveAspectFit) {
+        if (!d->pix.width() || !d->pix.height()) {
+            setImplicitWidth(0);
+            setImplicitHeight(0);
+            return;
+        }
+        qreal w = widthValid() ? width() : d->pix.width();
+        qreal widthScale = w / qreal(d->pix.width());
+        qreal h = heightValid() ? height() : d->pix.height();
+        qreal heightScale = h / qreal(d->pix.height());
+        if (widthScale <= heightScale) {
+            d->paintedWidth = w;
+            d->paintedHeight = widthScale * qreal(d->pix.height());
+        } else if(heightScale < widthScale) {
+            d->paintedWidth = heightScale * qreal(d->pix.width());
+            d->paintedHeight = h;
+        }
+        if (widthValid() && !heightValid()) {
+            setImplicitHeight(d->paintedHeight);
+        } else {
+            setImplicitHeight(d->pix.height());
+        }
+        if (heightValid() && !widthValid()) {
+            setImplicitWidth(d->paintedWidth);
+        } else {
+            setImplicitWidth(d->pix.width());
+        }
+    } else if (d->fillMode == PreserveAspectCrop) {
         if (!d->pix.width() || !d->pix.height())
             return;
         qreal widthScale = width() / qreal(d->pix.width());
         qreal heightScale = height() / qreal(d->pix.height());
-        if (widthScale <= heightScale) {
-            d->paintedWidth = width();
-            d->paintedHeight = widthScale * qreal(d->pix.height());
+        if (widthScale < heightScale) {
+            widthScale = heightScale;
         } else if(heightScale < widthScale) {
-            d->paintedWidth = heightScale * qreal(d->pix.width());
-            d->paintedHeight = height();
+            heightScale = widthScale;
         }
-        if (widthValid() && !heightValid()) {
-            setImplicitHeight(d->paintedHeight);
-        }
-        if (heightValid() && !widthValid()) {
-            setImplicitWidth(d->paintedWidth);
-        }
+
+        d->paintedHeight = heightScale * qreal(d->pix.height());
+        d->paintedWidth = widthScale * qreal(d->pix.width());
     } else {
         d->paintedWidth = width();
         d->paintedHeight = height();
@@ -399,6 +438,12 @@ void QDeclarativeImage::geometryChanged(const QRectF &newGeometry, const QRectF 
 {
     QDeclarativeImageBase::geometryChanged(newGeometry, oldGeometry);
     updatePaintedGeometry();
+}
+
+QRectF QDeclarativeImage::boundingRect() const
+{
+    Q_D(const QDeclarativeImage);
+    return QRectF(0, 0, qMax(d->mWidth, d->paintedWidth), qMax(d->mHeight, d->paintedHeight));
 }
 
 /*!
@@ -426,88 +471,113 @@ void QDeclarativeImage::geometryChanged(const QRectF &newGeometry, const QRectF 
     are always loaded asynchonously.
 */
 
+/*!
+    \qmlproperty bool Image::cache
+    \since QtQuick 1.1
+
+    Specifies whether the image should be cached. The default value is
+    true. Setting \a cache to false is useful when dealing with large images,
+    to make sure that they aren't cached at the expense of small 'ui element' images.
+*/
+
+/*!
+    \qmlproperty bool Image::mirror
+    \since QtQuick 1.1
+
+    This property holds whether the image should be horizontally inverted
+    (effectively displaying a mirrored image).
+
+    The default value is false.
+*/
+
+
 void QDeclarativeImage::paint(QPainter *p, const QStyleOptionGraphicsItem *, QWidget *)
 {
     Q_D(QDeclarativeImage);
-    if (d->pix.isNull())
+    if (d->pix.pixmap().isNull() )
         return;
 
-    bool oldAA = p->testRenderHint(QPainter::Antialiasing);
-    bool oldSmooth = p->testRenderHint(QPainter::SmoothPixmapTransform);
-    if (d->smooth)
-        p->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform, d->smooth);
+    int drawWidth = width();
+    int drawHeight = height();
+    bool doClip = false;
+    QTransform transform;
+    qreal widthScale = width() / qreal(d->pix.width());
+    qreal heightScale = height() / qreal(d->pix.height());
 
     if (width() != d->pix.width() || height() != d->pix.height()) {
         if (d->fillMode >= Tile) {
-            if (d->fillMode == Tile) {
-                p->drawTiledPixmap(QRectF(0,0,width(),height()), d->pix);
-            } else {
-                qreal widthScale = width() / qreal(d->pix.width());
-                qreal heightScale = height() / qreal(d->pix.height());
-
-                QTransform scale;
-                if (d->fillMode == TileVertically) {
-                    scale.scale(widthScale, 1.0);
-                    QTransform old = p->transform();
-                    p->setWorldTransform(scale * old);
-                    p->drawTiledPixmap(QRectF(0,0,d->pix.width(),height()), d->pix);
-                    p->setWorldTransform(old);
-                } else {
-                    scale.scale(1.0, heightScale);
-                    QTransform old = p->transform();
-                    p->setWorldTransform(scale * old);
-                    p->drawTiledPixmap(QRectF(0,0,width(),d->pix.height()), d->pix);
-                    p->setWorldTransform(old);
-                }
+            if (d->fillMode == TileVertically) {
+                transform.scale(widthScale, 1.0);
+                drawWidth = d->pix.width();
+            } else if (d->fillMode == TileHorizontally) {
+                transform.scale(1.0, heightScale);
+                drawHeight = d->pix.height();
             }
         } else {
-            qreal widthScale = width() / qreal(d->pix.width());
-            qreal heightScale = height() / qreal(d->pix.height());
-
-            QTransform scale;
-
             if (d->fillMode == PreserveAspectFit) {
                 if (widthScale <= heightScale) {
                     heightScale = widthScale;
-                    scale.translate(0, (height() - heightScale * d->pix.height()) / 2);
+                    transform.translate(0, (height() - heightScale * d->pix.height()) / 2);
                 } else if(heightScale < widthScale) {
                     widthScale = heightScale;
-                    scale.translate((width() - widthScale * d->pix.width()) / 2, 0);
+                    transform.translate((width() - widthScale * d->pix.width()) / 2, 0);
                 }
             } else if (d->fillMode == PreserveAspectCrop) {
                 if (widthScale < heightScale) {
                     widthScale = heightScale;
-                    scale.translate((width() - widthScale * d->pix.width()) / 2, 0);
+                    transform.translate((width() - widthScale * d->pix.width()) / 2, 0);
                 } else if(heightScale < widthScale) {
                     heightScale = widthScale;
-                    scale.translate(0, (height() - heightScale * d->pix.height()) / 2);
+                    transform.translate(0, (height() - heightScale * d->pix.height()) / 2);
                 }
             }
-            if (clip()) {
-                p->save();
-                p->setClipRect(boundingRect(), Qt::IntersectClip);
-            }
-            scale.scale(widthScale, heightScale);
-            QTransform old = p->transform();
-            p->setWorldTransform(scale * old);
-            p->drawPixmap(0, 0, d->pix);
-            p->setWorldTransform(old);
-            if (clip()) {
-                p->restore();
-            }
+            transform.scale(widthScale, heightScale);
+            drawWidth = d->pix.width();
+            drawHeight = d->pix.height();
+            doClip = clip();
         }
-    } else {
-        p->drawPixmap(0, 0, d->pix);
     }
+
+    QTransform oldTransform;
+    bool oldAA = p->testRenderHint(QPainter::Antialiasing);
+    bool oldSmooth = p->testRenderHint(QPainter::SmoothPixmapTransform);
+    if (d->smooth)
+        p->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform, d->smooth);
+    if (doClip) {
+        p->save();
+        p->setClipRect(QRectF(0, 0, d->mWidth, d->mHeight), Qt::IntersectClip);
+    }
+    if (d->mirror)
+        transform.translate(drawWidth, 0).scale(-1.0, 1.0);
+    if (!transform.isIdentity()) {
+        oldTransform = p->transform();
+        p->setWorldTransform(transform * oldTransform);
+    }
+
+    if (d->fillMode >= Tile)
+        p->drawTiledPixmap(QRectF(0, 0, drawWidth, drawHeight), d->pix);
+    else
+        p->drawPixmap(QRectF(0, 0, drawWidth, drawHeight), d->pix, QRectF(0, 0, drawWidth, drawHeight));
 
     if (d->smooth) {
         p->setRenderHint(QPainter::Antialiasing, oldAA);
         p->setRenderHint(QPainter::SmoothPixmapTransform, oldSmooth);
     }
+    if (doClip)
+        p->restore();
+    if (!transform.isIdentity())
+        p->setWorldTransform(oldTransform);
 }
 
 void QDeclarativeImage::pixmapChange()
 {
+    Q_D(QDeclarativeImage);
+    // PreserveAspectFit calculates the implicit size differently so we
+    // don't call our superclass pixmapChange(), since that would
+    // result in the implicit size being set incorrectly, then updated
+    // in updatePaintedGeometry()
+    if (d->fillMode != PreserveAspectFit)
+        QDeclarativeImageBase::pixmapChange();
     updatePaintedGeometry();
 }
 

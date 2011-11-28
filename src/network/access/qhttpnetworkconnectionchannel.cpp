@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -68,8 +68,8 @@ QHttpNetworkConnectionChannel::QHttpNetworkConnectionChannel()
     , lastStatus(0)
     , pendingEncrypt(false)
     , reconnectAttempts(2)
-    , authMehtod(QAuthenticatorPrivate::None)
-    , proxyAuthMehtod(QAuthenticatorPrivate::None)
+    , authMethod(QAuthenticatorPrivate::None)
+    , proxyAuthMethod(QAuthenticatorPrivate::None)
 #ifndef QT_NO_OPENSSL
     , ignoreAllSslErrors(false)
 #endif
@@ -105,12 +105,22 @@ void QHttpNetworkConnectionChannel::init()
     QObject::connect(socket, SIGNAL(readyRead()),
                      this, SLOT(_q_readyRead()),
                      Qt::DirectConnection);
+
+    // The disconnected() and error() signals may already come
+    // while calling connectToHost().
+    // In case of a cached hostname or an IP this
+    // will then emit a signal to the user of QNetworkReply
+    // but cannot be caught because the user did not have a chance yet
+    // to connect to QNetworkReply's signals.
+    qRegisterMetaType<QAbstractSocket::SocketError>("QAbstractSocket::SocketError");
     QObject::connect(socket, SIGNAL(disconnected()),
                      this, SLOT(_q_disconnected()),
-                     Qt::DirectConnection);
+                     Qt::QueuedConnection);
     QObject::connect(socket, SIGNAL(error(QAbstractSocket::SocketError)),
                      this, SLOT(_q_error(QAbstractSocket::SocketError)),
-                     Qt::DirectConnection);
+                     Qt::QueuedConnection);
+
+
 #ifndef QT_NO_NETWORKPROXY
     QObject::connect(socket, SIGNAL(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)),
                      this, SLOT(_q_proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)),
@@ -170,7 +180,6 @@ bool QHttpNetworkConnectionChannel::sendRequest()
         reply->d_func()->autoDecompress = request.d->autoDecompress;
         reply->d_func()->pipeliningUsed = false;
 
-        pendingEncrypt = false;
         // if the url contains authentication parameters, use the new ones
         // both channels will use the new authentication parameters
         if (!request.url().userInfo().isEmpty() && request.withCredentials()) {
@@ -180,6 +189,7 @@ bool QHttpNetworkConnectionChannel::sendRequest()
                 || (!url.password().isEmpty() && url.password() != auth.password())) {
                 auth.setUser(url.userName());
                 auth.setPassword(url.password());
+                emit reply->cacheCredentials(request, &auth);
                 connection->d_func()->copyCredentials(connection->d_func()->indexOf(socket), &auth, false);
             }
             // clear the userinfo,  since we use the same request for resending
@@ -299,7 +309,6 @@ bool QHttpNetworkConnectionChannel::sendRequest()
         break;
     }
     case QHttpNetworkConnectionChannel::ReadingState:
-    case QHttpNetworkConnectionChannel::Wait4AuthState:
         // ignore _q_bytesWritten in these states
         // fall through
     default:
@@ -402,7 +411,9 @@ void QHttpNetworkConnectionChannel::_q_receiveReply()
         }
         case QHttpNetworkReplyPrivate::ReadingDataState: {
            QHttpNetworkReplyPrivate *replyPrivate = reply->d_func();
-           if (replyPrivate->downstreamLimited && !replyPrivate->responseData.isEmpty() && replyPrivate->shouldEmitSignals()) {
+           if (socket->state() == QAbstractSocket::ConnectedState &&
+               replyPrivate->downstreamLimited && !replyPrivate->responseData.isEmpty() && replyPrivate->shouldEmitSignals()) {
+               // (only do the following when still connected, not when we have already been disconnected and there is still data)
                // We already have some HTTP body data. We don't read more from the socket until
                // this is fetched by QHttpNetworkAccessHttpBackend. If we would read more,
                // we could not limit our read buffer usage.
@@ -411,7 +422,6 @@ void QHttpNetworkConnectionChannel::_q_receiveReply()
                // to the read buffer maximum size, but we don't care since they should be small.
                return;
            }
-
             if (!replyPrivate->isChunked() && !replyPrivate->autoDecompress
                 && replyPrivate->bodyLength > 0) {
                 // bulk files like images should fulfill these properties and
@@ -547,6 +557,12 @@ bool QHttpNetworkConnectionChannel::ensureConnection()
             connectHost = connection->d_func()->networkProxy.hostName();
             connectPort = connection->d_func()->networkProxy.port();
         }
+        if (socket->proxy().type() == QNetworkProxy::HttpProxy) {
+            // Make user-agent field available to HTTP proxy socket engine (QTBUG-17223)
+            QByteArray value = request.headerField("user-agent");
+            if (!value.isEmpty())
+                socket->setProperty("_q_user-agent", value);
+        }
 #endif
         if (connection->d_func()->encrypt) {
 #ifndef QT_NO_OPENSSL
@@ -583,8 +599,11 @@ bool QHttpNetworkConnectionChannel::expand(bool dataComplete)
         int ret = Z_OK;
         if (content.size())
             ret = reply->d_func()->gunzipBodyPartially(content, inflated);
-        int retCheck = (dataComplete) ? Z_STREAM_END : Z_OK;
-        if (ret >= retCheck) {
+        if (ret >= Z_OK) {
+            if (dataComplete && ret == Z_OK && !reply->d_func()->streamEnd) {
+                reply->d_func()->gunzipBodyPartiallyEnd();
+                reply->d_func()->streamEnd = true;
+            }
             if (inflated.size()) {
                 reply->d_func()->totalProgress += inflated.size();
                 reply->d_func()->appendUncompressedReplyData(inflated);
@@ -787,8 +806,7 @@ void QHttpNetworkConnectionChannel::handleStatus()
                 ? QNetworkReply::ProxyAuthenticationRequiredError
                 : QNetworkReply::AuthenticationRequiredError;
             reply->d_func()->errorString = connection->d_func()->errorDetail(errorCode, socket);
-            emit connection->error(errorCode, reply->d_func()->errorString);
-            emit reply->finished();
+            emit reply->finishedWithError(errorCode, reply->d_func()->errorString);
         }
         break;
     default:
@@ -935,7 +953,6 @@ void QHttpNetworkConnectionChannel::_q_error(QAbstractSocket::SocketError socket
 {
     if (!socket)
         return;
-    bool send2Reply = false;
     QNetworkReply::NetworkError errorCode = QNetworkReply::UnknownNetworkError;
 
     switch (socketError) {
@@ -953,11 +970,22 @@ void QHttpNetworkConnectionChannel::_q_error(QAbstractSocket::SocketError socket
                 closeAndResendCurrentRequest();
                 return;
             } else {
-                send2Reply = true;
                 errorCode = QNetworkReply::RemoteHostClosedError;
             }
+        } else if (state == QHttpNetworkConnectionChannel::ReadingState) {
+            if (!reply->d_func()->expectContent()) {
+                // No content expected, this is a valid way to have the connection closed by the server
+                return;
+            }
+            if (reply->contentLength() == -1 && !reply->d_func()->isChunked()) {
+                // There was no content-length header and it's not chunked encoding,
+                // so this is a valid way to have the connection closed by the server
+                return;
+            }
+            // ok, we got a disconnect even though we did not expect it
+            errorCode = QNetworkReply::RemoteHostClosedError;
         } else {
-            return;
+            errorCode = QNetworkReply::RemoteHostClosedError;
         }
         break;
     case QAbstractSocket::SocketTimeoutError:
@@ -966,7 +994,6 @@ void QHttpNetworkConnectionChannel::_q_error(QAbstractSocket::SocketError socket
             closeAndResendCurrentRequest();
             return;
         }
-        send2Reply = true;
         errorCode = QNetworkReply::TimeoutError;
         break;
     case QAbstractSocket::ProxyAuthenticationRequiredError:
@@ -982,18 +1009,15 @@ void QHttpNetworkConnectionChannel::_q_error(QAbstractSocket::SocketError socket
     }
     QPointer<QHttpNetworkConnection> that = connection;
     QString errorString = connection->d_func()->errorDetail(errorCode, socket, socket->errorString());
-    if (send2Reply) {
-        if (reply) {
-            reply->d_func()->errorString = errorString;
-            // this error matters only to this reply
-            emit reply->finishedWithError(errorCode, errorString);
-        }
-        // send the next request
-        QMetaObject::invokeMethod(that, "_q_startNextRequest", Qt::QueuedConnection);
-    } else {
-        // the failure affects all requests.
-        emit connection->error(errorCode, errorString);
+
+    if (reply) {
+        reply->d_func()->errorString = errorString;
+        emit reply->finishedWithError(errorCode, errorString);
+        reply = 0;
     }
+    // send the next request
+    QMetaObject::invokeMethod(that, "_q_startNextRequest", Qt::QueuedConnection);
+
     if (that) //signal emission triggered event loop
         close();
 }
@@ -1016,6 +1040,7 @@ void QHttpNetworkConnectionChannel::_q_encrypted()
     if (!socket)
         return; // ### error
     state = QHttpNetworkConnectionChannel::IdleState;
+    pendingEncrypt = false;
     sendRequest();
 }
 
@@ -1024,7 +1049,11 @@ void QHttpNetworkConnectionChannel::_q_sslErrors(const QList<QSslError> &errors)
     if (!socket)
         return;
     //QNetworkReply::NetworkError errorCode = QNetworkReply::ProtocolFailure;
-    emit connection->sslErrors(errors);
+    // Also pause the connection because socket notifiers may fire while an user
+    // dialog is displaying
+    connection->d_func()->pauseConnection();
+    emit reply->sslErrors(errors);
+    connection->d_func()->resumeConnection();
 }
 
 void QHttpNetworkConnectionChannel::_q_encryptedBytesWritten(qint64 bytes)

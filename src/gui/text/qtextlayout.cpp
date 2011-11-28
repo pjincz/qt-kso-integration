@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -64,23 +64,6 @@ QT_BEGIN_NAMESPACE
 #define SuppressText 0x5012
 #define SuppressBackground 0x513
 
-static inline QFixed leadingSpaceWidth(QTextEngine *eng, const QScriptLine &line)
-{
-    if (!line.hasTrailingSpaces
-        || (eng->option.flags() & QTextOption::IncludeTrailingSpaces)
-        || !(eng->option.alignment() & Qt::AlignRight)
-        || !eng->isRightToLeft())
-        return QFixed();
-
-    int pos = line.length;
-    const HB_CharAttributes *attributes = eng->attributes();
-    if (!attributes)
-        return QFixed();
-    while (pos > 0 && attributes[line.from + pos - 1].whiteSpace)
-        --pos;
-    return eng->width(line.from + pos, line.length - pos);
-}
-
 static QFixed alignLine(QTextEngine *eng, const QScriptLine &line)
 {
     QFixed x = 0;
@@ -91,9 +74,9 @@ static QFixed alignLine(QTextEngine *eng, const QScriptLine &line)
         if (align & Qt::AlignJustify && eng->isRightToLeft())
             align = Qt::AlignRight;
         if (align & Qt::AlignRight)
-            x = line.width - (line.textAdvance + leadingSpaceWidth(eng, line));
+            x = line.width - (line.textAdvance + eng->leadingSpaceWidth(line));
         else if (align & Qt::AlignHCenter)
-            x = (line.width - line.textAdvance)/2;
+            x = (line.width - (line.textAdvance))/2 - eng->leadingSpaceWidth(line);
     }
     return x;
 }
@@ -403,6 +386,7 @@ QTextLayout::~QTextLayout()
 void QTextLayout::setFont(const QFont &font)
 {
     d->fnt = font;
+    d->feCache.reset();
 }
 
 /*!
@@ -535,6 +519,7 @@ void QTextLayout::setAdditionalFormats(const QList<FormatRange> &formatList)
     }
     if (d->block.docHandle())
         d->block.docHandle()->documentChange(d->block.position(), d->block.length());
+    d->feCache.reset();
 }
 
 /*!
@@ -1028,6 +1013,35 @@ QScriptItem &QTextLineItemIterator::next()
     return *si;
 }
 
+static QFixed offsetInLigature(const unsigned short *logClusters,
+                               const QGlyphLayout &glyphs,
+                               int pos, int max, int glyph_pos)
+{
+    int offsetInCluster = 0;
+    for (int i = pos - 1; i >= 0; i--) {
+        if (logClusters[i] == glyph_pos)
+            offsetInCluster++;
+        else
+            break;
+    }
+
+    // in the case that the offset is inside a (multi-character) glyph,
+    // interpolate the position.
+    if (offsetInCluster > 0) {
+        int clusterLength = 0;
+        for (int i = pos - offsetInCluster; i < max; i++) {
+            if (logClusters[i] == glyph_pos)
+                clusterLength++;
+            else
+                break;
+        }
+        if (clusterLength)
+            return glyphs.advances_x[glyph_pos] * offsetInCluster / clusterLength;
+    }
+
+    return 0;
+}
+
 bool QTextLineItemIterator::getSelectionBounds(QFixed *selectionX, QFixed *selectionWidth) const
 {
     *selectionX = *selectionWidth = 0;
@@ -1067,8 +1081,19 @@ bool QTextLineItemIterator::getSelectionBounds(QFixed *selectionX, QFixed *selec
                 swidth += glyphs.effectiveAdvance(g);
         }
 
-        *selectionX = x + soff;
-        *selectionWidth = swidth;
+        // If the starting character is in the middle of a ligature,
+        // selection should only contain the right part of that ligature
+        // glyph, so we need to get the width of the left part here and
+        // add it to *selectionX
+        QFixed leftOffsetInLigature = offsetInLigature(logClusters, glyphs, from,
+                                                       to, start_glyph);
+        *selectionX = x + soff + leftOffsetInLigature;
+        *selectionWidth = swidth - leftOffsetInLigature;
+        // If the ending character is also part of a ligature, swidth does
+        // not contain that part yet, we also need to find out the width of
+        // that left part
+        *selectionWidth += offsetInLigature(logClusters, glyphs, to,
+                                            eng->length(item), end_glyph);
     }
     return true;
 }
@@ -1615,7 +1640,7 @@ void QTextLine::setLineWidth(qreal width)
     if (line.length
         && line.textWidth <= line.width
         && line.from + line.length == eng->layoutData->string.length())
-        // no need to do anything if the line is already layouted and the last one. This optimisation helps
+        // no need to do anything if the line is already layouted and the last one. This optimization helps
         // when using things in a single line layout.
         return;
     line.length = 0;
@@ -1682,6 +1707,7 @@ namespace {
         int glyphCount;
         int maxGlyphs;
         int currentPosition;
+        glyph_t previousGlyph;
 
         QFixed minw;
         QFixed softHyphenWidth;
@@ -1689,6 +1715,7 @@ namespace {
         QFixed minimumRightBearing;
 
         QFontEngine *fontEngine;
+        QFontEngine *previousFontEngine;
         const unsigned short *logClusters;
 
         bool manualWrap;
@@ -1709,6 +1736,22 @@ namespace {
             return glyphs.glyphs[logClusters[currentPosition - 1]];
         }
 
+        inline void resetPreviousGlyph()
+        {
+            previousGlyph = 0;
+            previousFontEngine = 0;
+        }
+
+        inline void saveCurrentGlyph()
+        {
+            resetPreviousGlyph();
+            if (currentPosition > 0 &&
+                logClusters[currentPosition - 1] < glyphs.numGlyphs) {
+                previousGlyph = currentGlyph(); // needed to calculate right bearing later
+                previousFontEngine = fontEngine;
+            }
+        }
+
         inline void adjustRightBearing(glyph_t glyph)
         {
             qreal rb;
@@ -1721,6 +1764,15 @@ namespace {
             if (currentPosition <= 0)
                 return;
             adjustRightBearing(currentGlyph());
+        }
+
+        inline void adjustPreviousRightBearing()
+        {
+            if (previousGlyph > 0 && previousFontEngine) {
+                qreal rb;
+                previousFontEngine->getGlyphBearings(previousGlyph, 0, &rb);
+                rightBearing = qMin(QFixed(), QFixed::fromReal(rb));
+            }
         }
 
         inline void resetRightBearing()
@@ -1798,22 +1850,7 @@ void QTextLine::layout_helper(int maxGlyphs)
     lbh.manualWrap = (wrapMode == QTextOption::ManualWrap || wrapMode == QTextOption::NoWrap);
 
     int item = -1;
-    int newItem = -1;
-    int left = 0;
-    int right = eng->layoutData->items.size()-1;
-    while(left <= right) {
-        int middle = ((right-left)/2)+left;
-        if (line.from > eng->layoutData->items[middle].position)
-            left = middle+1;
-        else if(line.from < eng->layoutData->items[middle].position)
-            right = middle-1;
-        else {
-            newItem = middle;
-            break;
-        }
-    }
-    if (newItem == -1)
-        newItem = right;
+    int newItem = eng->findItem(line.from);
 
     LB_DEBUG("from: %d: item=%d, total %d, width available %f", line.from, newItem, eng->layoutData->items.size(), line.width.toReal());
 
@@ -1825,6 +1862,7 @@ void QTextLine::layout_helper(int maxGlyphs)
     lbh.currentPosition = line.from;
     int end = 0;
     lbh.logClusters = eng->layoutData->logClustersPtr;
+    lbh.resetPreviousGlyph();
 
     while (newItem < eng->layoutData->items.size()) {
         lbh.resetRightBearing();
@@ -1842,14 +1880,14 @@ void QTextLine::layout_helper(int maxGlyphs)
             lbh.currentPosition = qMax(line.from, current.position);
             end = current.position + eng->length(item);
             lbh.glyphs = eng->shapedGlyphs(&current);
+            QFontEngine *fontEngine = eng->fontEngine(current);
+            if (lbh.fontEngine != fontEngine) {
+                lbh.fontEngine = fontEngine;
+                lbh.minimumRightBearing = qMin(QFixed(),
+                                               QFixed::fromReal(fontEngine->minRightBearing()));
+            }
         }
         const QScriptItem &current = eng->layoutData->items[item];
-        QFontEngine *fontEngine = eng->fontEngine(current);
-        if (lbh.fontEngine != fontEngine) {
-            lbh.fontEngine = fontEngine;
-            lbh.minimumRightBearing = qMin(QFixed(),
-                                           QFixed::fromReal(fontEngine->minRightBearing()));
-        }
 
         lbh.tmpData.leading = qMax(lbh.tmpData.leading + lbh.tmpData.ascent,
                                    current.leading + current.ascent) - qMax(lbh.tmpData.ascent,
@@ -1885,6 +1923,7 @@ void QTextLine::layout_helper(int maxGlyphs)
                                current, lbh.logClusters, lbh.glyphs);
             } else {
                 lbh.tmpData.length++;
+                lbh.adjustPreviousRightBearing();
             }
             line += lbh.tmpData;
             goto found;
@@ -1915,9 +1954,7 @@ void QTextLine::layout_helper(int maxGlyphs)
         } else {
             lbh.whiteSpaceOrObject = false;
             bool sb_or_ws = false;
-            glyph_t previousGlyph = 0;
-            if (lbh.currentPosition > 0 && lbh.logClusters[lbh.currentPosition - 1] <lbh.glyphs.numGlyphs)
-                previousGlyph = lbh.currentGlyph(); // needed to calculate right bearing later
+            lbh.saveCurrentGlyph();
             do {
                 addNextCluster(lbh.currentPosition, end, lbh.tmpData, lbh.glyphCount,
                                current, lbh.logClusters, lbh.glyphs);
@@ -1942,7 +1979,7 @@ void QTextLine::layout_helper(int maxGlyphs)
                 //  b) if we are so short of available width that the
                 //     soft hyphen is the first breakable position, then
                 //     we don't want to show it. However we initially
-                //     have to take the width for it into accoun so that
+                //     have to take the width for it into account so that
                 //     the text document layout sees the overflow and
                 //     switch to break-anywhere mode, in which we
                 //     want the soft-hyphen to slip into the next line
@@ -1970,8 +2007,9 @@ void QTextLine::layout_helper(int maxGlyphs)
                     // we are too wide, fix right bearing
                     if (rightBearing <= 0)
                         lbh.rightBearing = rightBearing; // take from cache
-                    else if (previousGlyph > 0)
-                        lbh.adjustRightBearing(previousGlyph);
+                    else
+                        lbh.adjustPreviousRightBearing();
+
                     if (!breakany) {
                         line.textWidth += lbh.softHyphenWidth;
                     }
@@ -1979,6 +2017,7 @@ void QTextLine::layout_helper(int maxGlyphs)
                     goto found;
                 }
             }
+            lbh.saveCurrentGlyph();
         }
         if (lbh.currentPosition == end)
             newItem = item + 1;
@@ -2293,13 +2332,13 @@ void QTextLine::draw(QPainter *p, const QPointF &pos, const QTextLayout::FormatR
         unsigned short *logClusters = eng->logClusters(&si);
         QGlyphLayout glyphs = eng->shapedGlyphs(&si);
 
-        QTextItemInt gf(si, &f, format);
-        gf.glyphs = glyphs.mid(iterator.glyphsStart, iterator.glyphsEnd - iterator.glyphsStart);
-        gf.chars = eng->layoutData->string.unicode() + iterator.itemStart;
+        QTextItemInt gf(glyphs.mid(iterator.glyphsStart, iterator.glyphsEnd - iterator.glyphsStart),
+                        &f, eng->layoutData->string.unicode() + iterator.itemStart,
+                        iterator.itemEnd - iterator.itemStart, eng->fontEngine(si), format);
         gf.logClusters = logClusters + iterator.itemStart - si.position;
-        gf.num_chars = iterator.itemEnd - iterator.itemStart;
         gf.width = iterator.itemWidth;
         gf.justified = line.justified;
+        gf.initWithScriptItem(si);
 
         Q_ASSERT(gf.fontEngine);
 
@@ -2479,16 +2518,8 @@ qreal QTextLine::cursorToX(int *cursorPos, Edge edge) const
         if(pos == l)
             x += si->width;
     } else {
-        int offsetInCluster = 0;
-        for (int i=pos-1; i >= 0; i--) {
-            if (logClusters[i] == glyph_pos)
-                offsetInCluster++;
-            else
-                break;
-        }
-
+        int end = qMin(lineEnd, si->position + l) - si->position;
         if (reverse) {
-            int end = qMin(lineEnd, si->position + l) - si->position;
             int glyph_end = end == l ? si->num_glyphs : logClusters[end];
             for (int i = glyph_end - 1; i >= glyph_pos; i--)
                 x += glyphs.effectiveAdvance(i);
@@ -2498,17 +2529,7 @@ qreal QTextLine::cursorToX(int *cursorPos, Edge edge) const
             for (int i = glyph_start; i < glyph_pos; i++)
                 x += glyphs.effectiveAdvance(i);
         }
-        if (offsetInCluster > 0) { // in the case that the offset is inside a (multi-character) glyph, interpolate the position.
-            int clusterLength = 0;
-            for (int i=pos - offsetInCluster; i < line.length; i++) {
-                if (logClusters[i] == glyph_pos)
-                    clusterLength++;
-                else
-                    break;
-            }
-            if (clusterLength)
-                x+= glyphs.advances_x[glyph_pos] * offsetInCluster / clusterLength;
-        }
+        x += offsetInLigature(logClusters, glyphs, pos, end, glyph_pos);
     }
 
     *cursorPos = pos + si->position;
@@ -2614,6 +2635,7 @@ int QTextLine::xToCursor(qreal _x, CursorPosition cpos) const
             }
 
             int glyph_pos = -1;
+            QFixed edge;
             // has to be inside run
             if (cpos == QTextLine::CursorOnCharacter) {
                 if (si.analysis.bidiLevel % 2) {
@@ -2624,6 +2646,7 @@ int QTextLine::xToCursor(qreal _x, CursorPosition cpos) const
                             if (pos < x)
                                 break;
                             glyph_pos = gs;
+                            edge = pos;
                             break;
                         }
                         pos -= glyphs.effectiveAdvance(gs);
@@ -2636,6 +2659,7 @@ int QTextLine::xToCursor(qreal _x, CursorPosition cpos) const
                             if (pos > x)
                                 break;
                             glyph_pos = gs;
+                            edge = pos;
                         }
                         pos += glyphs.effectiveAdvance(gs);
                         ++gs;
@@ -2648,6 +2672,7 @@ int QTextLine::xToCursor(qreal _x, CursorPosition cpos) const
                     while (gs <= ge) {
                         if (glyphs.attributes[gs].clusterStart && qAbs(x-pos) < dist) {
                             glyph_pos = gs;
+                            edge = pos;
                             dist = qAbs(x-pos);
                         }
                         pos -= glyphs.effectiveAdvance(gs);
@@ -2657,6 +2682,7 @@ int QTextLine::xToCursor(qreal _x, CursorPosition cpos) const
                     while (gs <= ge) {
                         if (glyphs.attributes[gs].clusterStart && qAbs(x-pos) < dist) {
                             glyph_pos = gs;
+                            edge = pos;
                             dist = qAbs(x-pos);
                         }
                         pos += glyphs.effectiveAdvance(gs);
@@ -2664,15 +2690,12 @@ int QTextLine::xToCursor(qreal _x, CursorPosition cpos) const
                     }
                 }
                 if (qAbs(x-pos) < dist)
-                    return si.position + end;
+                    return eng->positionInLigature(&si, end, x, pos, -1,
+                                                   cpos == QTextLine::CursorOnCharacter);
             }
             Q_ASSERT(glyph_pos != -1);
-            int j;
-            for (j = 0; j < eng->length(item); ++j)
-                if (logClusters[j] == glyph_pos)
-                    break;
-//             qDebug("at pos %d (in run: %d)", si.position + j, j);
-            return si.position + j;
+            return eng->positionInLigature(&si, end, x, edge, glyph_pos,
+                                           cpos == QTextLine::CursorOnCharacter);
         }
     }
     // right of last item

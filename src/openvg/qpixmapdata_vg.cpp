@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenVG module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -50,6 +50,7 @@
 #include <QBuffer>
 #include <QImageReader>
 #include <QtGui/private/qimage_p.h>
+#include <QtGui/private/qnativeimagehandleprovider_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -65,11 +66,16 @@ QVGPixmapData::QVGPixmapData(PixelType type)
     recreate = true;
     inImagePool = false;
     inLRU = false;
+    failedToAlloc = false;
+#if defined(Q_OS_SYMBIAN)
+    nativeImageHandleProvider = 0;
+    nativeImageHandle = 0;
+#endif
 #if !defined(QT_NO_EGL)
     context = 0;
     qt_vg_register_pixmap(this);
 #endif
-    setSerialNumber(++qt_vg_pixmap_serial);
+    updateSerial();
 }
 
 QVGPixmapData::~QVGPixmapData()
@@ -97,6 +103,10 @@ void QVGPixmapData::destroyImages()
     vgImage = VG_INVALID_HANDLE;
     vgImageOpacity = VG_INVALID_HANDLE;
     inImagePool = false;
+
+#if defined(Q_OS_SYMBIAN)
+    releaseNativeImageHandle();
+#endif
 }
 
 void QVGPixmapData::destroyImageAndContext()
@@ -104,6 +114,8 @@ void QVGPixmapData::destroyImageAndContext()
     if (vgImage != VG_INVALID_HANDLE) {
         // We need to have a context current to destroy the image.
 #if !defined(QT_NO_EGL)
+        if (!context)
+            context = qt_vg_create_context(0, QInternal::Pixmap);
         if (context->isCurrent()) {
             destroyImages();
         } else {
@@ -116,6 +128,10 @@ void QVGPixmapData::destroyImageAndContext()
         }
 #else
         destroyImages();
+#endif
+    } else {
+#if defined(Q_OS_SYMBIAN)
+        releaseNativeImageHandle();
 #endif
     }
 #if !defined(QT_NO_EGL)
@@ -137,24 +153,33 @@ bool QVGPixmapData::isValid() const
     return (w > 0 && h > 0);
 }
 
+void QVGPixmapData::updateSerial()
+{
+    setSerialNumber(++qt_vg_pixmap_serial);
+}
+
 void QVGPixmapData::resize(int wid, int ht)
 {
-    if (w == wid && h == ht)
+    if (w == wid && h == ht) {
+        updateSerial();
         return;
+    }
 
     w = wid;
     h = ht;
     d = 32; // We always use ARGB_Premultiplied for VG pixmaps.
     is_null = (w <= 0 || h <= 0);
-    source = QImage();
+    source = QVolatileImage();
     recreate = true;
 
-    setSerialNumber(++qt_vg_pixmap_serial);
+    updateSerial();
 }
 
-void QVGPixmapData::fromImage
-        (const QImage &image, Qt::ImageConversionFlags flags)
+void QVGPixmapData::fromImage(const QImage &image, Qt::ImageConversionFlags flags)
 {
+    if (image.isNull())
+        return;
+
     QImage img = image;
     createPixmapForImage(img, flags, false);
 }
@@ -196,18 +221,37 @@ bool QVGPixmapData::fromData(const uchar *buffer, uint len, const char *format,
     return !isNull();
 }
 
+QImage::Format QVGPixmapData::idealFormat(QImage *image, Qt::ImageConversionFlags flags) const
+{
+    QImage::Format format = sourceFormat();
+    int d = image->depth();
+    if (d == 1 || d == 16 || d == 24 || (d == 32 && !image->hasAlphaChannel()))
+        format = QImage::Format_RGB32;
+    else if (!(flags & Qt::NoOpaqueDetection) && image->data_ptr()->checkForAlphaPixels())
+        format = sourceFormat();
+    else
+        format = image->hasAlphaChannel() ? sourceFormat() : QImage::Format_RGB32;
+    return format;
+}
+
 void QVGPixmapData::createPixmapForImage(QImage &image, Qt::ImageConversionFlags flags, bool inPlace)
 {
-    if (image.size() == QSize(w, h))
-        setSerialNumber(++qt_vg_pixmap_serial);
-    else
-        resize(image.width(), image.height());
+    resize(image.width(), image.height());
 
-    if (inPlace && image.data_ptr()->convertInPlace(sourceFormat(), flags))
-        source = image;
-    else
-        source = image.convertToFormat(sourceFormat());
+    QImage::Format format = idealFormat(&image, flags);
 
+    if (inPlace && image.data_ptr()->convertInPlace(format, flags)) {
+        source = QVolatileImage(image);
+    } else {
+        QImage convertedImage = image.convertToFormat(format);
+        // convertToFormat won't detach the image if format stays the
+        // same. Detaching is needed to prevent issues with painting
+        // onto this QPixmap later on.
+        convertedImage.detach();
+        if (convertedImage.isNull())
+            qWarning("QVGPixmapData: Failed to convert image data (out of memory? try increasing heap size)");
+        source = QVolatileImage(convertedImage);
+    }
     recreate = true;
 }
 
@@ -215,27 +259,23 @@ void QVGPixmapData::fill(const QColor &color)
 {
     if (!isValid())
         return;
-
-    if (source.isNull())
-        source = QImage(w, h, sourceFormat());
-
+    forceToImage();
     if (source.depth() == 1) {
         // Pick the best approximate color in the image's colortable.
         int gray = qGray(color.rgba());
-        if (qAbs(qGray(source.color(0)) - gray) < qAbs(qGray(source.color(1)) - gray))
+        if (qAbs(qGray(source.imageRef().color(0)) - gray)
+            < qAbs(qGray(source.imageRef().color(1)) - gray))
             source.fill(0);
         else
             source.fill(1);
     } else {
         source.fill(PREMUL(color.rgba()));
     }
-
-    // Re-upload the image to VG the next time toVGImage() is called.
-    recreate = true;
 }
 
 bool QVGPixmapData::hasAlphaChannel() const
 {
+    ensureReadback(true);
     if (!source.isNull())
         return source.hasAlphaChannel();
     else
@@ -244,27 +284,52 @@ bool QVGPixmapData::hasAlphaChannel() const
 
 void QVGPixmapData::setAlphaChannel(const QPixmap &alphaChannel)
 {
+    if (!isValid())
+        return;
     forceToImage();
-    source.setAlphaChannel(alphaChannel.toImage());
+    source.setAlphaChannel(alphaChannel);
 }
 
 QImage QVGPixmapData::toImage() const
 {
     if (!isValid())
         return QImage();
-
+    ensureReadback(true);
     if (source.isNull()) {
-        source = QImage(w, h, sourceFormat());
+        source = QVolatileImage(w, h, sourceFormat());
         recreate = true;
     }
+    return source.toImage();
+}
 
-    return source;
+void QVGPixmapData::copy(const QPixmapData *data, const QRect &rect)
+{
+    // toImage() is potentially expensive with QVolatileImage so provide a
+    // more efficient implementation of copy() that does not rely on it.
+    if (!data) {
+        return;
+    }
+    if (data->classId() != OpenVGClass) {
+        fromImage(data->toImage(rect), Qt::NoOpaqueDetection);
+        return;
+    }
+    const QVGPixmapData *pd = static_cast<const QVGPixmapData *>(data);
+    QRect r = rect;
+    if (r.isNull() || r.contains(QRect(0, 0, pd->w, pd->h))) {
+        r = QRect(0, 0, pd->w, pd->h);
+    }
+    resize(r.width(), r.height());
+    recreate = true;
+    if (!pd->source.isNull()) {
+        source = QVolatileImage(r.width(), r.height(), pd->source.format());
+        source.copyFrom(&pd->source, r);
+    }
 }
 
 QImage *QVGPixmapData::buffer()
 {
-    forceToImage();
-    return &source;
+    // Cannot be safely implemented and QVGPixmapData is not (must not be) RasterClass anyway.
+    return 0;
 }
 
 QPaintEngine* QVGPixmapData::paintEngine() const
@@ -278,7 +343,7 @@ QPaintEngine* QVGPixmapData::paintEngine() const
 
 VGImage QVGPixmapData::toVGImage()
 {
-    if (!isValid())
+    if (!isValid() || failedToAlloc)
         return VG_INVALID_HANDLE;
 
 #if !defined(QT_NO_EGL)
@@ -292,24 +357,34 @@ VGImage QVGPixmapData::toVGImage()
     else if (recreate)
         cachedOpacity = -1.0f;  // Force opacity image to be refreshed later.
 
+#if defined(Q_OS_SYMBIAN)
+    if (recreate && nativeImageHandleProvider && !nativeImageHandle) {
+        createFromNativeImageHandleProvider();
+    }
+#endif
+
     if (vgImage == VG_INVALID_HANDLE) {
         vgImage = QVGImagePool::instance()->createImageForPixmap
-            (VG_sARGB_8888_PRE, w, h, VG_IMAGE_QUALITY_FASTER, this);
+            (qt_vg_image_to_vg_format(source.format()), w, h, VG_IMAGE_QUALITY_FASTER, this);
 
         // Bail out if we run out of GPU memory - try again next time.
-        if (vgImage == VG_INVALID_HANDLE)
+        if (vgImage == VG_INVALID_HANDLE) {
+            failedToAlloc = true;
             return VG_INVALID_HANDLE;
+        }
 
         inImagePool = true;
     } else if (inImagePool) {
         QVGImagePool::instance()->useImage(this);
     }
 
-    if (!source.isNull() && recreate) {
+    if (!source.isNull() && (recreate || source.paintingActive())) {
+        source.beginDataAccess();
         vgImageSubData
             (vgImage,
              source.constBits(), source.bytesPerLine(),
-             VG_sARGB_8888_PRE, 0, 0, w, h);
+             qt_vg_image_to_vg_format(source.format()), 0, 0, w, h);
+        source.endDataAccess(true);
     }
 
     recreate = false;
@@ -372,12 +447,19 @@ void QVGPixmapData::detachImageFromPool()
 
 void QVGPixmapData::hibernate()
 {
-    // If the image was imported (e.g, from an SgImage under Symbian),
-    // then we cannot copy it back to main memory for storage.
-    if (vgImage != VG_INVALID_HANDLE && source.isNull())
+    // If the image was imported (e.g, from an SgImage under Symbian), then
+    // skip the hibernation, there is no sense in copying it back to main
+    // memory because the data is most likely shared between several processes.
+    bool skipHibernate = (vgImage != VG_INVALID_HANDLE && source.isNull());
+#if defined(Q_OS_SYMBIAN)
+    // However we have to proceed normally if the image was retrieved via
+    // a handle provider.
+    skipHibernate &= !nativeImageHandleProvider;
+#endif
+    if (skipHibernate)
         return;
 
-    forceToImage();
+    forceToImage(false); // no readback allowed here
     destroyImageAndContext();
 }
 
@@ -389,8 +471,8 @@ void QVGPixmapData::reclaimImages()
     destroyImages();
 }
 
-Q_DECL_IMPORT extern int qt_defaultDpiX();
-Q_DECL_IMPORT extern int qt_defaultDpiY();
+Q_GUI_EXPORT int qt_defaultDpiX();
+Q_GUI_EXPORT int qt_defaultDpiY();
 
 int QVGPixmapData::metric(QPaintDevice::PaintDeviceMetric metric) const
 {
@@ -419,16 +501,46 @@ int QVGPixmapData::metric(QPaintDevice::PaintDeviceMetric metric) const
     }
 }
 
-// Force the pixmap data to be in QImage format.
-void QVGPixmapData::forceToImage()
+// Ensures that the pixmap is backed by some valid data and forces the data to
+// be re-uploaded to the VGImage when toVGImage() is called next time.
+void QVGPixmapData::forceToImage(bool allowReadback)
 {
     if (!isValid())
         return;
 
+    if (allowReadback)
+        ensureReadback(false);
+
     if (source.isNull())
-        source = QImage(w, h, sourceFormat());
+        source = QVolatileImage(w, h, sourceFormat());
 
     recreate = true;
+}
+
+void QVGPixmapData::ensureReadback(bool readOnly) const
+{
+    if (vgImage != VG_INVALID_HANDLE && source.isNull()) {
+        source = QVolatileImage(w, h, sourceFormat());
+        source.beginDataAccess();
+        vgGetImageSubData(vgImage, source.bits(), source.bytesPerLine(),
+                          qt_vg_image_to_vg_format(source.format()),
+                          0, 0, w, h);
+        source.endDataAccess();
+        if (readOnly) {
+            recreate = false;
+        } else {
+            // Once we did a readback, the original VGImage must be destroyed
+            // because it may be shared (e.g. created via SgImage) and a subsequent
+            // upload of the image data may produce unexpected results.
+            const_cast<QVGPixmapData *>(this)->destroyImages();
+#if defined(Q_OS_SYMBIAN)
+            // There is now an own copy of the data so drop the handle provider,
+            // otherwise toVGImage() would request the handle again, which is wrong.
+            nativeImageHandleProvider = 0;
+#endif
+            recreate = true;
+        }
+    }
 }
 
 QImage::Format QVGPixmapData::sourceFormat() const

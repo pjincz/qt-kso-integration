@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -311,11 +311,13 @@ public:
           logClusters(0), f(0), fontEngine(0)
     {}
     QTextItemInt(const QScriptItem &si, QFont *font, const QTextCharFormat &format = QTextCharFormat());
-    QTextItemInt(const QGlyphLayout &g, QFont *font, const QChar *chars, int numChars, QFontEngine *fe);
+    QTextItemInt(const QGlyphLayout &g, QFont *font, const QChar *chars, int numChars, QFontEngine *fe,
+                 const QTextCharFormat &format = QTextCharFormat());
 
     /// copy the structure items, adjusting the glyphs arrays to the right subarrays.
     /// the width of the returned QTextItemInt is not adjusted, for speed reasons
     QTextItemInt midItem(QFontEngine *fontEngine, int firstGlyphIndex, int numGlyphs) const;
+    void initWithScriptItem(const QScriptItem &si);
 
     QFixed descent;
     QFixed ascent;
@@ -556,6 +558,23 @@ public:
 
     mutable QScriptLineArray lines;
 
+    struct FontEngineCache {
+        FontEngineCache();
+        mutable QFontEngine *prevFontEngine;
+        mutable QFontEngine *prevScaledFontEngine;
+        mutable int prevScript;
+        mutable int prevPosition;
+        mutable int prevLength;
+        inline void reset() {
+            prevFontEngine = 0;
+            prevScaledFontEngine = 0;
+            prevScript = -1;
+            prevPosition = -1;
+            prevLength = -1;
+        }
+    };
+    mutable FontEngineCache feCache;
+
     QString text;
     QFont fnt;
     QTextBlock block;
@@ -592,6 +611,9 @@ public:
     QString elidedText(Qt::TextElideMode mode, const QFixed &width, int flags = 0) const;
 
     void shapeLine(const QScriptLine &line);
+    QFixed leadingSpaceWidth(const QScriptLine &line);
+
+    int positionInLigature(const QScriptItem *si, int end, QFixed x, QFixed edge, int glyph_pos, bool cursorOnCharacter);
 
 private:
     void setBoundary(int strPos) const;
@@ -607,6 +629,7 @@ private:
     void splitItem(int item, int pos) const;
 
     void resolveAdditionalFormats() const;
+    int getClusterLength(unsigned short *logClusters, const HB_CharAttributes *attributes, int from, int to, int glyph_pos, int *start);
 };
 
 class QStackTextEngine : public QTextEngine {

@@ -1,7 +1,7 @@
 /*
     This file is part of the KDE project
     Copyright (C) 2005-2007 Matthias Kretz <kretz@kde.org>
-    Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+    Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
     Contact: Nokia Corporation (qt-info@nokia.com)
 
     This library is free software; you can redistribute it and/or
@@ -691,11 +691,11 @@
 
     Example where data is written repeatedly.
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 0
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 0
 
     Example where data is written once:
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 1
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 1
 
     \sa Phonon::MediaSource, Phonon::MediaObject 
 
@@ -811,7 +811,7 @@
 
     The function is necessary for the case where a non-seekable MediaStream is
     played more than once. For a seekable stream the implementation can simply call
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 2
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 2
 
     \sa writeData(), needData()
 */
@@ -1003,7 +1003,7 @@
     send an URL or filename directly to the constructors of the
     \l{Phonon::}{MediaObject}.
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 3
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 3
 
     A MediaSource object cannot be reused for another multimedia
     source. It is possible to play the same source again, and also
@@ -1382,7 +1382,7 @@
     immediately after you call the play() function.
 
     A play and forget code example:
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 4
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 4
 
     \sa {Phonon Module}, MediaObject
 */
@@ -1471,7 +1471,7 @@
     If you need low latency between calling play() and the sound actually
     starting to play on your output device you need to use MediaObject
     and be able to set the URL before calling play(). Note that
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 5
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 5
     doesn't make a difference: the application should be idle between the
     load and play calls so that the backend can start preloading the
     media and fill audio buffers.
@@ -1612,13 +1612,13 @@
     queue; the new source is then removed from the queue. The
     queue can be altered at any time. 
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 7
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 7
 
     You can also make use of the
     \l{Phonon::MediaObject::}{aboutToFinish()} signal, which is
     guaranteed to be emitted in time for altering the queue.
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 8
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 8
 
     When playback is finishing, i.e., when a media source has been
     played to the end and the queue is empty, several signals are
@@ -1715,9 +1715,9 @@
 
     \warning The back-end is free to choose a different tick interval close
     to what you asked for. This means that the following code \c may fail:
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 9
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 9
     On the other hand the following is guaranteed:
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 10
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 10
 
     \sa tick()
 */
@@ -1745,7 +1745,7 @@
     media object gets a new source. Listen to the hasVideoChanged()
     signal instead.
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 11
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 11
 
     Returns \c true if the media contains video data; otherwise,
     returns  \c false.
@@ -1763,7 +1763,7 @@
     media object gets a new media source. The hasVideoChanged() signal
     is emitted after this information is available.
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 12
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 12
 
     Returns \c true if the current media may be seeked; otherwise,
     returns \c false.
@@ -1786,7 +1786,7 @@
 
     A typical usage looks like this:
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 13
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 13
 */
 
 /*!
@@ -1867,7 +1867,7 @@
 
     We show an example:
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 14
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 14
 
     \sa currentSource(), MediaSource
 */
@@ -2126,7 +2126,7 @@
     You can use this signal to show a progress bar to the user when
     in BufferingState:
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 15
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 15
 
     Note that the \l{Phonon::}{BufferingState} is commonly used when
     waiting for data over a network connection, but this might not be
@@ -2270,7 +2270,7 @@
     happen if the user has requested a backend change.
 
     To connect to this signal do the following:
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 16
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 16
 
     \sa Notifier::capabilitiesChanged()
 */
@@ -2362,10 +2362,10 @@
 
     An example use case would be to give the user a QComboBox to select
     the output device:
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 17
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 17
 
     And to retrieve the selected AudioOutputDevice:
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 18
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 18
 
 */
 
@@ -2565,7 +2565,7 @@
 
     In order to use an effect, insert it into the path as follows:
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 19
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 19
 
     The effect will immediately begin applying it's transformations on
     the path. To stop it, remove the Effect from the path.
@@ -3108,7 +3108,7 @@
     The following code example shows how to create a path between two
     media nodes and insert an effect on that path.
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 20
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 20
 
     \sa Phonon::MediaNode, Phonon::MediaObject, Phonon::AudioOutput,
         Phonon::VideoWidget, {Phonon Module}
@@ -4085,7 +4085,7 @@
 
     A typical example of usage follows below:
 
-    \snippet doc/src/snippets/code/doc_src_phonon-api.qdoc 21
+    \snippet doc/src/snippets/code/doc_src_phonon-api.cpp 21
 
     \sa {Phonon Module}
 */
@@ -4111,6 +4111,13 @@
 /*!
     \fn void Phonon::VideoWidget::mouseMoveEvent(QMouseEvent *)
     \reimp
+*/
+
+/*!
+    \fn Phonon::VideoWidget::snapshot() const
+    \since 4.7
+
+    Returns a snapshot of the current frame shown in the widget.
 */
 
 /*!
@@ -4302,6 +4309,22 @@
 /*!
     \fn virtual QWidget *Phonon::VideoWidgetInterface::widget() = 0
     \internal
+*/
+
+/*!
+    \class Phonon::VideoWidgetInterface44
+    \inmodule Phonon
+    \since 4.7
+*/
+
+/*!
+    \fn Phonon::VideoWidgetInterface44::snapshot() const
+*/
+
+/*!
+    \typedef Phonon::VideoWidgetInterfaceLatest
+    \inmodule Phonon
+    \since 4.7
 */
 
 /*!
@@ -5021,3 +5044,103 @@
     \internal
 */
 
+/*!
+    \class Phonon::PulseSupport
+    \inmodule Phonon
+    \since 4.7
+    \internal
+*/
+
+/*!
+    \class Phonon::AudioDataOutput
+    \inmodule Phonon
+    \since 4.7
+
+    \brief The AudioDataOutput class provides access to audio data.
+
+    This class is used to obtain audio data, typically for the purpose of
+    visualizing it.
+
+    Although it is not designed for realtime performance, the latencies
+    associated with accessing the data should be low enough for applications
+    that provide visualizations of the data. This class can also be used to
+    save the audio data for further processing.
+*/
+
+/*!
+    \enum Phonon::AudioDataOutput::Channel
+
+    This enum describes the channel audio data belongs to.
+
+    \value LeftChannel
+    \value RightChannel
+    \value CenterChannel
+    \value LeftSurroundChannel
+    \value RightSurroundChannel
+    \value SubwooferChannel
+*/
+
+/*!
+    \property Phonon::AudioDataOutput::dataSize
+    \brief the number of samples passed via the dataReady() signal.
+*/
+
+/*!
+    \fn int Phonon::AudioDataOutput::sampleRate() const
+
+    Returns the sample rate measured in Hertz, as reported by the backend.
+    If the backend is unavailable -1 is returned.
+*/
+
+/*!
+    \fn void Phonon::AudioDataOutput::endOfMedia(int remainingSamples)
+
+    This signal is emitted before the final dataReady() signal is emitted for
+    a media. The \a remainingSamples value sent by the signal contains the
+    number of samples that will be sent in the final dataReady() signal for
+    the media.
+*/
+
+/*!
+    \fn Phonon::AudioDataOutput::dataReady(const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> > &data)
+
+    This signal is emitted whenever there is data available to read. The
+    \a data sent by the signal is supplied in the form of a map that holds the
+    data for different output channels.
+*/
+
+/*!
+    \fn Phonon::AudioDataOutputPrivate::AudioDataOutputPrivate()
+    \internal
+*/
+
+/*!
+    \fn Phonon::AudioDataOutputInterface::~AudioDataOutputInterface()
+
+    Destroys the data interface.
+*/
+
+/*!
+    \fn Phonon::AudioDataOutputInterface::frontendObject() const
+    \internal
+*/
+
+/*!
+    \fn Phonon::AudioDataOutputInterface::setFrontendObject(AudioDataOutput *)
+    \internal
+*/
+
+/*!
+    \fn Phonon::GlobalConfigPrivate::GlobalConfigPrivate()
+    \internal
+*/
+
+/*!
+    \fn Phonon::GlobalConfigPrivate::~GlobalConfigPrivate()
+    \internal
+*/
+
+/*!
+    \fn Phonon::SwiftSlider::~SwiftSlider()
+    \internal
+*/

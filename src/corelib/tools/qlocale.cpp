@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -77,7 +77,7 @@ QT_END_NAMESPACE
 #include <qdebug.h>
 #include <time.h>
 
-#if defined(Q_OS_LINUX) && !defined(__UCLIBC__)
+#if defined(__GLIBC__) && !defined(__UCLIBC__)
 #    include <fenv.h>
 #endif
 
@@ -1576,8 +1576,6 @@ QDataStream &operator>>(QDataStream &ds, QLocale &l)
        defaults to the default locale (see setDefault()).
     \endlist
 
-    The "C" locale is identical in behavior to \l{English}/\l{UnitedStates}.
-
     Use language() and country() to determine the actual language and
     country values used.
 
@@ -2201,7 +2199,7 @@ static quint16 localePrivateIndex(const QLocalePrivate *p)
 /*!
     Constructs a QLocale object with the specified \a name,
     which has the format
-    "language[_country][.codeset][@modifier]" or "C", where:
+    "language[_territory][.codeset][@modifier]" or "C", where:
 
     \list
     \i language is a lowercase, two-letter, ISO 639 language code,
@@ -6637,7 +6635,7 @@ Q_CORE_EXPORT char *qdtoa ( double d, int mode, int ndigits, int *decpt, int *si
     _control87(MCW_EM, MCW_EM);
 #endif
 
-#if defined(Q_OS_LINUX) && !defined(__UCLIBC__)
+#if defined(__GLIBC__) && !defined(__UCLIBC__)
     fenv_t envp;
     feholdexcept(&envp);
 #endif
@@ -6653,7 +6651,7 @@ Q_CORE_EXPORT char *qdtoa ( double d, int mode, int ndigits, int *decpt, int *si
 #endif //_M_X64
 #endif //Q_OS_WIN
 
-#if defined(Q_OS_LINUX) && !defined(__UCLIBC__)
+#if defined(__GLIBC__) && !defined(__UCLIBC__)
     fesetenv(&envp);
 #endif
 
@@ -7308,6 +7306,7 @@ Q_CORE_EXPORT char *qdtoa( double d, int mode, int ndigits, int *decpt, int *sig
 
 Q_CORE_EXPORT double qstrtod(const char *s00, const char **se, bool *ok)
 {
+    errno = 0;
     double ret = strtod((char*)s00, (char**)se);
     if (ok) {
       if((ret == 0.0l && errno == ERANGE)
