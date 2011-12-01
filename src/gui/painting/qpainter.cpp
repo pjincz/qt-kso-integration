@@ -810,7 +810,7 @@ void QPainterPrivate::updateEmulationSpecifier(QPainterState *s)
     if (pathGradient && !engine->hasFeature(QPaintEngine::PathGradientFill))
         s->emulationSpecifier |= QPaintEngine::PathGradientFill;
     else
-        s->emulationSpecifier &= QPaintEngine::PathGradientFill;
+        s->emulationSpecifier &= ~QPaintEngine::PathGradientFill;
 
     // Pattern brushes
     if (patternBrush && !engine->hasFeature(QPaintEngine::PatternBrush))
