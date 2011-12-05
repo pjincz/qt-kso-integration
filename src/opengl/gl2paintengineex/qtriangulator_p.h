@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -58,7 +58,58 @@
 
 QT_BEGIN_NAMESPACE
 
-#define Q_TRIANGULATE_END_OF_POLYGON quint32(-1)
+class QVertexIndexVector
+{
+public:
+    enum Type {
+        UnsignedInt,
+        UnsignedShort
+    };
+
+    inline Type type() const { return t; }
+
+    inline void setDataUint(const QVector<quint32> &data)
+    {
+        t = UnsignedInt;
+        indices32 = data;
+    }
+
+    inline void setDataUshort(const QVector<quint16> &data)
+    {
+        t = UnsignedShort;
+        indices16 = data;
+    }
+
+    inline const void* data() const
+    {
+        if (t == UnsignedInt)
+            return indices32.data();
+        return indices16.data();
+    }
+
+    inline int size() const
+    {
+        if (t == UnsignedInt)
+            return indices32.size();
+        return indices16.size();
+    }
+
+    inline QVertexIndexVector &operator = (const QVertexIndexVector &other)
+    {
+         if (t == UnsignedInt)
+           indices32 = other.indices32;
+         else
+           indices16 = other.indices16;
+
+         return *this;
+    }
+
+private:
+
+    Type t;
+    QVector<quint32> indices32;
+    QVector<quint16> indices16;
+};
 
 struct QTriangleSet
 {
@@ -68,7 +119,7 @@ struct QTriangleSet
 
     // The vertices of a triangle are given by: (x[i[n]], y[i[n]]), (x[j[n]], y[j[n]]), (x[k[n]], y[k[n]]), n = 0, 1, ...
     QVector<qreal> vertices; // [x[0], y[0], x[1], y[1], x[2], ...]
-    QVector<quint32> indices; // [i[0], j[0], k[0], i[1], j[1], k[1], i[2], ...]
+    QVertexIndexVector indices; // [i[0], j[0], k[0], i[1], j[1], k[1], i[2], ...]
 };
 
 struct QPolylineSet
@@ -78,8 +129,7 @@ struct QPolylineSet
     QPolylineSet &operator = (const QPolylineSet &other) {vertices = other.vertices; indices = other.indices; return *this;}
 
     QVector<qreal> vertices; // [x[0], y[0], x[1], y[1], x[2], ...]
-    QVector<quint32> indices;
-
+    QVertexIndexVector indices;
 };
 
 // The vertex coordinates of the returned triangle set will be rounded to a grid with a mesh size

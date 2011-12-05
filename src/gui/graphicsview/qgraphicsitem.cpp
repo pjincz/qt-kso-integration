@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -417,6 +417,11 @@
     click focus to items underneath when being clicked on. This flag
     allows you create a non-focusable item that can be clicked on without
     changing the focus. \endomit
+
+    \omitvalue ItemStopsFocusHandling \omit Same as
+    ItemStopsClickFocusPropagation, but also suppresses focus-out. This flag
+    allows you to completely take over focus handling.
+    This flag was introduced in Qt 4.7. \endomit
 */
 
 /*!
@@ -574,19 +579,21 @@
     QGraphicsItem pointer). The return value is unused; you cannot adjust
     anything in this notification.
 
-    \value ItemSceneChange The item is moved to a new scene. This notification
-    is also sent when the item is added to its initial scene, and when it is
-    removed. The value argument is the new scene (i.e., a QGraphicsScene
+    \value ItemSceneChange The item is moved to a new scene. This notification is
+    also sent when the item is added to its initial scene, and when it is removed.
+    The item's scene() is the old scene (or 0 if the item has not been added to a
+    scene yet). The value argument is the new scene (i.e., a QGraphicsScene
     pointer), or a null pointer if the item is removed from a scene. Do not
-    override this change by passing this item to QGraphicsScene::addItem() as
-    this notification is delivered; instead, you can return the new scene from
+    override this change by passing this item to QGraphicsScene::addItem() as this
+    notification is delivered; instead, you can return the new scene from
     itemChange(). Use this feature with caution; objecting to a scene change can
     quickly lead to unwanted recursion.
 
-    \value ItemSceneHasChanged The item's scene has changed. The value
-    argument is the new scene (i.e., a pointer to a QGraphicsScene). Do not
-    call setScene() in itemChange() as this notification is delivered. The
-    return value is ignored.
+    \value ItemSceneHasChanged The item's scene has changed. The item's scene() is
+    the new scene. This notification is also sent when the item is added to its
+    initial scene, and when it is removed.The value argument is the new scene
+    (i.e., a pointer to a QGraphicsScene). Do not call setScene() in itemChange()
+    as this notification is delivered. The return value is ignored.
 
     \value ItemCursorChange The item's cursor changes. The value argument is
     the new cursor (i.e., a QCursor). Do not call setCursor() in itemChange()
@@ -2125,7 +2132,7 @@ void QGraphicsItem::setToolTip(const QString &toolTip)
 
     \snippet doc/src/snippets/code/src_gui_graphicsview_qgraphicsitem.cpp 2
 
-    If no cursor has been set, the parent's cursor is used.
+    If no cursor has been set, the cursor of the item beneath is used.
 
     \sa setCursor(), hasCursor(), unsetCursor(), QWidget::cursor,
     QApplication::overrideCursor()
@@ -2365,7 +2372,7 @@ void QGraphicsItemPrivate::setVisibleHelper(bool newVisible, bool explicitly, bo
                         while (fsi->d_ptr->focusScopeItem && fsi->d_ptr->focusScopeItem->isVisible())
                             fsi = fsi->d_ptr->focusScopeItem;
                         fsi->d_ptr->setFocusHelper(Qt::OtherFocusReason, /* climb = */ true,
-                                                   /* focusFromShow = */ true);
+                                                   /* focusFromHide = */ false);
                     }
                     break;
                 }
@@ -2375,6 +2382,10 @@ void QGraphicsItemPrivate::setVisibleHelper(bool newVisible, bool explicitly, bo
                 QGraphicsItem *fi = subFocusItem;
                 if (fi && fi != scene->focusItem()) {
                     scene->setFocusItem(fi);
+                } else if (flags & QGraphicsItem::ItemIsFocusScope &&
+                           !scene->focusItem() &&
+                           q->isAncestorOf(scene->d_func()->lastFocusItem)) {
+                    q_ptr->setFocus();
                 }
             }
         } else {
@@ -2385,7 +2396,7 @@ void QGraphicsItemPrivate::setVisibleHelper(bool newVisible, bool explicitly, bo
                     if (p->flags() & QGraphicsItem::ItemIsFocusScope) {
                         if (p->d_ptr->visible) {
                             p->d_ptr->setFocusHelper(Qt::OtherFocusReason, /* climb = */ true,
-                                                     /* focusFromShow = */ true);
+                                                     /* focusFromHide = */ true);
                         }
                         break;
                     }
@@ -3245,13 +3256,13 @@ bool QGraphicsItem::hasFocus() const
 */
 void QGraphicsItem::setFocus(Qt::FocusReason focusReason)
 {
-    d_ptr->setFocusHelper(focusReason, /* climb = */ true, /* focusFromShow = */ false);
+    d_ptr->setFocusHelper(focusReason, /* climb = */ true, /* focusFromHide = */ false);
 }
 
 /*!
     \internal
 */
-void QGraphicsItemPrivate::setFocusHelper(Qt::FocusReason focusReason, bool climb, bool focusFromShow)
+void QGraphicsItemPrivate::setFocusHelper(Qt::FocusReason focusReason, bool climb, bool focusFromHide)
 {
     // Disabled / unfocusable items cannot accept focus.
     if (!q_ptr->isEnabled() || !(flags & QGraphicsItem::ItemIsFocusable))
@@ -3272,7 +3283,7 @@ void QGraphicsItemPrivate::setFocusHelper(Qt::FocusReason focusReason, bool clim
         if (p->flags() & QGraphicsItem::ItemIsFocusScope) {
             QGraphicsItem *oldFocusScopeItem = p->d_ptr->focusScopeItem;
             p->d_ptr->focusScopeItem = q_ptr;
-            if (!p->focusItem() && !focusFromShow) {
+            if (!p->focusItem() && !focusFromHide) {
                 if (oldFocusScopeItem)
                     oldFocusScopeItem->d_ptr->focusScopeItemChange(false);
                 focusScopeItemChange(true);
@@ -3291,9 +3302,13 @@ void QGraphicsItemPrivate::setFocusHelper(Qt::FocusReason focusReason, bool clim
     }
 
     // Update the child focus chain.
-    if (scene && scene->focusItem())
-        scene->focusItem()->d_ptr->clearSubFocus();
-    f->d_ptr->setSubFocus();
+    QGraphicsItem *commonAncestor = 0;
+    if (scene && scene->focusItem()) {
+        commonAncestor = scene->focusItem()->commonAncestorItem(f);
+        scene->focusItem()->d_ptr->clearSubFocus(scene->focusItem(), commonAncestor);
+    }
+
+    f->d_ptr->setSubFocus(f, commonAncestor);
 
     // Update the scene's focus item.
     if (scene) {
@@ -3318,8 +3333,7 @@ void QGraphicsItemPrivate::setFocusHelper(Qt::FocusReason focusReason, bool clim
 */
 void QGraphicsItem::clearFocus()
 {
-    if (hasFocus())
-        d_ptr->clearFocusHelper(/* giveFocusToParent = */ true);
+    d_ptr->clearFocusHelper(/* giveFocusToParent = */ true);
 }
 
 /*!
@@ -3333,8 +3347,14 @@ void QGraphicsItemPrivate::clearFocusHelper(bool giveFocusToParent)
             QGraphicsItem *p = parent;
             while (p) {
                 if (p->flags() & QGraphicsItem::ItemIsFocusScope) {
-                    p->d_ptr->setFocusHelper(Qt::OtherFocusReason, /* climb = */ false,
-                                             /* focusFromShow = */ false);
+                    if (p->d_ptr->focusScopeItem == q_ptr) {
+                        p->d_ptr->focusScopeItem = 0;
+                        if (!q_ptr->hasFocus()) //if it has focus, focusScopeItemChange is called elsewhere
+                            focusScopeItemChange(false);
+                    }
+                    if (q_ptr->hasFocus())
+                        p->d_ptr->setFocusHelper(Qt::OtherFocusReason, /* climb = */ false,
+                                                 /* focusFromHide = */ false);
                     return;
                 }
                 p = p->d_ptr->parent;
@@ -3342,10 +3362,10 @@ void QGraphicsItemPrivate::clearFocusHelper(bool giveFocusToParent)
         }
     }
 
-    // Invisible items with focus must explicitly clear subfocus.
-    clearSubFocus(q_ptr);
-
     if (q_ptr->hasFocus()) {
+        // Invisible items with focus must explicitly clear subfocus.
+        clearSubFocus(q_ptr);
+
         // If this item has the scene's input focus, clear it.
         scene->setFocusItem(0);
     }
@@ -3702,6 +3722,8 @@ void QGraphicsItem::setPos(const QPointF &pos)
         d_ptr->setPosHelper(pos);
         if (d_ptr->isWidget)
             static_cast<QGraphicsWidget *>(this)->d_func()->setGeometryFromSetPos();
+        if (d_ptr->scenePosDescendants)
+            d_ptr->sendScenePosChange();
         return;
     }
 
@@ -4384,8 +4406,10 @@ void QGraphicsItem::setTransform(const QTransform &matrix, bool combine)
         return;
 
     // Update and set the new transformation.
-    if (!(d_ptr->flags & ItemSendsGeometryChanges)) {
+    if (!(d_ptr->flags & (ItemSendsGeometryChanges | ItemSendsScenePositionChanges))) {
         d_ptr->setTransformHelper(newTransform);
+        if (d_ptr->scenePosDescendants)
+            d_ptr->sendScenePosChange();
         return;
     }
 
@@ -5541,7 +5565,7 @@ void QGraphicsItemPrivate::ensureSceneTransformRecursive(QGraphicsItem **topMost
 /*!
     \internal
 */
-void QGraphicsItemPrivate::setSubFocus(QGraphicsItem *rootItem)
+void QGraphicsItemPrivate::setSubFocus(QGraphicsItem *rootItem, QGraphicsItem *stopItem)
 {
     // Update focus child chain. Stop at panels, or if this item
     // is hidden, stop at the first item with a visible parent.
@@ -5554,20 +5578,22 @@ void QGraphicsItemPrivate::setSubFocus(QGraphicsItem *rootItem)
         if (parent != q_ptr && parent->d_ptr->subFocusItem) {
             if (parent->d_ptr->subFocusItem == q_ptr)
                 break;
-            parent->d_ptr->subFocusItem->d_ptr->clearSubFocus();
+            parent->d_ptr->subFocusItem->d_ptr->clearSubFocus(0, stopItem);
         }
         parent->d_ptr->subFocusItem = q_ptr;
         parent->d_ptr->subFocusItemChange();
     } while (!parent->isPanel() && (parent = parent->d_ptr->parent) && (visible || !parent->d_ptr->visible));
 
-    if (scene && !scene->isActive())
+    if (scene && !scene->isActive()) {
+        scene->d_func()->passiveFocusItem = subFocusItem;
         scene->d_func()->lastFocusItem = subFocusItem;
+    }
 }
 
 /*!
     \internal
 */
-void QGraphicsItemPrivate::clearSubFocus(QGraphicsItem *rootItem)
+void QGraphicsItemPrivate::clearSubFocus(QGraphicsItem *rootItem, QGraphicsItem *stopItem)
 {
     // Reset sub focus chain.
     QGraphicsItem *parent = rootItem ? rootItem : q_ptr;
@@ -5575,7 +5601,8 @@ void QGraphicsItemPrivate::clearSubFocus(QGraphicsItem *rootItem)
         if (parent->d_ptr->subFocusItem != q_ptr)
             break;
         parent->d_ptr->subFocusItem = 0;
-        parent->d_ptr->subFocusItemChange();
+        if (parent != stopItem && !parent->isAncestorOf(stopItem))
+            parent->d_ptr->subFocusItemChange();
     } while (!parent->isPanel() && (parent = parent->d_ptr->parent));
 }
 
@@ -6655,6 +6682,11 @@ bool QGraphicsItem::sceneEvent(QEvent *event)
         return true;
     }
 
+    if (event->type() == QEvent::FocusOut) {
+        focusOutEvent(static_cast<QFocusEvent *>(event));
+        return true;
+    }
+
     if (!d_ptr->visible) {
         // Eaten
         return true;
@@ -6663,9 +6695,6 @@ bool QGraphicsItem::sceneEvent(QEvent *event)
     switch (event->type()) {
     case QEvent::FocusIn:
         focusInEvent(static_cast<QFocusEvent *>(event));
-        break;
-    case QEvent::FocusOut:
-        focusOutEvent(static_cast<QFocusEvent *>(event));
         break;
     case QEvent::GraphicsSceneContextMenu:
         contextMenuEvent(static_cast<QGraphicsSceneContextMenuEvent *>(event));
@@ -7669,11 +7698,13 @@ void QGraphicsObject::updateMicroFocus()
 
 void QGraphicsItemPrivate::children_append(QDeclarativeListProperty<QGraphicsObject> *list, QGraphicsObject *item)
 {
-    QGraphicsObject *graphicsObject = static_cast<QGraphicsObject *>(list->object);
-    if (QGraphicsItemPrivate::get(graphicsObject)->sendParentChangeNotification) {
-        item->setParentItem(graphicsObject);
-    } else {
-        QGraphicsItemPrivate::get(item)->setParentItemHelper(graphicsObject, 0, 0);
+    if (item) {
+        QGraphicsObject *graphicsObject = static_cast<QGraphicsObject *>(list->object);
+        if (QGraphicsItemPrivate::get(graphicsObject)->sendParentChangeNotification) {
+            item->setParentItem(graphicsObject);
+        } else {
+            QGraphicsItemPrivate::get(item)->setParentItemHelper(graphicsObject, 0, 0);
+        }
     }
 }
 
@@ -11526,6 +11557,9 @@ QDebug operator<<(QDebug debug, QGraphicsItem::GraphicsItemFlag flag)
         break;
     case QGraphicsItem::ItemStopsClickFocusPropagation:
         str = "ItemStopsClickFocusPropagation";
+        break;
+    case QGraphicsItem::ItemStopsFocusHandling:
+        str = "ItemStopsFocusHandling";
         break;
     }
     debug << str;

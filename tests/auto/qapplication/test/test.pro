@@ -12,12 +12,12 @@ wince* {
 }
 
 symbian: {
-  additional.sources = ../desktopsettingsaware/desktopsettingsaware.exe
+  additional.sources = $$OUT_PWD/../desktopsettingsaware/desktopsettingsaware.exe
   additional.path = desktopsettingsaware
   someTest.sources = test.pro
   someTest.path = test
   windowIcon.sources = ../heart.svg
-  DEPLOYMENT = additional deploy someTest windowIcon
+  DEPLOYMENT += additional deploy someTest windowIcon
   LIBS += -lcone -lavkon
 }
 

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -86,6 +86,9 @@ private slots:
     void errors_data();
     void errors();
 
+    void insertedSemicolon_data();
+    void insertedSemicolon();
+
     void simpleObject();
     void simpleContainer();
     void interfaceProperty();
@@ -119,6 +122,7 @@ private slots:
     void cppnamespace();
     void aliasProperties();
     void aliasPropertiesAndSignals();
+    void aliasPropertyChangeSignals();
     void componentCompositeType();
     void i18n();
     void i18n_data();
@@ -128,6 +132,9 @@ private slots:
     void defaultPropertyListOrder();
     void declaredPropertyValues();
     void dontDoubleCallClassBegin();
+    void reservedWords_data();
+    void reservedWords();
+    void inlineAssignmentsOverrideBindings();
 
     void basicRemote_data();
     void basicRemote();
@@ -141,10 +148,14 @@ private slots:
     void importsInstalled();
     void importsOrder_data();
     void importsOrder();
+    void importIncorrectCase();
 
     void qmlAttachedPropertiesObjectMethod();
     void customOnProperty();
     void variantNotify();
+
+    void revisions();
+    void revisionOverloads();
 
     // regression tests for crashes
     void crash1();
@@ -163,7 +174,7 @@ private:
         QVERIFY(component.errors().isEmpty()); \
     } else { \
         QFile file(QLatin1String(SRCDIR) + QLatin1String("/data/") + QLatin1String(errorfile)); \
-        QVERIFY(file.open(QIODevice::ReadOnly)); \
+        QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text)); \
         QByteArray data = file.readAll(); \
         file.close(); \
         QList<QByteArray> expected = data.split('\n'); \
@@ -205,6 +216,31 @@ inline QUrl TEST_FILE(const char *filename)
 void tst_qdeclarativelanguage::cleanupTestCase()
 {
     QVERIFY(QFile::remove(TEST_FILE(QString::fromUtf8("I18nType\303\201\303\242\303\243\303\244\303\245.qml")).toLocalFile()));
+}
+
+void tst_qdeclarativelanguage::insertedSemicolon_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QString>("errorFile");
+    QTest::addColumn<bool>("create");
+
+    QTest::newRow("insertedSemicolon.1") << "insertedSemicolon.1.qml" << "insertedSemicolon.1.errors.txt" << false;
+}
+
+void tst_qdeclarativelanguage::insertedSemicolon()
+{
+    QFETCH(QString, file);
+    QFETCH(QString, errorFile);
+    QFETCH(bool, create);
+
+    QDeclarativeComponent component(&engine, TEST_FILE(file));
+
+    if(create) {
+        QObject *object = component.create();
+        QVERIFY(object == 0);
+    }
+
+    VERIFY_ERRORS(errorFile.toLatin1().constData());
 }
 
 void tst_qdeclarativelanguage::errors_data()
@@ -345,6 +381,9 @@ void tst_qdeclarativelanguage::errors_data()
     QTest::newRow("invalidAlias.5") << "invalidAlias.5.qml" << "invalidAlias.5.errors.txt" << false;
     QTest::newRow("invalidAlias.6") << "invalidAlias.6.qml" << "invalidAlias.6.errors.txt" << false;
     QTest::newRow("invalidAlias.7") << "invalidAlias.7.qml" << "invalidAlias.7.errors.txt" << false;
+    QTest::newRow("invalidAlias.8") << "invalidAlias.8.qml" << "invalidAlias.8.errors.txt" << false;
+    QTest::newRow("invalidAlias.9") << "invalidAlias.9.qml" << "invalidAlias.9.errors.txt" << false;
+    QTest::newRow("invalidAlias.10") << "invalidAlias.10.qml" << "invalidAlias.10.errors.txt" << false;
 
     QTest::newRow("invalidAttachedProperty.1") << "invalidAttachedProperty.1.qml" << "invalidAttachedProperty.1.errors.txt" << false;
     QTest::newRow("invalidAttachedProperty.2") << "invalidAttachedProperty.2.qml" << "invalidAttachedProperty.2.errors.txt" << false;
@@ -376,6 +415,20 @@ void tst_qdeclarativelanguage::errors_data()
     QTest::newRow("invalidOn") << "invalidOn.qml" << "invalidOn.errors.txt" << false;
     QTest::newRow("invalidProperty") << "invalidProperty.qml" << "invalidProperty.errors.txt" << false;
     QTest::newRow("nonScriptableProperty") << "nonScriptableProperty.qml" << "nonScriptableProperty.errors.txt" << false;
+    QTest::newRow("notAvailable") << "notAvailable.qml" << "notAvailable.errors.txt" << false;
+    QTest::newRow("singularProperty") << "singularProperty.qml" << "singularProperty.errors.txt" << false;
+    QTest::newRow("singularProperty.2") << "singularProperty.2.qml" << "singularProperty.2.errors.txt" << false;
+    QTest::newRow("incorrectCase") << "incorrectCase.qml" 
+#if defined(Q_OS_MAC) || defined(Q_OS_WIN32)
+        << "incorrectCase.errors.insensitive.txt" 
+#else
+        << "incorrectCase.errors.sensitive.txt" 
+#endif
+        << false;
+
+    QTest::newRow("metaobjectRevision.1") << "metaobjectRevision.1.qml" << "metaobjectRevision.1.errors.txt" << false;
+    QTest::newRow("metaobjectRevision.2") << "metaobjectRevision.2.qml" << "metaobjectRevision.2.errors.txt" << false;
+    QTest::newRow("metaobjectRevision.3") << "metaobjectRevision.3.qml" << "metaobjectRevision.3.errors.txt" << false;
 }
 
 
@@ -902,7 +955,7 @@ void tst_qdeclarativelanguage::aliasProperties()
         object->setProperty("value", QVariant(13));
         QCOMPARE(object->property("valueAlias").toInt(), 13);
 
-        // Write throught alias
+        // Write through alias
         object->setProperty("valueAlias", QVariant(19));
         QCOMPARE(object->property("valueAlias").toInt(), 19);
         QCOMPARE(object->property("value").toInt(), 19);
@@ -1047,6 +1100,47 @@ void tst_qdeclarativelanguage::aliasProperties()
         QVERIFY(object != 0);
 
         QCOMPARE(object->property("value").toInt(), 10);
+
+        delete object;
+    }
+
+    // Valuetype alias
+    // Simple "int" alias
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("alias.10.qml"));
+        VERIFY_ERRORS(0);
+        QObject *object = component.create();
+        QVERIFY(object != 0);
+
+        // Read through alias
+        QCOMPARE(object->property("valueAlias").toRect(), QRect(10, 11, 9, 8));
+        object->setProperty("rectProperty", QVariant(QRect(33, 12, 99, 100)));
+        QCOMPARE(object->property("valueAlias").toRect(), QRect(33, 12, 99, 100));
+
+        // Write through alias
+        object->setProperty("valueAlias", QVariant(QRect(3, 3, 4, 9)));
+        QCOMPARE(object->property("valueAlias").toRect(), QRect(3, 3, 4, 9));
+        QCOMPARE(object->property("rectProperty").toRect(), QRect(3, 3, 4, 9));
+
+        delete object;
+    }
+
+    // Valuetype sub-alias
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("alias.11.qml"));
+        VERIFY_ERRORS(0);
+        QObject *object = component.create();
+        QVERIFY(object != 0);
+
+        // Read through alias
+        QCOMPARE(object->property("aliasProperty").toInt(), 19);
+        object->setProperty("rectProperty", QVariant(QRect(33, 8, 102, 111)));
+        QCOMPARE(object->property("aliasProperty").toInt(), 33);
+
+        // Write through alias
+        object->setProperty("aliasProperty", QVariant(4));
+        QCOMPARE(object->property("aliasProperty").toInt(), 4);
+        QCOMPARE(object->property("rectProperty").toRect(), QRect(4, 8, 102, 111));
 
         delete object;
     }
@@ -1221,6 +1315,80 @@ void tst_qdeclarativelanguage::dontDoubleCallClassBegin()
     delete o;
 }
 
+void tst_qdeclarativelanguage::reservedWords_data()
+{
+    QTest::addColumn<QByteArray>("word");
+
+    QTest::newRow("abstract") << QByteArray("abstract");
+    QTest::newRow("as") << QByteArray("as");
+    QTest::newRow("boolean") << QByteArray("boolean");
+    QTest::newRow("break") << QByteArray("break");
+    QTest::newRow("byte") << QByteArray("byte");
+    QTest::newRow("case") << QByteArray("case");
+    QTest::newRow("catch") << QByteArray("catch");
+    QTest::newRow("char") << QByteArray("char");
+    QTest::newRow("class") << QByteArray("class");
+    QTest::newRow("continue") << QByteArray("continue");
+    QTest::newRow("const") << QByteArray("const");
+    QTest::newRow("debugger") << QByteArray("debugger");
+    QTest::newRow("default") << QByteArray("default");
+    QTest::newRow("delete") << QByteArray("delete");
+    QTest::newRow("do") << QByteArray("do");
+    QTest::newRow("double") << QByteArray("double");
+    QTest::newRow("else") << QByteArray("else");
+    QTest::newRow("enum") << QByteArray("enum");
+    QTest::newRow("export") << QByteArray("export");
+    QTest::newRow("extends") << QByteArray("extends");
+    QTest::newRow("false") << QByteArray("false");
+    QTest::newRow("final") << QByteArray("final");
+    QTest::newRow("finally") << QByteArray("finally");
+    QTest::newRow("float") << QByteArray("float");
+    QTest::newRow("for") << QByteArray("for");
+    QTest::newRow("function") << QByteArray("function");
+    QTest::newRow("goto") << QByteArray("goto");
+    QTest::newRow("if") << QByteArray("if");
+    QTest::newRow("implements") << QByteArray("implements");
+    QTest::newRow("import") << QByteArray("import");
+    QTest::newRow("in") << QByteArray("in");
+    QTest::newRow("instanceof") << QByteArray("instanceof");
+    QTest::newRow("int") << QByteArray("int");
+    QTest::newRow("interface") << QByteArray("interface");
+    QTest::newRow("long") << QByteArray("long");
+    QTest::newRow("native") << QByteArray("native");
+    QTest::newRow("new") << QByteArray("new");
+    QTest::newRow("null") << QByteArray("null");
+    QTest::newRow("package") << QByteArray("package");
+    QTest::newRow("private") << QByteArray("private");
+    QTest::newRow("protected") << QByteArray("protected");
+    QTest::newRow("public") << QByteArray("public");
+    QTest::newRow("return") << QByteArray("return");
+    QTest::newRow("short") << QByteArray("short");
+    QTest::newRow("static") << QByteArray("static");
+    QTest::newRow("super") << QByteArray("super");
+    QTest::newRow("switch") << QByteArray("switch");
+    QTest::newRow("synchronized") << QByteArray("synchronized");
+    QTest::newRow("this") << QByteArray("this");
+    QTest::newRow("throw") << QByteArray("throw");
+    QTest::newRow("throws") << QByteArray("throws");
+    QTest::newRow("transient") << QByteArray("transient");
+    QTest::newRow("true") << QByteArray("true");
+    QTest::newRow("try") << QByteArray("try");
+    QTest::newRow("typeof") << QByteArray("typeof");
+    QTest::newRow("var") << QByteArray("var");
+    QTest::newRow("void") << QByteArray("void");
+    QTest::newRow("volatile") << QByteArray("volatile");
+    QTest::newRow("while") << QByteArray("while");
+    QTest::newRow("with") << QByteArray("with");
+}
+
+void tst_qdeclarativelanguage::reservedWords()
+{
+    QFETCH(QByteArray, word);
+    QDeclarativeComponent component(&engine);
+    component.setData("import QtQuick 1.0\nQtObject { property string " + word + " }", QUrl());
+    QCOMPARE(component.errorString(), QLatin1String(":2 Expected token `identifier'\n"));
+}
+
 // Check that first child of qml is of given type. Empty type insists on error.
 void tst_qdeclarativelanguage::testType(const QString& qml, const QString& type, const QString& expectederror)
 {
@@ -1246,9 +1414,18 @@ void tst_qdeclarativelanguage::testType(const QString& qml, const QString& type,
     }
 }
 
+// QTBUG-17276
+void tst_qdeclarativelanguage::inlineAssignmentsOverrideBindings()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("inlineAssignmentsOverrideBindings.qml"));
+
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+    QCOMPARE(o->property("test").toInt(), 11);
+    delete o;
+}
 
 // Import tests (QT-558)
-
 void tst_qdeclarativelanguage::importsBuiltin_data()
 {
     // QT-610
@@ -1437,6 +1614,7 @@ void tst_qdeclarativelanguage::basicRemote_data()
     QString serverdir = "http://127.0.0.1:14447/qtest/declarative/qmllanguage/";
 
     QTest::newRow("no need for qmldir") << QUrl(serverdir+"Test.qml") << "" << "";
+    QTest::newRow("absent qmldir") << QUrl(serverdir+"/noqmldir/Test.qml") << "" << "";
     QTest::newRow("need qmldir") << QUrl(serverdir+"TestLocal.qml") << "" << "";
 }
 
@@ -1644,6 +1822,22 @@ void tst_qdeclarativelanguage::importsOrder()
     testType(qml,type,error);
 }
 
+void tst_qdeclarativelanguage::importIncorrectCase()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("importIncorrectCase.qml"));
+
+    QList<QDeclarativeError> errors = component.errors();
+    QCOMPARE(errors.count(), 1);
+
+#if defined(Q_OS_MAC) || defined(Q_OS_WIN32)
+    QString expectedError = QLatin1String("cannot load module \"com.Nokia.installedtest\": File name case mismatch for \"") + QFileInfo(__FILE__).absoluteDir().filePath("data/lib/com/Nokia/installedtest/qmldir") + QLatin1String("\"");
+#else
+    QString expectedError = QLatin1String("module \"com.Nokia.installedtest\" is not installed");
+#endif
+
+    QCOMPARE(errors.at(0).description(), expectedError);
+}
+
 void tst_qdeclarativelanguage::qmlAttachedPropertiesObjectMethod()
 {
     QObject object;
@@ -1711,6 +1905,61 @@ void tst_qdeclarativelanguage::variantNotify()
     delete object;
 }
 
+void tst_qdeclarativelanguage::revisions()
+{
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("revisions11.qml"));
+
+        VERIFY_ERRORS(0);
+        MyRevisionedClass *object = qobject_cast<MyRevisionedClass*>(component.create());
+        QVERIFY(object != 0);
+
+        QCOMPARE(object->prop2(), 10.0);
+
+        delete object;
+    }
+    {
+        QDeclarativeEngine myEngine;
+        QDeclarativeComponent component(&myEngine, TEST_FILE("revisionssub11.qml"));
+
+        VERIFY_ERRORS(0);
+        MyRevisionedSubclass *object = qobject_cast<MyRevisionedSubclass*>(component.create());
+        QVERIFY(object != 0);
+
+        QCOMPARE(object->prop1(), 10.0);
+        QCOMPARE(object->prop2(), 10.0);
+        QCOMPARE(object->prop3(), 10.0);
+        QCOMPARE(object->prop4(), 10.0);
+
+        delete object;
+    }
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("versionedbase.qml"));
+        VERIFY_ERRORS(0);
+        MySubclass *object = qobject_cast<MySubclass*>(component.create());
+        QVERIFY(object != 0);
+
+        QCOMPARE(object->prop1(), 10.0);
+        QCOMPARE(object->prop2(), 10.0);
+
+        delete object;
+    }
+}
+
+void tst_qdeclarativelanguage::revisionOverloads()
+{
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("allowedRevisionOverloads.qml"));
+    VERIFY_ERRORS(0);
+    }
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("disallowedRevisionOverloads.qml"));
+    QEXPECT_FAIL("", "QTBUG-13849", Abort);
+    QVERIFY(0);
+    VERIFY_ERRORS("disallowedRevisionOverloads.errors.txt");
+    }
+}
+
 void tst_qdeclarativelanguage::initTestCase()
 {
     registerTypes();
@@ -1737,6 +1986,34 @@ void tst_qdeclarativelanguage::initTestCase()
     QFile out(TEST_FILE(QString::fromUtf8("I18nType\303\201\303\242\303\243\303\244\303\245.qml")).toLocalFile());
     QVERIFY(out.open(QIODevice::WriteOnly));
     out.write(in.readAll());
+}
+
+void tst_qdeclarativelanguage::aliasPropertyChangeSignals()
+{
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("aliasPropertyChangeSignals.qml"));
+
+        VERIFY_ERRORS(0);
+        QObject *o = component.create();
+        QVERIFY(o != 0);
+
+        QCOMPARE(o->property("test").toBool(), true);
+
+        delete o;
+    }
+
+    // QTCREATORBUG-2769
+    {
+        QDeclarativeComponent component(&engine, TEST_FILE("aliasPropertyChangeSignals.2.qml"));
+
+        VERIFY_ERRORS(0);
+        QObject *o = component.create();
+        QVERIFY(o != 0);
+
+        QCOMPARE(o->property("test").toBool(), true);
+
+        delete o;
+    }
 }
 
 QTEST_MAIN(tst_qdeclarativelanguage)

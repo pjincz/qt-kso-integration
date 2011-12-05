@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -76,6 +76,7 @@ private slots:
     void check_QTextStream();
     void check_QDataStream();
     void fromRawData();
+    void setRawData();
     void endsWith();
     void startsWith();
     void setNum();
@@ -2999,7 +3000,9 @@ void tst_QString::fromRawData()
 {
     const QChar ptr[] = { 0x1234, 0x0000 };
     QString cstr = QString::fromRawData(ptr, 1);
+    QVERIFY(cstr.isDetached());
     QVERIFY(cstr.constData() == ptr);
+    QVERIFY(cstr == QString(ptr, 1));
     cstr.squeeze();
     QVERIFY(cstr.constData() == ptr);
     cstr.detach();
@@ -3008,6 +3011,41 @@ void tst_QString::fromRawData()
     QVERIFY(cstr.constData() != ptr);
     QVERIFY(cstr.constData()[0] == QChar(0x1234));
     QVERIFY(cstr.constData()[1] == QChar(0x0000));
+}
+
+void tst_QString::setRawData()
+{
+    const QChar ptr[] = { 0x1234, 0x0000 };
+    const QChar ptr2[] = { 0x4321, 0x0000 };
+    QString cstr;
+
+    // This just tests the fromRawData() fallback
+    QVERIFY(!cstr.isDetached());
+    cstr.setRawData(ptr, 1);
+    QVERIFY(cstr.isDetached());
+    QVERIFY(cstr.constData() == ptr);
+    QVERIFY(cstr == QString(ptr, 1));
+
+    // This actually tests the recycling of the shared data object
+    QString::DataPtr csd = cstr.data_ptr();
+    cstr.setRawData(ptr2, 1);
+    QVERIFY(cstr.isDetached());
+    QVERIFY(cstr.constData() == ptr2);
+    QVERIFY(cstr == QString(ptr2, 1));
+    QVERIFY(cstr.data_ptr() == csd);
+
+    // This tests the discarding of the shared data object
+    cstr = "foo";
+    QVERIFY(cstr.isDetached());
+    QVERIFY(cstr.constData() != ptr2);
+
+    // Another test of the fallback
+    csd = cstr.data_ptr();
+    cstr.setRawData(ptr2, 1);
+    QVERIFY(cstr.isDetached());
+    QVERIFY(cstr.constData() == ptr2);
+    QVERIFY(cstr == QString(ptr2, 1));
+    QVERIFY(cstr.data_ptr() != csd);
 }
 
 void tst_QString::fromStdString()
@@ -4395,8 +4433,10 @@ void tst_QString::nanAndInf()
     CHECK_NAN("nan  ", true, true)
     CHECK_NAN("\t NAN", true, true)
     CHECK_NAN("\t NAN  ", true, true)
+#ifndef QT_QLOCALE_USES_FCVT //In case we use glibc this tests will fail
     CHECK_NAN("-nan", false, false)
     CHECK_NAN("+NAN", false, false)
+#endif
     CHECK_NAN("NaN", true, true)
     CHECK_NAN("nAn", true, true)
     CHECK_NAN("NANe-10", false, false)

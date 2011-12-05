@@ -80,11 +80,6 @@ SUBDIRS=\
     qgroupbox \
     qguivariant \
     qheaderview \
-    qhelpcontentmodel \
-    qhelpenginecore \
-    qhelpgenerator \
-    qhelpindexmodel \
-    qhelpprojectdata \
     qicoimageformat \
     qicon \
     qimageeffects \
@@ -116,6 +111,7 @@ SUBDIRS=\
     qmimedata \
     qmouseevent_modal \
     qmovie \
+    qvolatileimage \
     qnetworkaccessmanager_and_qprogressdialog \
     qnetworkcachemetadata \
     qnetworkdiskcache \
@@ -200,7 +196,6 @@ SUBDIRS=\
     qtreeview \
     qtreewidget \
     qtreewidgetitemiterator \
-    qtwidgets \
     qudpsocket \
     qundogroup \
     qundostack \
@@ -225,10 +220,5 @@ win32:SUBDIRS -= qtextpiecetable
            qtextpiecetable \
 
 symbian:SUBDIRS -= \
-    qhelpcontentmodel \
-    qhelpenginecore \
-    qhelpgenerator \
-    qhelpindexmodel \
-    qhelpprojectdata \
     qsystemtrayicon \
 

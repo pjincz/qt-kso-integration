@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -118,6 +118,7 @@ private slots:
     void longPath();
     void task185502_dirorder();
     void relativePaths();
+    void qtbug15421_hiddenDirs_hiddenFiles();
 };
 
 tst_QDirIterator::tst_QDirIterator()
@@ -163,6 +164,20 @@ tst_QDirIterator::tst_QDirIterator()
     createLink("nothing", "entrylist/brokenlink.lnk");
 #  endif
 #endif
+
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles");
+    createFile("qtbug15421_hiddenDirs_hiddenFiles/normalFile");
+    createFile("qtbug15421_hiddenDirs_hiddenFiles/.hiddenFile");
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles/normalDirectory");
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles/.hiddenDirectory");
+    createFile("qtbug15421_hiddenDirs_hiddenFiles/normalDirectory/normalFile");
+    createFile("qtbug15421_hiddenDirs_hiddenFiles/normalDirectory/.hiddenFile");
+    createFile("qtbug15421_hiddenDirs_hiddenFiles/.hiddenDirectory/normalFile");
+    createFile("qtbug15421_hiddenDirs_hiddenFiles/.hiddenDirectory/.hiddenFile");
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles/normalDirectory/normalDirectory");
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles/normalDirectory/.hiddenDirectory");
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles/.hiddenDirectory/normalDirectory");
+    createDirectory("qtbug15421_hiddenDirs_hiddenFiles/.hiddenDirectory/.hiddenDirectory");
 }
 
 tst_QDirIterator::~tst_QDirIterator()
@@ -530,6 +545,46 @@ void tst_QDirIterator::relativePaths()
     while(iterator.hasNext()) {
         QCOMPARE(iterator.filePath(), QDir::cleanPath(iterator.filePath()));
     }
+}
+
+void tst_QDirIterator::qtbug15421_hiddenDirs_hiddenFiles()
+{
+    // In Unix it is easy to create hidden files, but in Windows it requires
+    // a special call since hidden files need to be "marked" while in Unix
+    // anything starting by a '.' is a hidden file.
+    // For that reason this test is not run in Windows.
+#if defined Q_OS_WIN || Q_OS_WINCE
+    QSKIP("To create hidden files a special call is required in Windows.", SkipAll);
+#else
+    // Only files
+    {
+        int matches = 0;
+        int failures = 0;
+        QDirIterator di("qtbug15421_hiddenDirs_hiddenFiles", QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (di.hasNext()) {
+            ++matches;
+            QString filename = di.next();
+            if (QFileInfo(filename).isDir())
+                ++failures;    // search was only supposed to find files
+        }
+        QCOMPARE(matches, 6);
+        QCOMPARE(failures, 0);
+    }
+    // Only directories
+    {
+        int matches = 0;
+        int failures = 0;
+        QDirIterator di("qtbug15421_hiddenDirs_hiddenFiles", QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (di.hasNext()) {
+            ++matches;
+            QString filename = di.next();
+            if (!QFileInfo(filename).isDir())
+                ++failures;    // search was only supposed to find files
+        }
+        QCOMPARE(matches, 6);
+        QCOMPARE(failures, 0);
+    }
+#endif // Q_OS_WIN || Q_OS_WINCE
 }
 
 QTEST_MAIN(tst_QDirIterator)

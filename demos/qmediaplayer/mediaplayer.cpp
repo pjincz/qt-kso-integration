@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the demonstration applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ***************************************************************************/
@@ -46,6 +46,11 @@
 #include "mediaplayer.h"
 #include "ui_settings.h"
 
+#ifdef Q_OS_SYMBIAN
+#include <cdbcols.h>
+#include <cdblen.h>
+#include <commdb.h>
+#endif
 
 MediaVideoWidget::MediaVideoWidget(MediaPlayer *player, QWidget *parent) :
     Phonon::VideoWidget(parent), m_player(player), m_action(this)
@@ -152,12 +157,10 @@ void MediaVideoWidget::dragEnterEvent(QDragEnterEvent *e) {
 }
 
 
-MediaPlayer::MediaPlayer(const QString &filePath,
-                         const bool hasSmallScreen) :
+MediaPlayer::MediaPlayer() :
         playButton(0), nextEffect(0), settingsDialog(0), ui(0),
             m_AudioOutput(Phonon::VideoCategory),
-            m_videoWidget(new MediaVideoWidget(this)),
-            m_hasSmallScreen(hasSmallScreen)
+            m_videoWidget(new MediaVideoWidget(this))
 {
     setWindowTitle(tr("Media Player"));
     setContextMenuPolicy(Qt::CustomContextMenu);
@@ -271,6 +274,10 @@ MediaPlayer::MediaPlayer(const QString &filePath,
     fileMenu = new QMenu(this);
     QAction *openFileAction = fileMenu->addAction(tr("Open &File..."));
     QAction *openUrlAction = fileMenu->addAction(tr("Open &Location..."));
+#ifdef Q_OS_SYMBIAN
+    QAction *selectIAPAction = fileMenu->addAction(tr("Select &IAP..."));
+    connect(selectIAPAction, SIGNAL(triggered(bool)), this, SLOT(selectIAP()));
+#endif
     QAction *const openLinkAction = fileMenu->addAction(tr("Open &RAM File..."));
 
     connect(openLinkAction, SIGNAL(triggered(bool)), this, SLOT(openRamFile()));
@@ -346,8 +353,6 @@ MediaPlayer::MediaPlayer(const QString &filePath,
     m_audioOutputPath = Phonon::createPath(&m_MediaObject, &m_AudioOutput);
     Phonon::createPath(&m_MediaObject, m_videoWidget);
 
-    if (!filePath.isEmpty())
-        setFile(filePath);
     resize(minimumSizeHint());
 }
 
@@ -358,7 +363,7 @@ void MediaPlayer::stateChanged(Phonon::State newstate, Phonon::State oldstate)
     if (oldstate == Phonon::LoadingState) {
         QRect videoHintRect = QRect(QPoint(0, 0), m_videoWindow.sizeHint());
         QRect newVideoRect = QApplication::desktop()->screenGeometry().intersected(videoHintRect);
-        if (!m_hasSmallScreen) {
+        if (!m_smallScreen) {
             if (m_MediaObject.hasVideo()) {
                 // Flush event que so that sizeHint takes the
                 // recently shown/hidden m_videoWindow into account:
@@ -464,6 +469,16 @@ void MediaPlayer::initSettingsDialog()
     }
     connect(ui->audioEffectsCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(effectChanged()));
 
+}
+
+void MediaPlayer::setVolume(qreal volume)
+{
+    m_AudioOutput.setVolume(volume);
+}
+
+void MediaPlayer::setSmallScreen(bool smallScreen)
+{
+    m_smallScreen = smallScreen;
 }
 
 void MediaPlayer::effectChanged()
@@ -589,7 +604,7 @@ void MediaPlayer::configureEffect()
         effectDialog.exec();
 
         if (effectDialog.result() != QDialog::Accepted) {
-            //we need to restore the paramaters values
+            //we need to restore the parameters values
             int currentIndex = 0;
             foreach(Phonon::EffectParameter param, nextEffect->parameters()) {
                 nextEffect->setParameterValue(param, savedParamValues.at(currentIndex++));
@@ -685,7 +700,7 @@ bool MediaPlayer::playPauseForDialog()
     // If we're running on a small screen, we want to pause the video when
     // popping up dialogs. We neither want to tamper with the state if the
     // user has paused.
-    if (m_hasSmallScreen && m_MediaObject.hasVideo()) {
+    if (m_smallScreen && m_MediaObject.hasVideo()) {
         if (Phonon::PlayingState == m_MediaObject.state()) {
             m_MediaObject.pause();
             return true;
@@ -716,7 +731,7 @@ void MediaPlayer::openFile()
 
 void MediaPlayer::bufferStatus(int percent)
 {
-    if (percent == 0 || percent == 100)
+    if (percent == 100)
         progressLabel->setText(QString());
     else {
         QString str = QString::fromLatin1("(%1%)").arg(percent);
@@ -943,3 +958,37 @@ void MediaPlayer::hasVideoChanged(bool bHasVideo)
     m_videoWindow.setVisible(bHasVideo);
     m_fullScreenAction->setEnabled(bHasVideo);
 }
+
+#ifdef Q_OS_SYMBIAN
+void MediaPlayer::selectIAP()
+{
+    TRAPD(err, selectIAPL());
+    if (KErrNone != err)
+        QMessageBox::warning(this, "Phonon Mediaplayer", "Error selecting IAP", QMessageBox::Close);
+}
+
+void MediaPlayer::selectIAPL()
+{
+    QVariant currentIAPValue = m_MediaObject.property("InternetAccessPointName");
+    QString currentIAPString = currentIAPValue.toString();
+    bool ok = false;
+    CCommsDatabase *commsDb = CCommsDatabase::NewL(EDatabaseTypeIAP);
+    CleanupStack::PushL(commsDb);
+    commsDb->ShowHiddenRecords();
+    CCommsDbTableView* view = commsDb->OpenTableLC(TPtrC(IAP));
+    QStringList items;
+    TInt currentIAP = 0;
+    for (TInt l = view->GotoFirstRecord(), i = 0; l != KErrNotFound; l = view->GotoNextRecord(), i++) {
+       TBuf<KCommsDbSvrMaxColumnNameLength> iapName;
+       view->ReadTextL(TPtrC(COMMDB_NAME), iapName);
+       QString iapString = QString::fromUtf16(iapName.Ptr(), iapName.Length());
+       items << iapString;
+       if (iapString == currentIAPString)
+           currentIAP = i;
+    }
+    currentIAPString = QInputDialog::getItem(this, tr("Select Access Point"), tr("Select Access Point"), items, currentIAP, false, &ok);
+    if (ok)
+        m_MediaObject.setProperty("InternetAccessPointName", currentIAPString);
+    CleanupStack::PopAndDestroy(2); //commsDB, view
+}
+#endif

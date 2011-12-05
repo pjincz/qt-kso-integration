@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -69,7 +69,7 @@ struct ObjectData : public QScriptDeclarativeClass::Object {
     virtual ~ObjectData() {
         if (object && !object->parent()) {
             QDeclarativeData *ddata = QDeclarativeData::get(object, false);
-            if (ddata && !ddata->indestructible && 0 == --ddata->objectDataRefCount)
+            if (ddata && !ddata->indestructible && 0 == --ddata->objectDataRefCount) 
                 object->deleteLater();
         }
     }
@@ -149,8 +149,8 @@ QDeclarativeObjectScriptClass::queryProperty(Object *object, const Identifier &n
 
 QScriptClass::QueryFlags
 QDeclarativeObjectScriptClass::queryProperty(QObject *obj, const Identifier &name,
-                                    QScriptClass::QueryFlags flags, QDeclarativeContextData *evalContext,
-                                    QueryHints hints)
+                                             QScriptClass::QueryFlags flags, QDeclarativeContextData *evalContext,
+                                             QueryHints hints)
 {
     Q_UNUSED(flags);
     lastData = 0;
@@ -165,6 +165,12 @@ QDeclarativeObjectScriptClass::queryProperty(QObject *obj, const Identifier &nam
 
     QDeclarativeEnginePrivate *enginePrivate = QDeclarativeEnginePrivate::get(engine);
     lastData = QDeclarativePropertyCache::property(engine, obj, name, local);
+    if ((hints & ImplicitObject) && lastData && lastData->revision != 0) {
+
+        QDeclarativeData *ddata = QDeclarativeData::get(obj);
+        if (ddata && ddata->propertyCache && !ddata->propertyCache->isAllowedInRevision(lastData)) 
+            return 0;
+    }
 
     if (lastData)
         return QScriptClass::HandlesReadAccess | QScriptClass::HandlesWriteAccess;
@@ -239,8 +245,13 @@ QDeclarativeObjectScriptClass::property(QObject *obj, const Identifier &name)
         }
     } else {
         if (enginePriv->captureProperties && !(lastData->flags & QDeclarativePropertyCache::Data::IsConstant)) {
-            enginePriv->capturedProperties <<
-                QDeclarativeEnginePrivate::CapturedProperty(obj, lastData->coreIndex, lastData->notifyIndex);
+            if (lastData->coreIndex == 0) {
+                enginePriv->capturedProperties <<
+                    QDeclarativeEnginePrivate::CapturedProperty(QDeclarativeData::get(obj, true)->objectNameNotifier());
+            } else {
+                enginePriv->capturedProperties <<
+                    QDeclarativeEnginePrivate::CapturedProperty(obj, lastData->coreIndex, lastData->notifyIndex);
+            }
         }
 
         if (QDeclarativeValueTypeFactory::isValueType((uint)lastData->propType)) {
@@ -349,8 +360,20 @@ void QDeclarativeObjectScriptClass::setProperty(QObject *obj,
         }
     }
 
+    QDeclarativeBinding *newBinding = 0;
+    if (value.isFunction() && !value.isRegExp()) {
+        QScriptContextInfo ctxtInfo(context);
+        QDeclarativePropertyCache::ValueTypeData valueTypeData;
+
+        newBinding = new QDeclarativeBinding(value, obj, evalContext);
+        newBinding->setSourceLocation(ctxtInfo.fileName(), ctxtInfo.functionStartLineNumber());
+        newBinding->setTarget(QDeclarativePropertyPrivate::restore(*lastData, valueTypeData, obj, evalContext));
+        if (newBinding->expression().contains(QLatin1String("this")))
+            newBinding->setEvaluateFlags(newBinding->evaluateFlags() | QDeclarativeBinding::RequiresThisObject);
+    }
+
     QDeclarativeAbstractBinding *delBinding =
-        QDeclarativePropertyPrivate::setBinding(obj, lastData->coreIndex, -1, 0);
+        QDeclarativePropertyPrivate::setBinding(obj, lastData->coreIndex, -1, newBinding);
     if (delBinding)
         delBinding->destroy();
 
@@ -369,9 +392,8 @@ void QDeclarativeObjectScriptClass::setProperty(QObject *obj,
         QString error = QLatin1String("Cannot assign [undefined] to ") +
                         QLatin1String(QMetaType::typeName(lastData->propType));
         context->throwError(error);
-    } else if (!value.isRegExp() && value.isFunction()) {
-        QString error = QLatin1String("Cannot assign a function to a property.");
-        context->throwError(error);
+    } else if (value.isFunction() && !value.isRegExp()) {
+        // this is handled by the binding creation above
     } else {
         QVariant v;
         if (lastData->flags & QDeclarativePropertyCache::Data::IsQList)
@@ -416,7 +438,7 @@ QScriptValue QDeclarativeObjectScriptClass::tostring(QScriptContext *context, QS
 
         ret += QString::fromUtf8(obj->metaObject()->className());
         ret += QLatin1String("(0x");
-        ret += QString::number((intptr_t)obj,16);
+        ret += QString::number((quintptr)obj,16);
 
         if (!objectName.isEmpty()) {
             ret += QLatin1String(", \"");
@@ -803,7 +825,14 @@ QScriptDeclarativeClass::Value MetaCallArgument::toValue(QDeclarativeEngine *e)
         }
         return QScriptDeclarativeClass::Value(engine, rv);
     } else if (type == -1 || type == qMetaTypeId<QVariant>()) {
-        return QScriptDeclarativeClass::Value(engine, QDeclarativeEnginePrivate::get(e)->scriptValueFromVariant(*((QVariant *)&data)));
+        QDeclarativeEnginePrivate *ep = QDeclarativeEnginePrivate::get(e);
+        QScriptValue rv = ep->scriptValueFromVariant(*((QVariant *)&data));
+        if (rv.isQObject()) {
+            QObject *object = rv.toQObject();
+            if (object)
+                QDeclarativeData::get(object, true)->setImplicitDestructible();
+        }
+        return QScriptDeclarativeClass::Value(engine, rv);
     } else {
         return QScriptDeclarativeClass::Value();
     }
@@ -833,9 +862,19 @@ QDeclarativeObjectMethodScriptClass::Value QDeclarativeObjectMethodScriptClass::
 {
     MethodData *method = static_cast<MethodData *>(o);
 
-    if (method->data.flags & QDeclarativePropertyCache::Data::HasArguments) {
+    if (method->data.relatedIndex == -1)
+        return callPrecise(method->object, method->data, ctxt);
+    else
+        return callOverloaded(method, ctxt);
+}
 
-        QMetaMethod m = method->object->metaObject()->method(method->data.coreIndex);
+QDeclarativeObjectMethodScriptClass::Value 
+QDeclarativeObjectMethodScriptClass::callPrecise(QObject *object, const QDeclarativePropertyCache::Data &data, 
+                                                 QScriptContext *ctxt)
+{
+    if (data.flags & QDeclarativePropertyCache::Data::HasArguments) {
+
+        QMetaMethod m = object->metaObject()->method(data.coreIndex);
         QList<QByteArray> argTypeNames = m.parameterTypes();
         QVarLengthArray<int, 9> argTypes(argTypeNames.count());
 
@@ -843,7 +882,7 @@ QDeclarativeObjectMethodScriptClass::Value QDeclarativeObjectMethodScriptClass::
         for (int ii = 0; ii < argTypeNames.count(); ++ii) {
             argTypes[ii] = QMetaType::type(argTypeNames.at(ii));
             if (argTypes[ii] == QVariant::Invalid) 
-                argTypes[ii] = enumType(method->object->metaObject(), QString::fromLatin1(argTypeNames.at(ii)));
+                argTypes[ii] = enumType(object->metaObject(), QString::fromLatin1(argTypeNames.at(ii)));
             if (argTypes[ii] == QVariant::Invalid) 
                 return Value(ctxt, ctxt->throwError(QString::fromLatin1("Unknown method parameter type: %1").arg(QLatin1String(argTypeNames.at(ii)))));
         }
@@ -851,39 +890,301 @@ QDeclarativeObjectMethodScriptClass::Value QDeclarativeObjectMethodScriptClass::
         if (argTypes.count() > ctxt->argumentCount())
             return Value(ctxt, ctxt->throwError(QLatin1String("Insufficient arguments")));
 
-        QVarLengthArray<MetaCallArgument, 9> args(argTypes.count() + 1);
-        args[0].initAsType(method->data.propType, engine);
+        return callMethod(object, data.coreIndex, data.propType, argTypes.count(), argTypes.data(), ctxt);
 
-        for (int ii = 0; ii < argTypes.count(); ++ii)
+    } else {
+
+        return callMethod(object, data.coreIndex, data.propType, 0, 0, ctxt);
+
+    }
+}
+
+QDeclarativeObjectMethodScriptClass::Value 
+QDeclarativeObjectMethodScriptClass::callMethod(QObject *object, int index, 
+                                                int returnType, int argCount, int *argTypes, 
+                                                QScriptContext *ctxt)
+{
+    if (argCount > 0) {
+
+        QVarLengthArray<MetaCallArgument, 9> args(argCount + 1);
+        args[0].initAsType(returnType, engine);
+
+        for (int ii = 0; ii < argCount; ++ii)
             args[ii + 1].fromScriptValue(argTypes[ii], engine, ctxt->argument(ii));
 
         QVarLengthArray<void *, 9> argData(args.count());
         for (int ii = 0; ii < args.count(); ++ii)
             argData[ii] = args[ii].dataPtr();
 
-        QMetaObject::metacall(method->object, QMetaObject::InvokeMetaMethod, method->data.coreIndex, argData.data());
+        QMetaObject::metacall(object, QMetaObject::InvokeMetaMethod, index, argData.data());
 
         return args[0].toValue(engine);
 
-    } else if (method->data.propType != 0) {
-
+    } else if (returnType != 0) {
+        
         MetaCallArgument arg;
-        arg.initAsType(method->data.propType, engine);
+        arg.initAsType(returnType, engine);
 
         void *args[] = { arg.dataPtr() };
 
-        QMetaObject::metacall(method->object, QMetaObject::InvokeMetaMethod, method->data.coreIndex, args);
+        QMetaObject::metacall(object, QMetaObject::InvokeMetaMethod, index, args);
 
         return arg.toValue(engine);
 
     } else {
 
         void *args[] = { 0 };
-        QMetaObject::metacall(method->object, QMetaObject::InvokeMetaMethod, method->data.coreIndex, args);
+        QMetaObject::metacall(object, QMetaObject::InvokeMetaMethod, index, args);
         return Value();
 
     }
-    return Value();
+}
+
+/*!
+Resolve the overloaded method to call.  The algorithm works conceptually like this:
+    1.  Resolve the set of overloads it is *possible* to call.
+        Impossible overloads include those that have too many parameters or have parameters 
+        of unknown type.  
+    2.  Filter the set of overloads to only contain those with the closest number of 
+        parameters.
+        For example, if we are called with 3 parameters and there are 2 overloads that
+        take 2 parameters and one that takes 3, eliminate the 2 parameter overloads.
+    3.  Find the best remaining overload based on its match score.  
+        If two or more overloads have the same match score, call the last one.  The match
+        score is constructed by adding the matchScore() result for each of the parameters.
+*/
+QDeclarativeObjectMethodScriptClass::Value
+QDeclarativeObjectMethodScriptClass::callOverloaded(MethodData *method, QScriptContext *ctxt)
+{
+    int argumentCount = ctxt->argumentCount();
+
+    QDeclarativePropertyCache::Data *best = 0;
+    int bestParameterScore = INT_MAX;
+    int bestMatchScore = INT_MAX;
+
+    QDeclarativePropertyCache::Data dummy;
+    QDeclarativePropertyCache::Data *attempt = &method->data;
+
+    do {
+        QList<QByteArray> methodArgTypeNames;
+
+        if (attempt->flags & QDeclarativePropertyCache::Data::HasArguments)
+            methodArgTypeNames = method->object->metaObject()->method(attempt->coreIndex).parameterTypes();
+
+        int methodArgumentCount = methodArgTypeNames.count();
+
+        if (methodArgumentCount > argumentCount)
+            continue; // We don't have sufficient arguments to call this method
+
+        int methodParameterScore = argumentCount - methodArgumentCount;
+        if (methodParameterScore > bestParameterScore)
+            continue; // We already have a better option
+
+        int methodMatchScore = 0;
+        QVarLengthArray<int, 9> methodArgTypes(methodArgumentCount);
+
+        bool unknownArgument = false;
+        for (int ii = 0; ii < methodArgumentCount; ++ii) {
+            methodArgTypes[ii] = QMetaType::type(methodArgTypeNames.at(ii));
+            if (methodArgTypes[ii] == QVariant::Invalid) 
+                methodArgTypes[ii] = enumType(method->object->metaObject(), 
+                                              QString::fromLatin1(methodArgTypeNames.at(ii)));
+            if (methodArgTypes[ii] == QVariant::Invalid) {
+                unknownArgument = true;
+                break;
+            }
+            methodMatchScore += matchScore(ctxt->argument(ii), methodArgTypes[ii], methodArgTypeNames.at(ii));
+        }
+        if (unknownArgument)
+            continue; // We don't understand all the parameters
+
+        if (bestParameterScore > methodParameterScore || bestMatchScore > methodMatchScore) {
+            best = attempt;
+            bestParameterScore = methodParameterScore;
+            bestMatchScore = methodMatchScore;
+        }
+
+        if (bestParameterScore == 0 && bestMatchScore == 0)
+            break; // We can't get better than that
+
+    } while((attempt = relatedMethod(method->object, attempt, dummy)) != 0);
+
+    if (best) {
+        return callPrecise(method->object, *best, ctxt);
+    } else {
+        QString error = QLatin1String("Unable to determine callable overload.  Candidates are:");
+        QDeclarativePropertyCache::Data *candidate = &method->data;
+        while (candidate) {
+            error += QLatin1String("\n    ") + QString::fromUtf8(method->object->metaObject()->method(candidate->coreIndex).signature());
+            candidate = relatedMethod(method->object, candidate, dummy);
+        }
+        return Value(ctxt, ctxt->throwError(error));
+    }
+}
+
+/*!
+    Returns the match score for converting \a actual to be of type \a conversionType.  A 
+    zero score means "perfect match" whereas a higher score is worse.
+
+    The conversion table is copied out of the QtScript callQtMethod() function.
+*/
+int QDeclarativeObjectMethodScriptClass::matchScore(const QScriptValue &actual, int conversionType, 
+                                                    const QByteArray &conversionTypeName)
+{
+    if (actual.isNumber()) {
+        switch (conversionType) {
+        case QMetaType::Double:
+            return 0;
+        case QMetaType::Float:
+            return 1;
+        case QMetaType::LongLong:
+        case QMetaType::ULongLong:
+            return 2;
+        case QMetaType::Long:
+        case QMetaType::ULong:
+            return 3;
+        case QMetaType::Int:
+        case QMetaType::UInt:
+            return 4;
+        case QMetaType::Short:
+        case QMetaType::UShort:
+            return 5;
+            break;
+        case QMetaType::Char:
+        case QMetaType::UChar:
+            return 6;
+        default:
+            return 10;
+        }
+    } else if (actual.isString()) {
+        switch (conversionType) {
+        case QMetaType::QString:
+            return 0;
+        default:
+            return 10;
+        }
+    } else if (actual.isBoolean()) {
+        switch (conversionType) {
+        case QMetaType::Bool:
+            return 0;
+        default:
+            return 10;
+        }
+    } else if (actual.isDate()) {
+        switch (conversionType) {
+        case QMetaType::QDateTime:
+            return 0;
+        case QMetaType::QDate:
+            return 1;
+        case QMetaType::QTime:
+            return 2;
+        default:
+            return 10;
+        }
+    } else if (actual.isRegExp()) {
+        switch (conversionType) {
+        case QMetaType::QRegExp:
+            return 0;
+        default:
+            return 10;
+        }
+    } else if (actual.isVariant()) {
+        if (conversionType == qMetaTypeId<QVariant>())
+            return 0;
+        else if (actual.toVariant().userType() == conversionType)
+            return 0;
+        else
+            return 10;
+    } else if (actual.isArray()) {
+        switch (conversionType) {
+        case QMetaType::QStringList:
+        case QMetaType::QVariantList:
+            return 5;
+        default:
+            return 10;
+        }
+    } else if (actual.isQObject()) {
+        switch (conversionType) {
+        case QMetaType::QObjectStar:
+            return 0;
+        default:
+            return 10;
+        }
+    } else if (actual.isNull()) {
+        switch (conversionType) {
+        case QMetaType::VoidStar:
+        case QMetaType::QObjectStar:
+            return 0;
+        default:
+            if (!conversionTypeName.endsWith('*'))
+                return 10;
+            else
+                return 0;
+        }
+    } else {
+        return 10;
+    }
+}
+
+static inline int QMetaObject_methods(const QMetaObject *metaObject)
+{
+    struct Private
+    {
+        int revision;
+        int className;
+        int classInfoCount, classInfoData;
+        int methodCount, methodData;
+    };
+
+    return reinterpret_cast<const Private *>(metaObject->d.data)->methodCount;
+}
+
+static QByteArray QMetaMethod_name(const QMetaMethod &m)
+{
+    QByteArray sig = m.signature();
+    int paren = sig.indexOf('(');
+    if (paren == -1)
+        return sig;
+    else
+        return sig.left(paren);
+}
+
+/*!
+Returns the next related method, if one, or 0.
+*/
+QDeclarativePropertyCache::Data *
+QDeclarativeObjectMethodScriptClass::relatedMethod(QObject *object, QDeclarativePropertyCache::Data *current, 
+                                                   QDeclarativePropertyCache::Data &dummy)
+{
+    QDeclarativePropertyCache *cache = QDeclarativeData::get(object)->propertyCache;
+    if (current->relatedIndex == -1)
+        return 0;
+
+    if (cache) {
+        return cache->method(current->relatedIndex);
+    } else {
+        const QMetaObject *mo = object->metaObject();
+        int methodOffset = mo->methodCount() - QMetaObject_methods(mo);
+
+        while (methodOffset > current->relatedIndex) {
+            mo = mo->superClass();
+            methodOffset -= QMetaObject_methods(mo);
+        }
+
+        QMetaMethod method = mo->method(current->relatedIndex);
+        dummy.load(method);
+        
+        // Look for overloaded methods
+        QByteArray methodName = QMetaMethod_name(method);
+        for (int ii = current->relatedIndex - 1; ii >= methodOffset; --ii) {
+            if (methodName == QMetaMethod_name(mo->method(ii))) {
+                dummy.relatedIndex = ii;
+                return &dummy;
+            }
+        }
+
+        return &dummy;
+    }
 }
 
 QT_END_NAMESPACE

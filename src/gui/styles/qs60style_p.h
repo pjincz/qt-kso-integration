@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -60,7 +60,7 @@
 QT_BEGIN_NAMESPACE
 
 const int MAX_NON_CUSTOM_PIXELMETRICS = 92;
-const int CUSTOMVALUESCOUNT = 5;
+const int CUSTOMVALUESCOUNT = 7;
 
 const int MAX_PIXELMETRICS = MAX_NON_CUSTOM_PIXELMETRICS + CUSTOMVALUESCOUNT;
 
@@ -142,11 +142,11 @@ public:
         SP_QgnGrafNsliderMiddle,
         SP_QgnIndiCheckboxOff,
         SP_QgnIndiCheckboxOn,
-        SP_QgnIndiHlColSuper,     // Available in S60 release 3.2 and later.
-        SP_QgnIndiHlExpSuper,     // Available in S60 release 3.2 and later.
-        SP_QgnIndiHlLineBranch,   // Available in S60 release 3.2 and later.
-        SP_QgnIndiHlLineEnd,      // Available in S60 release 3.2 and later.
-        SP_QgnIndiHlLineStraight, // Available in S60 release 3.2 and later.
+        SP_QgnIndiHlColSuper,
+        SP_QgnIndiHlExpSuper,
+        SP_QgnIndiHlLineBranch,
+        SP_QgnIndiHlLineEnd,
+        SP_QgnIndiHlLineStraight,
         SP_QgnIndiMarkedAdd,
         SP_QgnIndiNaviArrowLeft,
         SP_QgnIndiNaviArrowRight,
@@ -311,6 +311,102 @@ public:
         SP_QsnFrListSideLPressed,
         SP_QsnFrListSideRPressed,
         SP_QsnFrListCenterPressed,
+        SP_QtgToolBarAdd,
+        SP_QtgToolBarAddDetail,
+        SP_QtgToolBarAgain,
+        SP_QtgToolBarAgenda,
+        SP_QtgToolBarAudioOff,
+        SP_QtgToolBarAudioOn,
+        SP_QtgToolBarBack,
+        SP_QtgToolBarBluetoothOff,
+        SP_QtgToolBarBluetoothOn,
+        SP_QtgToolBarCancel,
+        SP_QtgToolBarDelete,
+        SP_QtgToolBarDetails,
+        SP_QtgToolBarDone,
+        SP_QtgToolBarEdit,
+        SP_QtgToolBarEditDisabled,
+        SP_QtgToolBarEmailSend,
+        SP_QtgToolBarEmergencyCall,
+        SP_QtgToolBarFavouriteAdd,
+        SP_QtgToolBarFavouriteRemove,
+        SP_QtgToolBarFavourites,
+        SP_QtgToolBarForward,
+        SP_QtgToolBarGo,
+        SP_QtgToolBarHome,
+        SP_QtgToolBarImageTools,
+        SP_QtgToolBarList,
+        SP_QtgToolBarLock,
+        SP_QtgToolBarLogs,
+        SP_QtgToolBarMenu,
+        SP_QtgToolBarNewContact,
+        SP_QtgToolBarNewGroup,
+        SP_QtgToolBarNext,
+        SP_QtgToolBarNextFrame,
+        SP_QtgToolBarNowPlay,
+        SP_QtgToolBarOptions,
+        SP_QtgToolBarOther,
+        SP_QtgToolBarOvi,
+        SP_QtgToolBarPause,
+        SP_QtgToolBarPlay,
+        SP_QtgToolBarPrevious,
+        SP_QtgToolBarPreviousFrame,
+        SP_QtgToolBarRead,
+        SP_QtgToolBarRedo,
+        SP_QtgToolBarRedoDisabled,
+        SP_QtgToolBarRefresh,
+        SP_QtgToolBarRemoveDetail,
+        SP_QtgToolBarRemoveDisabled,
+        SP_QtgToolBarRepeat,
+        SP_QtgToolBarRepeatOff,
+        SP_QtgToolBarRepeatOne,
+        SP_QtgToolBarRewind,
+        SP_QtgToolBarSearch,
+        SP_QtgToolBarSearchDisabled,
+        SP_QtgToolBarSelectContent,
+        SP_QtgToolBarSelfTimer,
+        SP_QtgToolBarSend,
+        SP_QtgToolBarSendDimmed,
+        SP_QtgToolBarShare,
+        SP_QtgToolBarShift,
+        SP_QtgToolBarShuffle,
+        SP_QtgToolBarShuffleOff,
+        SP_QtgToolBarSignalOff,
+        SP_QtgToolBarSignalOn,
+        SP_QtgToolBarStop,
+        SP_QtgToolBarSync,
+        SP_QtgToolBarTools,
+        SP_QtgToolBarTrim,
+        SP_QtgToolBarUnlock,
+        SP_QtgToolBarUnmark,
+        SP_QtgToolBarView,
+        SP_QtgToolBarWlanOff,
+        SP_QtgToolBarWlanOn,
+        SP_QtgGrafCameraButtonCaptureNormal,
+        SP_QtgGrafCameraButtonCapturePressed,
+        SP_QtgGrafCameraButtonPauseNormal,
+        SP_QtgGrafCameraButtonPausePressed,
+        SP_QtgGrafCameraButtonPlayNormal,
+        SP_QtgGrafCameraButtonPlayPressed,
+        SP_QtgGrafCameraButtonRecNormal,
+        SP_QtgGrafCameraButtonRecPressed,
+        SP_QtgGrafCameraButtonStopNormal,
+        SP_QtgGrafCameraButtonStopPressed,
+        SP_QtgTabAll,
+        SP_QtgTabArtist,
+        SP_QtgTabFavourite,
+        SP_QtgTabGenre,
+        SP_QtgTabLanguage,
+        SP_QtgTabMusicAlbum,
+        SP_QtgTabPhotosAlbum,
+        SP_QtgTabPhotosAll,
+        SP_QtgTabPlaylist,
+        SP_QtgTabServices,
+        SP_QtgTabSongs,
+        SP_QtgTabVideos,
+        SP_QgnIndiBrowserTbReload,
+        SP_QgnIndiBrowserTbHome,
+        SP_QgnIndiBrowserTbStop,
     };
 
     enum ColorLists {
@@ -445,6 +541,7 @@ public:
         SE_DropArea,
         SE_TableItemPressed,
         SE_ListItemPressed,
+        SE_DialogBackground,
     };
 
     enum SkinFrameElements {
@@ -464,6 +561,7 @@ public:
         SF_ButtonInactive,
         SF_TableItemPressed,
         SF_ListItemPressed,
+        SF_DialogBackground,
     };
 
     enum SkinElementFlag {
@@ -522,8 +620,12 @@ public:
     static bool isSingleClickUi();
     static bool isWidgetPressed(const QWidget *widget);
 
-    // calculates average color based on button skin graphics (minus borders).
+#ifdef Q_WS_S60
+    static void deleteStoredSettings();
+    // calculates average color based on theme graphics (minus borders).
     QColor colorFromFrameGraphics(SkinFrameElements frame) const;
+#endif
+    QColor calculatedColor(SkinFrameElements frame) const;
 
     //set theme palette for application
     void setThemePalette(QApplication *application) const;
@@ -541,7 +643,6 @@ public:
     static const int m_numberOfLayouts;
 
     mutable QHash<QPair<QS60StyleEnums::FontCategories , int>, QFont> m_mappedFontsCache;
-    mutable QHash<SkinFrameElements, QColor> m_colorCache;
 
     // Has one entry per SkinFrameElements
     static const struct frameElementCenter {
@@ -551,14 +652,13 @@ public:
 
     static QPixmap frame(SkinFrameElements frame, const QSize &size,
         SkinElementFlags flags = KDefaultSkinElementFlags);
-    static QPixmap backgroundTexture();
+    static QPixmap backgroundTexture(bool skipCreation = false);
+    static QPixmap placeHolderTexture();
 
 #ifdef Q_WS_S60
     void handleDynamicLayoutVariantSwitch();
     void handleSkinChange();
 #endif // Q_WS_S60
-
-    static QSize naviPaneSize();
 
     //Checks that the current brush is transparent or has BrushStyle NoBrush,
     //so that theme graphic background can be drawn.
@@ -589,13 +689,11 @@ private:
     static QPixmap cachedFrame(SkinFrameElements frame, const QSize &size,
         SkinElementFlags flags = KDefaultSkinElementFlags);
 
-    static void refreshUI();
-
     // set S60 font for widget
     void setFont(QWidget *widget) const;
-    void setThemePalette(QWidget *widget) const;
+    static void setThemePalette(QWidget *widget);
     void setThemePalette(QPalette *palette) const;
-    void setThemePaletteHash(QPalette *palette) const;
+    static void setThemePaletteHash(QPalette *palette);
     static void storeThemePalette(QPalette *palette);
     static void deleteThemePalette();
     static bool equalToThemePalette(QColor color, QPalette::ColorRole role);
@@ -613,6 +711,9 @@ private:
 
     // Contains background texture.
     static QPixmap *m_background;
+    // Placeholder pixmap for the real background texture.
+    static QPixmap *m_placeHolderTexture;
+
     const static SkinElementFlags KDefaultSkinElementFlags;
     // defined theme palette
     static QPalette *m_themePalette;

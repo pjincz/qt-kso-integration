@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -42,6 +42,7 @@
 #include <QDebug>
 #include <private/qpixmap_raster_p.h>
 #include <private/qwindowsurface_gl_p.h>
+#include <private/qwindowsurface_raster_p.h>
 #include <private/qegl_p.h>
 #include <private/qglextensions_p.h>
 #include <private/qgl_p.h>
@@ -51,12 +52,22 @@
 #include <private/qimage_p.h>
 #include <private/qeglproperties_p.h>
 #include <private/qeglcontext_p.h>
+#include <private/qpixmap_x11_p.h>
 
 #include "qmeegopixmapdata.h"
+#include "qmeegolivepixmapdata.h"
 #include "qmeegographicssystem.h"
 #include "qmeegoextensions.h"
 
+#include <QTimer>
+
 bool QMeeGoGraphicsSystem::surfaceWasCreated = false;
+
+QHash <Qt::HANDLE, QPixmap*> QMeeGoGraphicsSystem::liveTexturePixmaps;
+
+QList<QMeeGoSwitchCallback> QMeeGoGraphicsSystem::switchCallbacks;
+
+QMeeGoGraphicsSystem::SwitchPolicy QMeeGoGraphicsSystem::switchPolicy = QMeeGoGraphicsSystem::AutomaticSwitch;
 
 QMeeGoGraphicsSystem::QMeeGoGraphicsSystem()
 {
@@ -69,8 +80,135 @@ QMeeGoGraphicsSystem::~QMeeGoGraphicsSystem()
     qt_destroy_gl_share_widget();
 }
 
+class QMeeGoGraphicsSystemSwitchHandler : public QObject
+{
+    Q_OBJECT
+public:
+    QMeeGoGraphicsSystemSwitchHandler();
+
+    void addWidget(QWidget *widget);
+    bool eventFilter(QObject *, QEvent *);
+
+    void handleMapNotify();
+
+private slots:
+    void removeWidget(QObject *object);
+    void switchToRaster();
+    void switchToMeeGo();
+
+private:
+    int visibleWidgets() const;
+
+private:
+    QList<QWidget *> m_widgets;
+};
+
+typedef bool(*QX11FilterFunction)(XEvent *event);
+Q_GUI_EXPORT void qt_installX11EventFilter(QX11FilterFunction func);
+
+static bool x11EventFilter(XEvent *event);
+
+QMeeGoGraphicsSystemSwitchHandler::QMeeGoGraphicsSystemSwitchHandler()
+{
+    qt_installX11EventFilter(x11EventFilter);
+}
+
+void QMeeGoGraphicsSystemSwitchHandler::addWidget(QWidget *widget)
+{
+    if (widget != qt_gl_share_widget() && !m_widgets.contains(widget)) {
+        widget->installEventFilter(this);
+        connect(widget, SIGNAL(destroyed(QObject *)), this, SLOT(removeWidget(QObject *)));
+        m_widgets << widget;
+    }
+}
+
+void QMeeGoGraphicsSystemSwitchHandler::handleMapNotify()
+{
+    if (QMeeGoGraphicsSystem::switchPolicy == QMeeGoGraphicsSystem::AutomaticSwitch && visibleWidgets() == 0)
+        QTimer::singleShot(0, this, SLOT(switchToMeeGo()));
+}
+
+void QMeeGoGraphicsSystemSwitchHandler::removeWidget(QObject *object)
+{
+    m_widgets.removeOne(static_cast<QWidget *>(object));
+    if (QMeeGoGraphicsSystem::switchPolicy == QMeeGoGraphicsSystem::AutomaticSwitch && visibleWidgets() == 0)
+        QTimer::singleShot(0, this, SLOT(switchToRaster()));
+}
+
+void QMeeGoGraphicsSystemSwitchHandler::switchToRaster()
+{
+    QMeeGoGraphicsSystem::switchToRaster();
+}
+
+void QMeeGoGraphicsSystemSwitchHandler::switchToMeeGo()
+{
+    QMeeGoGraphicsSystem::switchToMeeGo();
+}
+
+int QMeeGoGraphicsSystemSwitchHandler::visibleWidgets() const
+{
+    int count = 0;
+    for (int i = 0; i < m_widgets.size(); ++i)
+        count += m_widgets.at(i)->isVisible() && !(m_widgets.at(i)->windowState() & Qt::WindowMinimized);
+    return count;
+}
+
+bool QMeeGoGraphicsSystemSwitchHandler::eventFilter(QObject *object, QEvent *event)
+{
+    if (event->type() == QEvent::WindowStateChange
+        && QMeeGoGraphicsSystem::switchPolicy == QMeeGoGraphicsSystem::AutomaticSwitch)
+    {
+        QWindowStateChangeEvent *change = static_cast<QWindowStateChangeEvent *>(event);
+        QWidget *widget = static_cast<QWidget *>(object);
+
+        Qt::WindowStates current = widget->windowState();
+        Qt::WindowStates old = change->oldState();
+
+        // did minimized flag change?
+        if ((current ^ old) & Qt::WindowMinimized) {
+            if (current & Qt::WindowMinimized) {
+                if (visibleWidgets() == 0)
+                    QMeeGoGraphicsSystem::switchToRaster();
+            } else {
+                if (visibleWidgets() > 0)
+                    QMeeGoGraphicsSystem::switchToMeeGo();
+            }
+        }
+    } else if (event->type() == QEvent::Show
+               && QMeeGoGraphicsSystem::switchPolicy == QMeeGoGraphicsSystem::AutomaticSwitch) {
+        if (visibleWidgets() > 0)
+            QMeeGoGraphicsSystem::switchToMeeGo();
+    } else if (event->type() == QEvent::Hide
+               && QMeeGoGraphicsSystem::switchPolicy == QMeeGoGraphicsSystem::AutomaticSwitch) {
+        if (visibleWidgets() == 0)
+            QMeeGoGraphicsSystem::switchToRaster();
+    }
+
+    // resume processing of event
+    return false;
+}
+
+Q_GLOBAL_STATIC(QMeeGoGraphicsSystemSwitchHandler, switch_handler)
+
+bool x11EventFilter(XEvent *event)
+{
+    if (event->type == MapNotify)
+        switch_handler()->handleMapNotify();
+    return false;
+}
+
 QWindowSurface* QMeeGoGraphicsSystem::createWindowSurface(QWidget *widget) const
 {
+    QGLWidget *shareWidget = qt_gl_share_widget();
+
+    if (!shareWidget)
+        return new QRasterWindowSurface(widget);
+
+    QGLShareContextScope ctx(shareWidget->context());
+
+    if (QApplicationPrivate::instance()->graphics_system_name == QLatin1String("runtime"))
+        switch_handler()->addWidget(widget);
+
     QMeeGoGraphicsSystem::surfaceWasCreated = true;
     QWindowSurface *surface = new QGLWindowSurface(widget);
     return surface;
@@ -78,12 +216,6 @@ QWindowSurface* QMeeGoGraphicsSystem::createWindowSurface(QWidget *widget) const
 
 QPixmapData *QMeeGoGraphicsSystem::createPixmapData(QPixmapData::PixelType type) const
 {
-    // Long story short: without this it's possible to hit an 
-    // unitialized paintDevice due to a Qt bug too complex to even 
-    // explain here... not to mention fix without going crazy. 
-    // MDK
-    QGLShareContextScope ctx(qt_gl_share_widget()->context());
- 
     return new QRasterPixmapData(type);
 }
 
@@ -99,8 +231,8 @@ QPixmapData *QMeeGoGraphicsSystem::createPixmapData(QPixmapData *origin)
 
         if (QMeeGoPixmapData::sharedImagesMap.contains(rawResource))
             return new QMeeGoPixmapData();
-    } 
-        
+    }
+
     return new QRasterPixmapData(origin->pixelType());
 }
 
@@ -120,8 +252,10 @@ QPixmapData* QMeeGoGraphicsSystem::wrapPixmapData(QPixmapData *pmd)
 
 void QMeeGoGraphicsSystem::setSurfaceFixedSize(int /*width*/, int /*height*/)
 {
-    if (QMeeGoGraphicsSystem::surfaceWasCreated)
+    if (QMeeGoGraphicsSystem::surfaceWasCreated) {
         qWarning("Trying to set surface fixed size but surface already created!");
+        return;
+    }
 
 #ifdef QT_WAS_PATCHED
     QEglProperties *properties = new QEglProperties();
@@ -139,6 +273,11 @@ void QMeeGoGraphicsSystem::setSurfaceScaling(int x, int y, int width, int height
 
 void QMeeGoGraphicsSystem::setTranslucent(bool translucent)
 {
+    if (QMeeGoGraphicsSystem::surfaceWasCreated) {
+        qWarning("Trying to set translucency but surface already created!");
+        return;
+    }
+
     QGLWindowSurface::surfaceFormat.setSampleBuffers(false);
     QGLWindowSurface::surfaceFormat.setSamples(0);
     QGLWindowSurface::surfaceFormat.setAlpha(translucent);
@@ -147,18 +286,18 @@ void QMeeGoGraphicsSystem::setTranslucent(bool translucent)
 QPixmapData *QMeeGoGraphicsSystem::pixmapDataFromEGLSharedImage(Qt::HANDLE handle, const QImage &softImage)
 {
     if (softImage.format() != QImage::Format_ARGB32_Premultiplied &&
-        softImage.format() != QImage::Format_ARGB32) {
-        qFatal("For egl shared images, the soft image has to be ARGB32 or ARGB32_Premultiplied");
+        softImage.format() != QImage::Format_RGB32) {
+        qFatal("For egl shared images, the soft image has to be ARGB32_Premultiplied or RGB32");
         return NULL;
     }
-    
+
     if (QMeeGoGraphicsSystem::meeGoRunning()) {
         QMeeGoPixmapData *pmd = new QMeeGoPixmapData;
         pmd->fromEGLSharedImage(handle, softImage);
         return QMeeGoGraphicsSystem::wrapPixmapData(pmd);
     } else {
         QRasterPixmapData *pmd = new QRasterPixmapData(QPixmapData::PixmapType);
-        pmd->fromImage(softImage, Qt::NoOpaqueDetection);
+        pmd->fromImage(softImage, Qt::NoFormatConversion);
 
         // Make sure that the image was not converted in any way
         if (pmd->buffer()->data_ptr()->data !=
@@ -173,9 +312,9 @@ QPixmapData *QMeeGoGraphicsSystem::pixmapDataFromEGLSharedImage(Qt::HANDLE handl
 void QMeeGoGraphicsSystem::updateEGLSharedImagePixmap(QPixmap *pixmap)
 {
     QMeeGoPixmapData *pmd = (QMeeGoPixmapData *) pixmap->pixmapData();
-    
+
     // Basic sanity check to make sure this is really a QMeeGoPixmapData...
-    if (pmd->classId() != QPixmapData::OpenGLClass) 
+    if (pmd->classId() != QPixmapData::OpenGLClass)
         qFatal("Trying to updated EGLSharedImage pixmap but it's not really a shared image pixmap!");
 
     pmd->updateFromSoftImage();
@@ -190,18 +329,112 @@ QPixmapData *QMeeGoGraphicsSystem::pixmapDataWithGLTexture(int w, int h)
 
 bool QMeeGoGraphicsSystem::meeGoRunning()
 {
-    if (! QApplicationPrivate::instance()) {
-        qWarning("Application not running just yet... hard to know what system running!");
-        return false;
+    return runningGraphicsSystemName() == "meego";
+}
+
+QPixmapData* QMeeGoGraphicsSystem::pixmapDataWithNewLiveTexture(int w, int h, QImage::Format format)
+{
+    return new QMeeGoLivePixmapData(w, h, format);
+}
+
+QPixmapData* QMeeGoGraphicsSystem::pixmapDataFromLiveTextureHandle(Qt::HANDLE handle)
+{
+    return new QMeeGoLivePixmapData(handle);
+}
+
+QImage* QMeeGoGraphicsSystem::lockLiveTexture(QPixmap* pixmap, void* fenceSync)
+{
+    QMeeGoLivePixmapData *pixmapData = static_cast<QMeeGoLivePixmapData*>(pixmap->data_ptr().data());
+    return pixmapData->lock(fenceSync);
+}
+
+bool QMeeGoGraphicsSystem::releaseLiveTexture(QPixmap *pixmap, QImage *image)
+{
+    QMeeGoLivePixmapData *pixmapData = static_cast<QMeeGoLivePixmapData*>(pixmap->data_ptr().data());
+    return pixmapData->release(image);
+}
+
+Qt::HANDLE QMeeGoGraphicsSystem::getLiveTextureHandle(QPixmap *pixmap)
+{
+    QMeeGoLivePixmapData *pixmapData = static_cast<QMeeGoLivePixmapData*>(pixmap->data_ptr().data());
+    return pixmapData->handle();
+}
+
+void* QMeeGoGraphicsSystem::createFenceSync()
+{
+    QGLShareContextScope ctx(qt_gl_share_widget()->context());
+    QMeeGoExtensions::ensureInitialized();
+    return QMeeGoExtensions::eglCreateSyncKHR(QEgl::display(), EGL_SYNC_FENCE_KHR, NULL);
+}
+
+void QMeeGoGraphicsSystem::destroyFenceSync(void *fenceSync)
+{
+    QGLShareContextScope ctx(qt_gl_share_widget()->context());
+    QMeeGoExtensions::ensureInitialized();
+    QMeeGoExtensions::eglDestroySyncKHR(QEgl::display(), fenceSync);
+}
+
+QString QMeeGoGraphicsSystem::runningGraphicsSystemName()
+{
+    if (!QApplicationPrivate::instance()) {
+        qWarning("Querying graphics system but application not running yet!");
+        return QString();
     }
 
     QString name = QApplicationPrivate::instance()->graphics_system_name;
-    if (name == "runtime") {
+    if (name == QLatin1String("runtime")) {
         QRuntimeGraphicsSystem *rsystem = (QRuntimeGraphicsSystem *) QApplicationPrivate::instance()->graphics_system;
         name = rsystem->graphicsSystemName();
     }
 
-    return (name == "meego");
+    return name;
+}
+
+void QMeeGoGraphicsSystem::switchToMeeGo()
+{
+    if (switchPolicy == NoSwitch || meeGoRunning())
+        return;
+
+    if (QApplicationPrivate::instance()->graphics_system_name != QLatin1String("runtime"))
+        qWarning("Can't switch to meego - switching only supported with 'runtime' graphics system.");
+    else {
+        triggerSwitchCallbacks(0, "meego");
+
+        QApplication *app = static_cast<QApplication *>(QCoreApplication::instance());
+        app->setGraphicsSystem(QLatin1String("meego"));
+
+        triggerSwitchCallbacks(1, "meego");
+    }
+}
+
+void QMeeGoGraphicsSystem::switchToRaster()
+{
+    if (switchPolicy == NoSwitch || runningGraphicsSystemName() == QLatin1String("raster"))
+        return;
+
+    if (QApplicationPrivate::instance()->graphics_system_name != QLatin1String("runtime"))
+        qWarning("Can't switch to raster - switching only supported with 'runtime' graphics system.");
+    else {
+        triggerSwitchCallbacks(0, "raster");
+
+        QApplication *app = static_cast<QApplication *>(QCoreApplication::instance());
+        app->setGraphicsSystem(QLatin1String("raster"));
+
+        QMeeGoLivePixmapData::invalidateSurfaces();
+
+        triggerSwitchCallbacks(1, "raster");
+    }
+}
+
+void QMeeGoGraphicsSystem::registerSwitchCallback(QMeeGoSwitchCallback callback)
+{
+    switchCallbacks << callback;
+}
+
+void QMeeGoGraphicsSystem::triggerSwitchCallbacks(int type, const char *name)
+{
+    for (int i = 0; i < switchCallbacks.size(); ++i)
+        switchCallbacks.at(i)(type, name);
 }
 
 /* C API */
@@ -245,3 +478,65 @@ void qt_meego_update_egl_shared_image_pixmap(QPixmap *pixmap)
 {
     QMeeGoGraphicsSystem::updateEGLSharedImagePixmap(pixmap);
 }
+
+QPixmapData* qt_meego_pixmapdata_with_new_live_texture(int w, int h, QImage::Format format)
+{
+    return QMeeGoGraphicsSystem::pixmapDataWithNewLiveTexture(w, h, format);
+}
+
+QPixmapData* qt_meego_pixmapdata_from_live_texture_handle(Qt::HANDLE handle)
+{
+    return QMeeGoGraphicsSystem::pixmapDataFromLiveTextureHandle(handle);
+}
+
+QImage* qt_meego_live_texture_lock(QPixmap *pixmap, void *fenceSync)
+{
+    return QMeeGoGraphicsSystem::lockLiveTexture(pixmap, fenceSync);
+}
+
+bool qt_meego_live_texture_release(QPixmap *pixmap, QImage *image)
+{
+    return QMeeGoGraphicsSystem::releaseLiveTexture(pixmap, image);
+}
+
+Qt::HANDLE qt_meego_live_texture_get_handle(QPixmap *pixmap)
+{
+    return QMeeGoGraphicsSystem::getLiveTextureHandle(pixmap);
+}
+
+void* qt_meego_create_fence_sync(void)
+{
+    return QMeeGoGraphicsSystem::createFenceSync();
+}
+
+void qt_meego_destroy_fence_sync(void* fs)
+{
+    return QMeeGoGraphicsSystem::destroyFenceSync(fs);
+}
+
+void qt_meego_invalidate_live_surfaces(void)
+{
+    return QMeeGoLivePixmapData::invalidateSurfaces();
+}
+
+void qt_meego_switch_to_raster(void)
+{
+    QMeeGoGraphicsSystem::switchToRaster();
+}
+
+void qt_meego_switch_to_meego(void)
+{
+    QMeeGoGraphicsSystem::switchToMeeGo();
+}
+
+void qt_meego_register_switch_callback(QMeeGoSwitchCallback callback)
+{
+    QMeeGoGraphicsSystem::registerSwitchCallback(callback);
+}
+
+void qt_meego_set_switch_policy(int policy)
+{
+    QMeeGoGraphicsSystem::switchPolicy = QMeeGoGraphicsSystem::SwitchPolicy(policy);
+}
+
+#include "qmeegographicssystem.moc"

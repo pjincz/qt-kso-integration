@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -49,6 +49,7 @@
 #include <qfontmetrics.h>
 #include <qbitmap.h>
 #include <qimage.h>
+#include <qthread.h>
 #include <limits.h>
 #if !defined(Q_OS_WINCE) && !defined(Q_OS_SYMBIAN)
 #include <qprinter.h>
@@ -253,6 +254,11 @@ private slots:
     void QTBUG5939_attachPainterPrivate();
 
     void drawPointScaled();
+
+    void QTBUG14614_gradientCacheRaceCondition();
+    void drawTextOpacity();
+
+    void QTBUG17053_zeroDashPattern();
 
 private:
     void fillData();
@@ -4541,6 +4547,80 @@ void tst_QPainter::drawPointScaled()
     p.end();
 
     QCOMPARE(image.pixel(16, 16), 0xffff0000);
+}
+
+class GradientProducer : public QThread
+{
+protected:
+    void run();
+};
+
+void GradientProducer::run()
+{
+    QImage image(1, 1, QImage::Format_RGB32);
+    QPainter p(&image);
+
+    for (int i = 0; i < 1000; ++i) {
+        QLinearGradient g;
+        g.setColorAt(0, QColor(i % 256, 0, 0));
+        g.setColorAt(1, Qt::white);
+
+        p.fillRect(image.rect(), g);
+    }
+}
+
+void tst_QPainter::QTBUG14614_gradientCacheRaceCondition()
+{
+    const int threadCount = 16;
+    GradientProducer producers[threadCount];
+    for (int i = 0; i < threadCount; ++i)
+        producers[i].start();
+    for (int i = 0; i < threadCount; ++i)
+        producers[i].wait();
+}
+
+void tst_QPainter::drawTextOpacity()
+{
+    QImage image(32, 32, QImage::Format_RGB32);
+    image.fill(0xffffffff);
+
+    QPainter p(&image);
+    p.setPen(QColor("#6F6F6F"));
+    p.setOpacity(0.5);
+    p.drawText(5, 30, QLatin1String("Qt"));
+    p.end();
+
+    QImage copy = image;
+    image.fill(0xffffffff);
+
+    p.begin(&image);
+    p.setPen(QColor("#6F6F6F"));
+    p.drawLine(-10, -10, -1, -1);
+    p.setOpacity(0.5);
+    p.drawText(5, 30, QLatin1String("Qt"));
+    p.end();
+
+    QCOMPARE(image, copy);
+}
+
+void tst_QPainter::QTBUG17053_zeroDashPattern()
+{
+    QImage image(32, 32, QImage::Format_RGB32);
+    image.fill(0xffffffff);
+
+    QImage original = image;
+
+    QVector<qreal> pattern;
+    pattern << qreal(0) << qreal(0);
+
+    QPainter p(&image);
+    QPen pen(Qt::black, 2.0);
+    pen.setDashPattern(pattern);
+
+    p.setPen(pen);
+    p.drawLine(0, 0, image.width(), image.height());
+
+    QCOMPARE(image, original);
 }
 
 QTEST_MAIN(tst_QPainter)

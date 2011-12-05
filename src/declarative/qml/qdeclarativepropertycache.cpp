@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -88,12 +88,16 @@ void QDeclarativePropertyCache::Data::load(const QMetaProperty &p, QDeclarativeE
     coreIndex = p.propertyIndex();
     notifyIndex = p.notifySignalIndex();
     flags = flagsForProperty(p, engine);
+    revision = p.revision();
 }
 
 void QDeclarativePropertyCache::Data::load(const QMetaMethod &m)
 {
     coreIndex = m.methodIndex();
+    relatedIndex = -1;
     flags |= Data::IsFunction;
+    if (m.methodType() == QMetaMethod::Signal)
+        flags |= Data::IsSignal;
     propType = QVariant::Invalid;
 
     const char *returnType = m.typeName();
@@ -103,6 +107,7 @@ void QDeclarativePropertyCache::Data::load(const QMetaMethod &m)
     QList<QByteArray> params = m.parameterTypes();
     if (!params.isEmpty())
         flags |= Data::HasArguments;
+    revision = m.revision();
 }
 
 
@@ -138,15 +143,25 @@ void QDeclarativePropertyCache::clear()
         if (indexCache.at(ii)) indexCache.at(ii)->release();
     }
 
+    for (int ii = 0; ii < methodIndexCache.count(); ++ii) {
+        RData *data = methodIndexCache.at(ii);
+        if (data) data->release(); 
+    }
+
     for (StringCache::ConstIterator iter = stringCache.begin(); 
-            iter != stringCache.end(); ++iter)
-        (*iter)->release();
+            iter != stringCache.end(); ++iter) {
+        RData *data = (*iter);
+        data->release(); 
+    }
 
     for (IdentifierCache::ConstIterator iter = identifierCache.begin(); 
-            iter != identifierCache.end(); ++iter)
-        (*iter)->release();
+            iter != identifierCache.end(); ++iter) {
+        RData *data = (*iter);
+        data->release(); 
+    }
 
     indexCache.clear();
+    methodIndexCache.clear();
     stringCache.clear();
     identifierCache.clear();
 }
@@ -200,11 +215,16 @@ QDeclarativePropertyCache *QDeclarativePropertyCache::copy() const
 {
     QDeclarativePropertyCache *cache = new QDeclarativePropertyCache(engine);
     cache->indexCache = indexCache;
+    cache->methodIndexCache = methodIndexCache;
     cache->stringCache = stringCache;
     cache->identifierCache = identifierCache;
+    cache->allowedRevisionCache = allowedRevisionCache;
 
     for (int ii = 0; ii < indexCache.count(); ++ii) {
         if (indexCache.at(ii)) indexCache.at(ii)->addref();
+    }
+    for (int ii = 0; ii < methodIndexCache.count(); ++ii) {
+        if (methodIndexCache.at(ii)) methodIndexCache.at(ii)->addref();
     }
     for (StringCache::ConstIterator iter = stringCache.begin(); iter != stringCache.end(); ++iter)
         (*iter)->addref();
@@ -215,9 +235,63 @@ QDeclarativePropertyCache *QDeclarativePropertyCache::copy() const
 }
 
 void QDeclarativePropertyCache::append(QDeclarativeEngine *engine, const QMetaObject *metaObject, 
-                              Data::Flag propertyFlags, Data::Flag methodFlags)
+                                       Data::Flag propertyFlags, Data::Flag methodFlags, Data::Flag signalFlags)
 {
+    append(engine, metaObject, -1, propertyFlags, methodFlags, signalFlags);
+}
+
+void QDeclarativePropertyCache::append(QDeclarativeEngine *engine, const QMetaObject *metaObject, 
+                                       int revision, 
+                                       Data::Flag propertyFlags, Data::Flag methodFlags, Data::Flag signalFlags)
+{
+    Q_UNUSED(revision);
+
+    allowedRevisionCache.append(0);
+
     QDeclarativeEnginePrivate *enginePriv = QDeclarativeEnginePrivate::get(engine);
+    int methodCount = metaObject->methodCount();
+    // 3 to block the destroyed signal and the deleteLater() slot
+    int methodOffset = qMax(3, metaObject->methodOffset()); 
+
+    methodIndexCache.resize(methodCount);
+    for (int ii = methodOffset; ii < methodCount; ++ii) {
+        QMetaMethod m = metaObject->method(ii);
+        if (m.access() == QMetaMethod::Private) 
+            continue;
+        QString methodName = QString::fromUtf8(m.signature());
+
+        int parenIdx = methodName.indexOf(QLatin1Char('('));
+        Q_ASSERT(parenIdx != -1);
+        methodName = methodName.left(parenIdx);
+
+        RData *data = new RData;
+        data->identifier = enginePriv->objectClass->createPersistentIdentifier(methodName);
+        methodIndexCache[ii] = data;  
+
+        data->load(m);
+        if (m.methodType() == QMetaMethod::Slot || m.methodType() == QMetaMethod::Method) 
+            data->flags |= methodFlags;
+        else if (m.methodType() == QMetaMethod::Signal)
+            data->flags |= signalFlags;
+
+        data->metaObjectOffset = allowedRevisionCache.count() - 1;
+
+        if (stringCache.contains(methodName)) {
+            RData *old = stringCache[methodName];
+            // We only overload methods in the same class, exactly like C++
+            if (old->flags & Data::IsFunction && old->coreIndex >= methodOffset)
+                data->relatedIndex = old->coreIndex;
+            data->overrideIndexIsProperty = !bool(old->flags & Data::IsFunction);
+            data->overrideIndex = old->coreIndex;
+            stringCache[methodName]->release();
+            identifierCache[data->identifier.identifier]->release();
+        }
+
+        stringCache.insert(methodName, data);
+        identifierCache.insert(data->identifier.identifier, data);
+        data->addref();
+        data->addref();
+    }
 
     int propCount = metaObject->propertyCount();
     int propOffset = metaObject->propertyOffset();
@@ -225,20 +299,24 @@ void QDeclarativePropertyCache::append(QDeclarativeEngine *engine, const QMetaOb
     indexCache.resize(propCount);
     for (int ii = propOffset; ii < propCount; ++ii) {
         QMetaProperty p = metaObject->property(ii);
-        if (!p.isScriptable()) 
+        if (!p.isScriptable())
             continue;
-        
+
         QString propName = QString::fromUtf8(p.name());
 
         RData *data = new RData;
         data->identifier = enginePriv->objectClass->createPersistentIdentifier(propName);
+        indexCache[ii] = data;
 
         data->load(p, engine);
         data->flags |= propertyFlags;
 
-        indexCache[ii] = data;
+        data->metaObjectOffset = allowedRevisionCache.count() - 1;
 
         if (stringCache.contains(propName)) {
+            RData *old = stringCache[propName];
+            data->overrideIndexIsProperty = !bool(old->flags & Data::IsFunction);
+            data->overrideIndex = old->coreIndex;
             stringCache[propName]->release();
             identifierCache[data->identifier.identifier]->release();
         }
@@ -248,96 +326,30 @@ void QDeclarativePropertyCache::append(QDeclarativeEngine *engine, const QMetaOb
         data->addref();
         data->addref();
     }
+}
 
-    int methodCount = metaObject->methodCount();
-    int methodOffset = qMax(2, metaObject->methodOffset()); // 2 to block the destroyed signal
-    for (int ii = methodOffset; ii < methodCount; ++ii) {
-        QMetaMethod m = metaObject->method(ii);
-        if (m.access() == QMetaMethod::Private)
-            continue;
-        QString methodName = QString::fromUtf8(m.signature());
+void QDeclarativePropertyCache::updateRecur(QDeclarativeEngine *engine, const QMetaObject *metaObject)
+{
+    if (!metaObject)
+        return;
 
-        int parenIdx = methodName.indexOf(QLatin1Char('('));
-        Q_ASSERT(parenIdx != -1);
-        methodName = methodName.left(parenIdx);
+    updateRecur(engine, metaObject->superClass());
 
-        RData *data = new RData;
-        data->identifier = enginePriv->objectClass->createPersistentIdentifier(methodName);
-
-        if (stringCache.contains(methodName)) {
-            stringCache[methodName]->release();
-            identifierCache[data->identifier.identifier]->release();
-        }
-
-        data->load(m);
-        if (m.methodType() == QMetaMethod::Slot || m.methodType() == QMetaMethod::Method) 
-            data->flags |= methodFlags;
-
-        stringCache.insert(methodName, data);
-        identifierCache.insert(data->identifier.identifier, data);
-        data->addref();
-    }
+    append(engine, metaObject);
 }
 
 void QDeclarativePropertyCache::update(QDeclarativeEngine *engine, const QMetaObject *metaObject)
 {
     Q_ASSERT(engine);
     Q_ASSERT(metaObject);
-    QDeclarativeEnginePrivate *enginePriv = QDeclarativeEnginePrivate::get(engine);
 
     clear();
 
-    // ### The properties/methods should probably be spliced on a per-metaobject basis
-    int propCount = metaObject->propertyCount();
+    // Optimization to prevent unnecessary reallocation of lists
+    indexCache.reserve(metaObject->propertyCount());
+    methodIndexCache.reserve(metaObject->methodCount());
 
-    indexCache.resize(propCount);
-    for (int ii = propCount - 1; ii >= 0; --ii) {
-        QMetaProperty p = metaObject->property(ii);
-        if (!p.isScriptable()) {
-            indexCache[ii] = 0;
-            continue;
-        }
-        QString propName = QString::fromUtf8(p.name());
-
-        RData *data = new RData;
-        data->identifier = enginePriv->objectClass->createPersistentIdentifier(propName);
-
-        data->load(p, engine);
-
-        indexCache[ii] = data;
-
-        if (stringCache.contains(propName))
-            continue;
-
-        stringCache.insert(propName, data);
-        identifierCache.insert(data->identifier.identifier, data);
-        data->addref();
-        data->addref();
-    }
-
-    int methodCount = metaObject->methodCount();
-    for (int ii = methodCount - 1; ii >= 3; --ii) { // >=3 to block the destroyed signal and deleteLater() slot
-        QMetaMethod m = metaObject->method(ii);
-        if (m.access() == QMetaMethod::Private)
-            continue;
-        QString methodName = QString::fromUtf8(m.signature());
-
-        int parenIdx = methodName.indexOf(QLatin1Char('('));
-        Q_ASSERT(parenIdx != -1);
-        methodName = methodName.left(parenIdx);
-
-        if (stringCache.contains(methodName))
-            continue;
-
-        RData *data = new RData;
-        data->identifier = enginePriv->objectClass->createPersistentIdentifier(methodName);
-
-        data->load(m);
-
-        stringCache.insert(methodName, data);
-        identifierCache.insert(data->identifier.identifier, data);
-        data->addref();
-    }
+    updateRecur(engine,metaObject);
 }
 
 QDeclarativePropertyCache::Data *
@@ -347,6 +359,15 @@ QDeclarativePropertyCache::property(int index) const
         return 0;
 
     return indexCache.at(index);
+}
+
+QDeclarativePropertyCache::Data *
+QDeclarativePropertyCache::method(int index) const
+{
+    if (index < 0 || index >= methodIndexCache.count())
+        return 0;
+
+    return methodIndexCache.at(index);
 }
 
 QDeclarativePropertyCache::Data *

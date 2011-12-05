@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,6 +48,10 @@
 
 #ifdef Q_WS_S60
 #include "private/qsoftkeymanager_s60_p.h"
+#endif
+
+#if defined(Q_WS_S60) && !defined(SYMBIAN_VERSION_9_4) && !defined(SYMBIAN_VERSION_9_3) && !defined(SYMBIAN_VERSION_9_2)
+#include "private/qt_s60_p.h"
 #endif
 
 #ifndef QT_NO_SOFTKEYMANAGER
@@ -101,6 +105,32 @@ QSoftKeyManager::QSoftKeyManager() :
 QAction *QSoftKeyManager::createAction(StandardSoftKey standardKey, QWidget *actionWidget)
 {
     QAction *action = new QAction(standardSoftKeyText(standardKey), actionWidget);
+#if defined(Q_WS_S60) && !defined(SYMBIAN_VERSION_9_4) && !defined(SYMBIAN_VERSION_9_3) && !defined(SYMBIAN_VERSION_9_2)
+    int key = 0;
+    switch (standardKey) {
+    case OkSoftKey:
+        key = EAknSoftkeyOk;
+        break;
+    case SelectSoftKey:
+        key = EAknSoftkeySelect;
+        break;
+    case DoneSoftKey:
+        key = EAknSoftkeyDone;
+        break;
+    case MenuSoftKey:
+        key = EAknSoftkeyOptions;
+        break;
+    case CancelSoftKey:
+        key = EAknSoftkeyCancel;
+        break;
+    default:
+        break;
+    };
+    if (key != 0) {
+        QSoftKeyManager::instance()->d_func()->softKeyCommandActions.insert(action, key);
+        connect(action, SIGNAL(destroyed(QObject*)), QSoftKeyManager::instance(), SLOT(cleanupHash(QObject*)));
+    }
+#endif
     QAction::SoftKeyRole softKeyRole = QAction::NoSoftKey;
     switch (standardKey) {
     case MenuSoftKey: // FALL-THROUGH
@@ -132,7 +162,13 @@ QAction *QSoftKeyManager::createKeyedAction(StandardSoftKey standardKey, Qt::Key
     QScopedPointer<QAction> action(createAction(standardKey, actionWidget));
 
     connect(action.data(), SIGNAL(triggered()), QSoftKeyManager::instance(), SLOT(sendKeyEvent()));
+
+#if defined(Q_WS_S60) && !defined(SYMBIAN_VERSION_9_4) && !defined(SYMBIAN_VERSION_9_3) && !defined(SYMBIAN_VERSION_9_2)
+    // Don't connect destroyed slot if is was already connected in createAction
+    if (!(QSoftKeyManager::instance()->d_func()->softKeyCommandActions.contains(action.data())))
+#endif
     connect(action.data(), SIGNAL(destroyed(QObject*)), QSoftKeyManager::instance(), SLOT(cleanupHash(QObject*)));
+
     QSoftKeyManager::instance()->d_func()->keyedActions.insert(action.data(), key);
     return action.take();
 #endif //QT_NO_ACTION
@@ -141,8 +177,13 @@ QAction *QSoftKeyManager::createKeyedAction(StandardSoftKey standardKey, Qt::Key
 void QSoftKeyManager::cleanupHash(QObject *obj)
 {
     Q_D(QSoftKeyManager);
-    QAction *action = qobject_cast<QAction*>(obj);
+    // Can't use qobject_cast in destroyed() signal handler as that'll return NULL,
+    // so use static_cast instead. Since the pointer is only used as a hash key, it is safe.
+    QAction *action = static_cast<QAction *>(obj);
     d->keyedActions.remove(action);
+#if defined(Q_WS_S60) && !defined(SYMBIAN_VERSION_9_4) && !defined(SYMBIAN_VERSION_9_3) && !defined(SYMBIAN_VERSION_9_2)
+    d->softKeyCommandActions.remove(action);
+#endif
 }
 
 void QSoftKeyManager::sendKeyEvent()

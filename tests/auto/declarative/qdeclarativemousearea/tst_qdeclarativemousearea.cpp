@@ -7,34 +7,34 @@
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -43,8 +43,11 @@
 #include <QtTest/QSignalSpy>
 #include <private/qdeclarativemousearea_p.h>
 #include <private/qdeclarativerectangle_p.h>
+#include <private/qdeclarativeflickable_p.h>
 #include <QtDeclarative/qdeclarativeview.h>
 #include <QtDeclarative/qdeclarativecontext.h>
+#include <QtDeclarative/qdeclarativeengine.h>
+#include <QtDeclarative/qdeclarativeproperty.h>
 
 #ifdef Q_OS_SYMBIAN
 // In Symbian OS test data is located in applications private dir
@@ -63,6 +66,14 @@ private slots:
     void noOnClickedWithPressAndHold();
     void onMousePressRejected();
     void doubleClick();
+    void clickTwice();
+    void pressedOrdering();
+    void preventStealing();
+    void testQtQuick11Attributes();
+    void testQtQuick11Attributes_data();
+#ifndef QT_NO_CONTEXTMENU
+    void preventContextMenu();
+#endif // QT_NO_CONTEXTMENU
 
 private:
     QDeclarativeView *createView();
@@ -215,7 +226,14 @@ void tst_QDeclarativeMouseArea::dragging()
     QCOMPARE(blackRect->x(), 50.0);
     QCOMPARE(blackRect->y(), 50.0);
 
+    // First move event triggers drag, second is acted upon.
+    // This is due to possibility of higher stacked area taking precedence.
     QGraphicsSceneMouseEvent moveEvent(QEvent::GraphicsSceneMouseMove);
+    moveEvent.setScenePos(QPointF(106, 106));
+    moveEvent.setButton(Qt::LeftButton);
+    moveEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &moveEvent);
+
     moveEvent.setScenePos(QPointF(110, 110));
     moveEvent.setButton(Qt::LeftButton);
     moveEvent.setButtons(Qt::LeftButton);
@@ -347,6 +365,8 @@ void tst_QDeclarativeMouseArea::noOnClickedWithPressAndHold()
 
     QVERIFY(!canvas->rootObject()->property("clicked").toBool());
     QVERIFY(canvas->rootObject()->property("held").toBool());
+
+    delete canvas;
 }
 
 void tst_QDeclarativeMouseArea::onMousePressRejected()
@@ -356,6 +376,7 @@ void tst_QDeclarativeMouseArea::onMousePressRejected()
     canvas->show();
     canvas->setFocus();
     QVERIFY(canvas->rootObject() != 0);
+    QVERIFY(canvas->rootObject()->property("enabled").toBool());
 
     QVERIFY(!canvas->rootObject()->property("mr1_pressed").toBool());
     QVERIFY(!canvas->rootObject()->property("mr1_released").toBool());
@@ -389,6 +410,8 @@ void tst_QDeclarativeMouseArea::onMousePressRejected()
     QVERIFY(canvas->rootObject()->property("mr1_released").toBool());
     QVERIFY(!canvas->rootObject()->property("mr1_canceled").toBool());
     QVERIFY(!canvas->rootObject()->property("mr2_released").toBool());
+
+    delete canvas;
 }
 
 void tst_QDeclarativeMouseArea::doubleClick()
@@ -412,15 +435,270 @@ void tst_QDeclarativeMouseArea::doubleClick()
     releaseEvent.setButtons(Qt::LeftButton);
     QApplication::sendEvent(scene, &releaseEvent);
 
+    QCOMPARE(canvas->rootObject()->property("released").toInt(), 1);
+
     QGraphicsSceneMouseEvent dblClickEvent(QEvent::GraphicsSceneMouseDoubleClick);
     dblClickEvent.setScenePos(QPointF(100, 100));
     dblClickEvent.setButton(Qt::LeftButton);
     dblClickEvent.setButtons(Qt::LeftButton);
     QApplication::sendEvent(scene, &dblClickEvent);
 
+    QApplication::sendEvent(scene, &releaseEvent);
+
     QCOMPARE(canvas->rootObject()->property("clicked").toInt(), 1);
     QCOMPARE(canvas->rootObject()->property("doubleClicked").toInt(), 1);
+    QCOMPARE(canvas->rootObject()->property("released").toInt(), 2);
+
+    delete canvas;
 }
+
+// QTBUG-14832
+void tst_QDeclarativeMouseArea::clickTwice()
+{
+    QDeclarativeView *canvas = createView();
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/clicktwice.qml"));
+    canvas->show();
+    canvas->setFocus();
+    QVERIFY(canvas->rootObject() != 0);
+
+    QGraphicsScene *scene = canvas->scene();
+    QGraphicsSceneMouseEvent pressEvent(QEvent::GraphicsSceneMousePress);
+    pressEvent.setScenePos(QPointF(100, 100));
+    pressEvent.setButton(Qt::LeftButton);
+    pressEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &pressEvent);
+
+    QGraphicsSceneMouseEvent releaseEvent(QEvent::GraphicsSceneMouseRelease);
+    releaseEvent.setScenePos(QPointF(100, 100));
+    releaseEvent.setButton(Qt::LeftButton);
+    releaseEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &releaseEvent);
+
+    QCOMPARE(canvas->rootObject()->property("pressed").toInt(), 1);
+    QCOMPARE(canvas->rootObject()->property("released").toInt(), 1);
+    QCOMPARE(canvas->rootObject()->property("clicked").toInt(), 1);
+
+    QGraphicsSceneMouseEvent dblClickEvent(QEvent::GraphicsSceneMouseDoubleClick);
+    dblClickEvent.setScenePos(QPointF(100, 100));
+    dblClickEvent.setButton(Qt::LeftButton);
+    dblClickEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &dblClickEvent);
+
+    QApplication::sendEvent(scene, &pressEvent);
+    QApplication::sendEvent(scene, &releaseEvent);
+
+    QCOMPARE(canvas->rootObject()->property("pressed").toInt(), 2);
+    QCOMPARE(canvas->rootObject()->property("released").toInt(), 2);
+    QCOMPARE(canvas->rootObject()->property("clicked").toInt(), 2);
+
+    delete canvas;
+}
+
+void tst_QDeclarativeMouseArea::pressedOrdering()
+{
+    QDeclarativeView *canvas = createView();
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/pressedOrdering.qml"));
+    canvas->show();
+    canvas->setFocus();
+    QVERIFY(canvas->rootObject() != 0);
+
+    QCOMPARE(canvas->rootObject()->property("value").toString(), QLatin1String("base"));
+
+    QGraphicsScene *scene = canvas->scene();
+    QGraphicsSceneMouseEvent pressEvent(QEvent::GraphicsSceneMousePress);
+    pressEvent.setScenePos(QPointF(100, 100));
+    pressEvent.setButton(Qt::LeftButton);
+    pressEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &pressEvent);
+
+    QCOMPARE(canvas->rootObject()->property("value").toString(), QLatin1String("pressed"));
+
+    QGraphicsSceneMouseEvent releaseEvent(QEvent::GraphicsSceneMouseRelease);
+    releaseEvent.setScenePos(QPointF(100, 100));
+    releaseEvent.setButton(Qt::LeftButton);
+    releaseEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &releaseEvent);
+
+    QCOMPARE(canvas->rootObject()->property("value").toString(), QLatin1String("toggled"));
+
+    QApplication::sendEvent(scene, &pressEvent);
+
+    QCOMPARE(canvas->rootObject()->property("value").toString(), QLatin1String("pressed"));
+
+    delete canvas;
+}
+
+void tst_QDeclarativeMouseArea::preventStealing()
+{
+    QDeclarativeView *canvas = createView();
+
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/preventstealing.qml"));
+    canvas->show();
+    canvas->setFocus();
+    QVERIFY(canvas->rootObject() != 0);
+
+    QDeclarativeFlickable *flickable = qobject_cast<QDeclarativeFlickable*>(canvas->rootObject());
+    QVERIFY(flickable != 0);
+
+    QDeclarativeMouseArea *mouseArea = canvas->rootObject()->findChild<QDeclarativeMouseArea*>("mousearea");
+    QVERIFY(mouseArea != 0);
+
+    QSignalSpy mousePositionSpy(mouseArea, SIGNAL(positionChanged(QDeclarativeMouseEvent*)));
+
+    QTest::mousePress(canvas->viewport(), Qt::LeftButton, 0, canvas->mapFromScene(QPoint(80, 80)));
+
+    // Without preventStealing, mouse movement over MouseArea would
+    // cause the Flickable to steal mouse and trigger content movement.
+    QGraphicsScene *scene = canvas->scene();
+    QGraphicsSceneMouseEvent moveEvent(QEvent::GraphicsSceneMouseMove);
+    moveEvent.setScenePos(QPointF(70, 70));
+    moveEvent.setButton(Qt::LeftButton);
+    moveEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &moveEvent);
+
+    moveEvent.setScenePos(QPointF(60, 60));
+    moveEvent.setButton(Qt::LeftButton);
+    moveEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &moveEvent);
+
+    moveEvent.setScenePos(QPointF(50, 50));
+    moveEvent.setButton(Qt::LeftButton);
+    moveEvent.setButtons(Qt::LeftButton);
+    QApplication::sendEvent(scene, &moveEvent);
+
+    // We should have received all three move events
+    QCOMPARE(mousePositionSpy.count(), 3);
+    QVERIFY(mouseArea->pressed());
+
+    // Flickable content should not have moved.
+    QCOMPARE(flickable->contentX(), 0.);
+    QCOMPARE(flickable->contentY(), 0.);
+
+    QTest::mouseRelease(canvas->viewport(), Qt::LeftButton, 0, canvas->mapFromScene(QPoint(50, 50)));
+
+    // Now allow stealing and confirm Flickable does its thing.
+    canvas->rootObject()->setProperty("stealing", false);
+
+    QTest::mousePress(canvas->viewport(), Qt::LeftButton, 0, canvas->mapFromScene(QPoint(80, 80)));
+
+    // Without preventStealing, mouse movement over MouseArea would
+    // cause the Flickable to steal mouse and trigger content movement.
+    moveEvent.setScenePos(QPointF(70, 70));
+    QApplication::sendEvent(scene, &moveEvent);
+
+    moveEvent.setScenePos(QPointF(60, 60));
+    QApplication::sendEvent(scene, &moveEvent);
+
+    moveEvent.setScenePos(QPointF(50, 50));
+    QApplication::sendEvent(scene, &moveEvent);
+
+    // We should only have received the first move event
+    QCOMPARE(mousePositionSpy.count(), 4);
+    // Our press should be taken away
+    QVERIFY(!mouseArea->pressed());
+
+    // Flickable content should have moved.
+    QCOMPARE(flickable->contentX(), 10.);
+    QCOMPARE(flickable->contentY(), 10.);
+
+    QTest::mouseRelease(canvas->viewport(), Qt::LeftButton, 0, canvas->mapFromScene(QPoint(50, 50)));
+
+    delete canvas;
+}
+
+void tst_QDeclarativeMouseArea::testQtQuick11Attributes()
+{
+    QFETCH(QString, code);
+    QFETCH(QString, warning);
+    QFETCH(QString, error);
+
+    QDeclarativeEngine engine;
+    QObject *obj;
+
+    QDeclarativeComponent valid(&engine);
+    valid.setData("import QtQuick 1.1; MouseArea { " + code.toUtf8() + " }", QUrl(""));
+    obj = valid.create();
+    QVERIFY(obj);
+    QVERIFY(valid.errorString().isEmpty());
+    delete obj;
+
+    QDeclarativeComponent invalid(&engine);
+    invalid.setData("import QtQuick 1.0; MouseArea { " + code.toUtf8() + " }", QUrl(""));
+    QTest::ignoreMessage(QtWarningMsg, warning.toUtf8());
+    obj = invalid.create();
+    QCOMPARE(invalid.errorString(), error);
+    delete obj;
+}
+
+void tst_QDeclarativeMouseArea::testQtQuick11Attributes_data()
+{
+    QTest::addColumn<QString>("code");
+    QTest::addColumn<QString>("warning");
+    QTest::addColumn<QString>("error");
+
+    QTest::newRow("preventStealing") << "preventStealing: true"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"MouseArea.preventStealing\" is not available in QtQuick 1.0.\n";
+}
+
+#ifndef QT_NO_CONTEXTMENU
+class ContextMenuEventReceiver : public QDeclarativeItem
+{
+    Q_OBJECT
+    Q_PROPERTY(int eventCount READ eventCount NOTIFY eventCountChanged);
+public:
+    ContextMenuEventReceiver(QDeclarativeItem *parent = 0) : QDeclarativeItem(parent), m_eventCount(0) { }
+    int eventCount() const { return m_eventCount; }
+signals:
+    void eventCountChanged(int);
+protected:
+    void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) {
+        if (event->reason() == QGraphicsSceneContextMenuEvent::Mouse) {
+            m_eventCount++;
+            emit eventCountChanged(m_eventCount);
+        }
+    }
+private:
+    int m_eventCount;
+};
+
+void tst_QDeclarativeMouseArea::preventContextMenu()
+{
+    // A MouseArea accepting Left, Middle and Right buttons should prevent context menu
+    // events with "Mouse" reason to hit the Item below.
+
+    qmlRegisterType<ContextMenuEventReceiver>("Test", 1, 0, "ContextMenuEventReceiver");
+
+    QDeclarativeView *view = createView();
+    view->setSource(QUrl::fromLocalFile(SRCDIR "/data/preventContextMenu.qml"));
+    view->show();
+    QVERIFY(view->rootObject() != 0);
+
+    QDeclarativeProperty mouseAreaEnabled(view->rootObject(), "mouseAreaEnabled");
+    QVERIFY(mouseAreaEnabled.read().toBool());
+
+    QDeclarativeProperty eventsReceived(view->rootObject(), "eventsReceived");
+    QCOMPARE(eventsReceived.read().toInt(), 0);
+
+    QPoint targetPoint = view->mapFromScene(QPoint(80, 80));
+
+    QContextMenuEvent fakeEvent1(QContextMenuEvent::Mouse, targetPoint);
+    QApplication::sendEvent(view->viewport(), &fakeEvent1);
+    QCOMPARE(eventsReceived.read().toInt(), 0);
+
+    mouseAreaEnabled.write(false);
+    QVERIFY(!mouseAreaEnabled.read().toBool());
+    QContextMenuEvent fakeEvent2(QContextMenuEvent::Mouse, targetPoint);
+    QApplication::sendEvent(view->viewport(), &fakeEvent2);
+    QCOMPARE(eventsReceived.read().toInt(), 1);
+
+    mouseAreaEnabled.write(true);
+    QVERIFY(mouseAreaEnabled.read().toBool());
+    QContextMenuEvent fakeEvent3(QContextMenuEvent::Mouse, targetPoint);
+    QApplication::sendEvent(view->viewport(), &fakeEvent3);
+    QCOMPARE(eventsReceived.read().toInt(), 1);
+}
+#endif // QT_NO_CONTEXTMENU
 
 QTEST_MAIN(tst_QDeclarativeMouseArea)
 

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -101,12 +101,15 @@ private slots:
 
     void testToFillPolygons();
 
+    void testNaNandInfinites();
+
     void closing();
 
     void operators_data();
     void operators();
 
     void connectPathDuplicatePoint();
+    void connectPathMoveTo();
 
     void translate();
 };
@@ -289,6 +292,11 @@ void tst_QPainterPath::contains_QPointF_data()
     QTest::newRow("horizontal cubic, out left") << path << QPointF(0, 100) << false;
     QTest::newRow("horizontal cubic, out right") << path << QPointF(300, 100) <<false;
     QTest::newRow("horizontal cubic, in mid") << path << QPointF(150, 100) << true;
+
+    path = QPainterPath();
+    path.addEllipse(QRectF(-5000.0, -5000.0, 1500000.0, 1500000.0));
+    QTest::newRow("huge ellipse, qreal=float crash") << path << QPointF(1100000.35, 1098000.2) << true;
+
 }
 
 void tst_QPainterPath::contains_QPointF()
@@ -405,6 +413,10 @@ void tst_QPainterPath::intersects_QRectF_data()
 
     QTest::newRow("horizontal line") << linePath(0, 0, 10, 0) << QRectF(1, -1, 2, 2) << true;
     QTest::newRow("vertical line") << linePath(0, 0, 0, 10) << QRectF(-1, 1, 2, 2) << true;
+
+    path = QPainterPath();
+    path.addEllipse(QRectF(-5000.0, -5000.0, 1500000.0, 1500000.0));
+    QTest::newRow("huge ellipse, qreal=float crash") << path << QRectF(1100000.35, 1098000.2, 1500000.0, 1500000.0) << true;
 }
 
 void tst_QPainterPath::intersects_QRectF()
@@ -1149,6 +1161,50 @@ void tst_QPainterPath::testToFillPolygons()
     QCOMPARE(polygons.first().count(QPointF(70, 50)), 0);
 }
 
+void tst_QPainterPath::testNaNandInfinites()
+{
+    QPainterPath path1;
+    QPainterPath path2 = path1;
+
+    QPointF p1 = QPointF(qSNaN(), 1);
+    QPointF p2 = QPointF(qQNaN(), 1);
+    QPointF p3 = QPointF(qQNaN(), 1);
+    QPointF pInf = QPointF(qInf(), 1);
+
+    // all these operations with NaN/Inf should be ignored
+    // can't test operator>> reliably, as we can't create a path with NaN to << later
+
+    path1.moveTo(p1);
+    path1.moveTo(qSNaN(), qQNaN());
+    path1.moveTo(pInf);
+
+    path1.lineTo(p1);
+    path1.lineTo(qSNaN(), qQNaN());
+    path1.lineTo(pInf);
+
+    path1.cubicTo(p1, p2, p3);
+    path1.cubicTo(p1, QPointF(1, 1), QPointF(2, 2));
+    path1.cubicTo(pInf, QPointF(10, 10), QPointF(5, 1));
+
+    path1.quadTo(p1, p2);
+    path1.quadTo(QPointF(1, 1), p3);
+    path1.quadTo(QPointF(1, 1), pInf);
+
+    path1.arcTo(QRectF(p1, p2), 5, 5);
+    path1.arcTo(QRectF(pInf, QPointF(1, 1)), 5, 5);
+
+    path1.addRect(QRectF(p1, p2));
+    path1.addRect(QRectF(pInf, QPointF(1, 1)));
+
+    path1.addEllipse(QRectF(p1, p2));
+    path1.addEllipse(QRectF(pInf, QPointF(1, 1)));
+
+    QCOMPARE(path1, path2);
+
+    path1.lineTo(QPointF(1, 1));
+    QVERIFY(path1 != path2);
+}
+
 void tst_QPainterPath::connectPathDuplicatePoint()
 {
     QPainterPath a;
@@ -1167,6 +1223,31 @@ void tst_QPainterPath::connectPathDuplicatePoint()
     c.lineTo(30, 10);
 
     QCOMPARE(c, a);
+}
+
+void tst_QPainterPath::connectPathMoveTo()
+{
+    QPainterPath path1;
+    QPainterPath path2;
+    QPainterPath path3;
+    QPainterPath path4;
+
+    path1.moveTo(1,1);
+
+    path2.moveTo(4,4);
+    path2.lineTo(5,6);
+    path2.lineTo(6,7);
+
+    path3.connectPath(path2);
+
+    path4.lineTo(5,5);
+
+    path1.connectPath(path2);
+
+    QVERIFY(path1.elementAt(0).type == QPainterPath::MoveToElement);
+    QVERIFY(path2.elementAt(0).type == QPainterPath::MoveToElement);
+    QVERIFY(path3.elementAt(0).type == QPainterPath::MoveToElement);
+    QVERIFY(path4.elementAt(0).type == QPainterPath::MoveToElement);
 }
 
 void tst_QPainterPath::translate()

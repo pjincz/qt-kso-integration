@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -65,7 +65,8 @@ Rectangle {
         anchors.fill: parent; spacing: 20
 
         Text {
-            text: "If a translation is available for the system language (eg. French) then the string below will translated (eg. 'Bonjour'). Otherwise it will show 'Hello'."
+            text: "If a translation is available for the system language (eg. French) then the
+			string below will translated (eg. 'Bonjour'). Otherwise it will show 'Hello'."
             width: parent.width; wrapMode: Text.WordWrap
         }
 

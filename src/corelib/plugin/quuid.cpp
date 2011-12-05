@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -582,48 +582,65 @@ QT_BEGIN_INCLUDE_NAMESPACE
 #include <stdlib.h> // for RAND_MAX
 QT_END_INCLUDE_NAMESPACE
 
+#if !defined(QT_BOOTSTRAPPED) && defined(Q_OS_UNIX)
+Q_GLOBAL_STATIC(QThreadStorage<QFile *>, devUrandomStorage);
+#endif
+
 QUuid QUuid::createUuid()
 {
     QUuid result;
     uint *data = &(result.data1);
 
-#ifdef Q_OS_UNIX
-    QFile devUrandom;
-    devUrandom.setFileName(QLatin1String("/dev/urandom"));
-    if (devUrandom.open(QIODevice::ReadOnly)) {
-        qint64 numToRead = 4 * sizeof(uint);
-        devUrandom.read((char *) data, numToRead); // should read 128-bits of data
+#if defined(Q_OS_UNIX)
+    QFile *devUrandom;
+#  if !defined(QT_BOOTSTRAPPED)
+    devUrandom = devUrandomStorage()->localData();
+    if (!devUrandom) {
+        devUrandom = new QFile(QLatin1String("/dev/urandom"));
+        devUrandom->open(QIODevice::ReadOnly | QIODevice::Unbuffered);
+        devUrandomStorage()->setLocalData(devUrandom);
+    }
+# else
+    QFile file(QLatin1String("/dev/urandom"));
+    devUrandom = &file;
+    devUrandom->open(QIODevice::ReadOnly | QIODevice::Unbuffered);
+# endif
+    enum { AmountToRead = 4 * sizeof(uint) };
+    if (devUrandom->isOpen()
+        && devUrandom->read((char *) data, AmountToRead) == AmountToRead) {
+        // we got what we wanted, nothing more to do
+        ;
     } else
 #endif
     {
         static const int intbits = sizeof(int)*8;
         static int randbits = 0;
         if (!randbits) {
-        int r = 0;
+            int r = 0;
             int max = RAND_MAX;
             do { ++r; } while ((max=max>>1));
             randbits = r;
         }
 
-    // Seed the PRNG once per thread with a combination of current time, a
-    // stack address and a serial counter (since thread stack addresses are
-    // re-used).
+        // Seed the PRNG once per thread with a combination of current time, a
+        // stack address and a serial counter (since thread stack addresses are
+        // re-used).
 #ifndef QT_BOOTSTRAPPED
-    static QThreadStorage<int *> uuidseed;
-    if (!uuidseed.hasLocalData())
-    {
-        int *pseed = new int;
-        static QBasicAtomicInt serial = Q_BASIC_ATOMIC_INITIALIZER(2);
-        qsrand(*pseed = QDateTime::currentDateTime().toTime_t()
-                        + quintptr(&pseed)
-                        + serial.fetchAndAddRelaxed(1));
-        uuidseed.setLocalData(pseed);
-    }
+        static QThreadStorage<int *> uuidseed;
+        if (!uuidseed.hasLocalData())
+        {
+            int *pseed = new int;
+            static QBasicAtomicInt serial = Q_BASIC_ATOMIC_INITIALIZER(2);
+            qsrand(*pseed = QDateTime::currentDateTime().toTime_t()
+                   + quintptr(&pseed)
+                   + serial.fetchAndAddRelaxed(1));
+            uuidseed.setLocalData(pseed);
+        }
 #else
-    static bool seeded = false;
-    if (!seeded)
-        qsrand(QDateTime::currentDateTime().toTime_t()
-               + quintptr(&seeded));
+        static bool seeded = false;
+        if (!seeded)
+            qsrand(QDateTime::currentDateTime().toTime_t()
+                   + quintptr(&seeded));
 #endif
 
         int chunks = 16 / sizeof(uint);
@@ -631,7 +648,7 @@ QUuid QUuid::createUuid()
             uint randNumber = 0;
             for (int filled = 0; filled < intbits; filled += randbits)
                 randNumber |= qrand()<<filled;
-             *(data+chunks) = randNumber;
+            *(data+chunks) = randNumber;
         }
     }
 

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -77,6 +77,7 @@ private slots:
     void quaternion();
     void matrix4x4();
     void font();
+    void variant();
 
     void bindingAssignment();
     void bindingRead();
@@ -94,6 +95,7 @@ private slots:
     void conflictingBindings();
     void returnValues();
     void varAssignment();
+    void bindingsSpliceCorrectly();
 
 private:
     QDeclarativeEngine engine;
@@ -207,6 +209,19 @@ void tst_qdeclarativevaluetypes::sizef()
 
         delete object;
     }
+}
+
+void tst_qdeclarativevaluetypes::variant()
+{
+    QDeclarativeComponent component(&engine, TEST_FILE("variant_read.qml"));
+    MyTypeObject *object = qobject_cast<MyTypeObject *>(component.create());
+    QVERIFY(object != 0);
+
+    QCOMPARE(float(object->property("s_width").toDouble()), float(0.1));
+    QCOMPARE(float(object->property("s_height").toDouble()), float(100923.2));
+    QCOMPARE(object->property("copy"), QVariant(QSizeF(0.1, 100923.2)));
+
+    delete object;
 }
 
 void tst_qdeclarativevaluetypes::sizereadonly()
@@ -940,6 +955,61 @@ void tst_qdeclarativevaluetypes::varAssignment()
     QCOMPARE(object->property("z").toInt(), 3);
 
     delete object;
+}
+
+// Test bindings splice together correctly
+void tst_qdeclarativevaluetypes::bindingsSpliceCorrectly()
+{
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("bindingsSpliceCorrectly.1.qml"));
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+
+    QCOMPARE(object->property("test").toBool(), true);
+
+    delete object;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("bindingsSpliceCorrectly.2.qml"));
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+
+    QCOMPARE(object->property("test").toBool(), true);
+
+    delete object;
+    }
+
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("bindingsSpliceCorrectly.3.qml"));
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+
+    QCOMPARE(object->property("test").toBool(), true);
+
+    delete object;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("bindingsSpliceCorrectly.4.qml"));
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+
+    QCOMPARE(object->property("test").toBool(), true);
+
+    delete object;
+    }
+
+    {
+    QDeclarativeComponent component(&engine, TEST_FILE("bindingsSpliceCorrectly.5.qml"));
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+
+    QCOMPARE(object->property("test").toBool(), true);
+
+    delete object;
+    }
 }
 
 QTEST_MAIN(tst_qdeclarativevaluetypes)

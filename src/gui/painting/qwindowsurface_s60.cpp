@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -44,7 +44,7 @@
 #include <QtGui/qpaintdevice.h>
 #include <private/qwidget_p.h>
 #include <private/qwindowsurface_s60_p.h>
-#include <private/qpixmap_s60_p.h>
+#include <private/qpixmap_raster_symbian_p.h>
 #include <private/qt_s60_p.h>
 #include <private/qapplication_p.h>
 #include <private/qdrawhelper_p.h>
@@ -61,13 +61,10 @@ struct QS60WindowSurfacePrivate
     QList<QImage*> bufferImages;
 };
 
-QS60WindowSurface::QS60WindowSurface(QWidget* widget)
-    : QWindowSurface(widget), d_ptr(new QS60WindowSurfacePrivate)
+TDisplayMode displayMode(bool opaque)
 {
-
     TDisplayMode mode = S60->screenDevice()->DisplayMode();
-    bool isOpaque = qt_widget_private(widget)->isOpaque;
-    if (isOpaque) {
+    if (opaque) {
         mode = EColor16MU;
     } else  {
         if (QSysInfo::symbianVersion() >= QSysInfo::SV_SF_3)
@@ -75,12 +72,26 @@ QS60WindowSurface::QS60WindowSurface(QWidget* widget)
         else
             mode = EColor16MA; // Symbian prior to Symbian^3 sw accelerates EColor16MA
     }
+    return mode;
+}
 
+bool blitWriteAlpha(QWidgetPrivate *widgetPrivate)
+{
+    QWExtra *extra = widgetPrivate->extraData();
+    return extra ? extra->nativePaintMode == QWExtra::BlitWriteAlpha : false;
+}
+
+QS60WindowSurface::QS60WindowSurface(QWidget* widget)
+    : QWindowSurface(widget), d_ptr(new QS60WindowSurfacePrivate)
+{
+    QWidgetPrivate *widgetPrivate = qt_widget_private(widget);
+    const bool opaque = widgetPrivate->isOpaque && !blitWriteAlpha(widgetPrivate);
+    TDisplayMode mode = displayMode(opaque);
     // We create empty CFbsBitmap here -> it will be resized in setGeometry
     CFbsBitmap *bitmap = q_check_ptr(new CFbsBitmap);	// CBase derived object needs check on new
     qt_symbian_throwIfError( bitmap->Create( TSize(0, 0), mode ) );
 
-    QS60PixmapData *data = new QS60PixmapData(QPixmapData::PixmapType);
+    QSymbianRasterPixmapData *data = new QSymbianRasterPixmapData(QPixmapData::PixmapType);
     if (data) {
         data->fromSymbianBitmap(bitmap, true);
         d_ptr->device = QPixmap(data);
@@ -101,9 +112,11 @@ QS60WindowSurface::~QS60WindowSurface()
             // Issue empty redraw to clear the UI surface
 
             QWidget *w = window();
-            RWindow *const window = static_cast<RWindow *>(w->winId()->DrawableWindow());
-            window->BeginRedraw();
-            window->EndRedraw();
+            if (w->testAttribute(Qt::WA_WState_Created)) {
+                RWindow *const window = static_cast<RWindow *>(w->winId()->DrawableWindow());
+                window->BeginRedraw();
+                window->EndRedraw();
+            }
         }
     }
 #endif
@@ -117,16 +130,24 @@ void QS60WindowSurface::beginPaint(const QRegion &rgn)
     S60->wsSession().Finish();
 #endif
 
-    if (!qt_widget_private(window())->isOpaque) {
-        QS60PixmapData *pixmapData = static_cast<QS60PixmapData *>(d_ptr->device.data_ptr().data());
+    QWidgetPrivate *windowPrivate = qt_widget_private(window());
+    if (!windowPrivate->isOpaque || blitWriteAlpha(windowPrivate)) {
+        QSymbianRasterPixmapData *pixmapData = static_cast<QSymbianRasterPixmapData *>(d_ptr->device.data_ptr().data());
+
+        TDisplayMode mode = displayMode(false);
+        if (pixmapData->cfbsBitmap->DisplayMode() != mode)
+            pixmapData->convertToDisplayMode(mode);
+
         pixmapData->beginDataAccess();
 
-        QPainter p(&pixmapData->image);
-        p.setCompositionMode(QPainter::CompositionMode_Source);
-        const QVector<QRect> rects = rgn.rects();
-        const QColor blank = Qt::transparent;
-        for (QVector<QRect>::const_iterator it = rects.begin(); it != rects.end(); ++it) {
-            p.fillRect(*it, blank);
+        if (!windowPrivate->isOpaque) {
+            QPainter p(&pixmapData->image);
+            p.setCompositionMode(QPainter::CompositionMode_Source);
+            const QVector<QRect> rects = rgn.rects();
+            const QColor blank = Qt::transparent;
+            for (QVector<QRect>::const_iterator it = rects.begin(); it != rects.end(); ++it) {
+                p.fillRect(*it, blank);
+            }
         }
 
         pixmapData->endDataAccess();
@@ -149,7 +170,7 @@ QImage* QS60WindowSurface::buffer(const QWidget *widget)
         return 0;
 
     const QPoint off = offset(widget);
-    QImage *img = &(static_cast<QS60PixmapData *>(d_ptr->device.data_ptr().data())->image);
+    QImage *img = &(static_cast<QSymbianRasterPixmapData *>(d_ptr->device.data_ptr().data())->image);
 
     QRect rect(off, widget->size());
     rect &= QRect(QPoint(), img->size());
@@ -197,7 +218,7 @@ bool QS60WindowSurface::scroll(const QRegion &area, int dx, int dy)
     if (d_ptr->device.isNull())
         return false;
 
-    QS60PixmapData *data = static_cast<QS60PixmapData*>(d_ptr->device.data_ptr().data());
+    QSymbianRasterPixmapData *data = static_cast<QSymbianRasterPixmapData*>(d_ptr->device.data_ptr().data());
     data->scroll(dx, dy, rect);
 
     return true;
@@ -213,7 +234,7 @@ void QS60WindowSurface::setGeometry(const QRect& rect)
     if (rect == geometry())
         return;
 
-    QS60PixmapData *data = static_cast<QS60PixmapData*>(d_ptr->device.data_ptr().data());
+    QSymbianRasterPixmapData *data = static_cast<QSymbianRasterPixmapData*>(d_ptr->device.data_ptr().data());
     data->resize(rect.width(), rect.height());
 
     QWindowSurface::setGeometry(rect);
@@ -221,7 +242,7 @@ void QS60WindowSurface::setGeometry(const QRect& rect)
 
 CFbsBitmap* QS60WindowSurface::symbianBitmap() const
 {
-    QS60PixmapData *data = static_cast<QS60PixmapData*>(d_ptr->device.data_ptr().data());
+    QSymbianRasterPixmapData *data = static_cast<QSymbianRasterPixmapData*>(d_ptr->device.data_ptr().data());
     return data->cfbsBitmap;
 }
 

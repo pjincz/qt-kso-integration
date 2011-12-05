@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -431,6 +431,12 @@ bool QThread::isRunning() const
 {
     Q_D(const QThread);
     QMutexLocker locker(&d->mutex);
+#ifdef Q_OS_SYMBIAN
+    // app shutdown on Symbian can terminate threads and invalidate their stacks without notification,
+    // check the thread is still alive.
+    if (d->data->symbian_thread_handle.Handle() && d->data->symbian_thread_handle.ExitType() != EExitPending)
+        return false;
+#endif
     return d->running;
 }
 
@@ -482,8 +488,10 @@ int QThread::exec()
     Q_D(QThread);
     QMutexLocker locker(&d->mutex);
     d->data->quitNow = false;
-    if (d->exited)
+    if (d->exited) {
+        d->exited = false;
         return d->returnCode;
+    }
     locker.unlock();
 
     QEventLoop eventLoop;
@@ -507,10 +515,12 @@ int QThread::exec()
 
     Note that unlike the C library function of the same name, this
     function \e does return to the caller -- it is event processing
-    that stops.
-
-    This function does nothing if the thread does not have an event
-    loop.
+    that stops. 
+    
+    No QEventLoops will be started anymore in this thread  until 
+    QThread::exec() has been called again. If the eventloop in QThread::exec()
+    is not running then the next call to QThread::exec() will also return
+    immediately.
 
     \sa quit() QEventLoop
 */
@@ -667,9 +677,9 @@ QThread::Priority QThread::priority() const
     to finish will be woken up.
 
     \warning This function is dangerous and its use is discouraged.
-    The thread can be terminate at any point in its code path.
+    The thread can be terminated at any point in its code path.
     Threads can be terminated while modifying data. There is no
-    chance for the thread to cleanup after itself, unlock any held
+    chance for the thread to clean up after itself, unlock any held
     mutexes, etc. In short, use this function only if absolutely
     necessary.
 

@@ -1,49 +1,45 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
 #include "private/qmetaobjectbuilder_p.h"
-
-#ifndef Q_OS_WIN
-#include <stdint.h>
-#endif
 
 QT_BEGIN_NAMESPACE
 
@@ -126,7 +122,7 @@ enum PropertyFlags  {
     User = 0x00100000,
     ResolveUser = 0x00200000,
     Notify = 0x00400000,
-    Dynamic = 0x00800000
+    Revisioned = 0x00800000
 };
 
 enum MethodFlags  {
@@ -143,7 +139,8 @@ enum MethodFlags  {
 
     MethodCompatibility = 0x10,
     MethodCloned = 0x20,
-    MethodScriptable = 0x40
+    MethodScriptable = 0x40,
+    MethodRevisioned = 0x80
 };
 
 struct QMetaObjectPrivate
@@ -1264,8 +1261,8 @@ static int buildMetaObject(QMetaObjectBuilderPrivate *d, char *buf,
     char *str = reinterpret_cast<char *>(buf + size);
     if (buf) {
         if (relocatable) {
-            meta->d.stringdata = reinterpret_cast<const char *>((intptr_t)size);
-            meta->d.data = reinterpret_cast<uint *>((intptr_t)pmetaSize);
+            meta->d.stringdata = reinterpret_cast<const char *>((quintptr)size);
+            meta->d.data = reinterpret_cast<uint *>((quintptr)pmetaSize);
         } else {
             meta->d.stringdata = str;
             meta->d.data = reinterpret_cast<uint *>(data);
@@ -1451,6 +1448,7 @@ QMetaObject *QMetaObjectBuilder::toMetaObject() const
 {
     int size = buildMetaObject(d, 0, false);
     char *buf = reinterpret_cast<char *>(qMalloc(size));
+    memset(buf, 0, size);
     buildMetaObject(d, buf, false);
     return reinterpret_cast<QMetaObject *>(buf);
 }
@@ -1480,6 +1478,7 @@ QByteArray QMetaObjectBuilder::toRelocatableData(bool *ok) const
     QByteArray data;
     data.resize(size);
     char *buf = data.data();
+    memset(buf, 0, size);
     buildMetaObject(d, buf, true);
     if (ok) *ok = true;
     return data;
@@ -1502,8 +1501,8 @@ void QMetaObjectBuilder::fromRelocatableData(QMetaObject *output,
     const char *buf = data.constData();
     const QMetaObject *dataMo = reinterpret_cast<const QMetaObject *>(buf);
 
-    intptr_t stringdataOffset = (intptr_t)dataMo->d.stringdata;
-    intptr_t dataOffset = (intptr_t)dataMo->d.data;
+    quintptr stringdataOffset = (quintptr)dataMo->d.stringdata;
+    quintptr dataOffset = (quintptr)dataMo->d.data;
 
     output->d.superdata = superclass;
     output->d.stringdata = buf + stringdataOffset;
@@ -2281,21 +2280,6 @@ bool QMetaPropertyBuilder::isEnumOrFlag() const
 }
 
 /*!
-    Returns true if the property has the dynamic flag set;
-    otherwise returns false.  The default value is false.
-
-    \sa setDynamic()
-*/
-bool QMetaPropertyBuilder::isDynamic() const
-{
-    QMetaPropertyBuilderPrivate *d = d_func();
-    if (d)
-        return d->flag(Dynamic);
-    else
-        return false;
-}
-
-/*!
     Sets this property to readable if \a value is true.
 
     \sa isReadable(), setWritable()
@@ -2416,19 +2400,6 @@ void QMetaPropertyBuilder::setEnumOrFlag(bool value)
     QMetaPropertyBuilderPrivate *d = d_func();
     if (d)
         d->setFlag(EnumOrFlag, value);
-}
-
-/*!
-    Sets this property to have the dynamic flag if \a value is
-    true.
-
-    \sa isDynamic()
-*/
-void QMetaPropertyBuilder::setDynamic(bool value)
-{
-    QMetaPropertyBuilderPrivate *d = d_func();
-    if (d)
-        d->setFlag(Dynamic, value);
 }
 
 /*!

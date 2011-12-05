@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,19 +48,29 @@
 #include <QDir>
 #include <QCryptographicHash>
 #include <private/qabstractanimation_p.h>
+#include <QGraphicsObject>
+#ifndef Q_OS_SYMBIAN
 #include <private/qdeclarativeitem_p.h>
+#endif
 
 QT_BEGIN_NAMESPACE
 
+extern Q_GUI_EXPORT bool qt_applefontsmoothing_enabled;
 
-QDeclarativeTester::QDeclarativeTester(const QString &script, QDeclarativeViewer::ScriptOptions opts, 
+QDeclarativeTester::QDeclarativeTester(const QString &script, QDeclarativeViewer::ScriptOptions opts,
                      QDeclarativeView *parent)
-: QAbstractAnimation(parent), m_script(script), m_view(parent), filterEvents(true), options(opts), 
+: QAbstractAnimation(parent), m_script(script), m_view(parent), filterEvents(true), options(opts),
   testscript(0), hasCompleted(false), hasFailed(false)
 {
     parent->viewport()->installEventFilter(this);
     parent->installEventFilter(this);
     QUnifiedTimer::instance()->setConsistentTiming(true);
+
+    //Font antialiasing makes tests system-specific, so disable it
+    QFont noAA = QApplication::font();
+    noAA.setStyleStrategy(QFont::NoAntialias);
+    QApplication::setFont(noAA);
+
     if (options & QDeclarativeViewer::Play)
         this->run();
     start();
@@ -68,8 +78,8 @@ QDeclarativeTester::QDeclarativeTester(const QString &script, QDeclarativeViewer
 
 QDeclarativeTester::~QDeclarativeTester()
 {
-    if (!hasFailed && 
-        options & QDeclarativeViewer::Record && 
+    if (!hasFailed &&
+        options & QDeclarativeViewer::Record &&
         options & QDeclarativeViewer::SaveOnExit)
         save();
 }
@@ -136,8 +146,25 @@ void QDeclarativeTester::imagefailure()
 {
     hasFailed = true;
 
-    if (options & QDeclarativeViewer::ExitOnFailure)
-        exit(-1);
+    if (options & QDeclarativeViewer::ExitOnFailure){
+        testSkip();
+        exit(hasFailed?-1:0);
+    }
+}
+
+void QDeclarativeTester::testSkip()
+{
+    if (options & QDeclarativeViewer::TestSkipProperty){
+        QString e = m_view->rootObject()->property("skip").toString();
+        if (!e.isEmpty()) {
+            if(hasFailed){
+                qWarning() << "Test failed, but skipping it: " << e;
+            }else{
+                qWarning() << "Test skipped: " << e;
+            }
+            hasFailed = 0;
+        }
+    }
 }
 
 void QDeclarativeTester::complete()
@@ -149,7 +176,10 @@ void QDeclarativeTester::complete()
             hasFailed = true;
         }
     }
-    if (options & QDeclarativeViewer::ExitOnComplete) 
+
+
+    testSkip();
+    if (options & QDeclarativeViewer::ExitOnComplete)
         QApplication::exit(hasFailed?-1:0);
 
     if (hasCompleted)
@@ -201,7 +231,7 @@ void QDeclarativeTester::save()
         }
         ts << "    }\n";
 
-        while (!mouseevents.isEmpty() && 
+        while (!mouseevents.isEmpty() &&
                mouseevents.first().msec == fe.msec) {
             MouseEvent me = mouseevents.takeFirst();
 
@@ -239,7 +269,9 @@ void QDeclarativeTester::save()
 
 void QDeclarativeTester::updateCurrentTime(int msec)
 {
+#ifndef Q_OS_SYMBIAN
     QDeclarativeItemPrivate::setConsistentTime(msec);
+#endif
     if (!testscript && msec > 16 && options & QDeclarativeViewer::Snapshot)
         return;
 
@@ -247,7 +279,16 @@ void QDeclarativeTester::updateCurrentTime(int msec)
 
     if (options & QDeclarativeViewer::TestImages) {
         img.fill(qRgb(255,255,255));
+
+#ifdef Q_WS_MAC
+        bool oldSmooth = qt_applefontsmoothing_enabled;
+        qt_applefontsmoothing_enabled = false;
+#endif
         QPainter p(&img);
+#ifdef Q_WS_MAC
+        qt_applefontsmoothing_enabled = oldSmooth;
+#endif
+
         m_view->render(&p);
     }
 
@@ -258,7 +299,7 @@ void QDeclarativeTester::updateCurrentTime(int msec)
     fe.msec = msec;
     if (msec == 0 || !(options & QDeclarativeViewer::TestImages)) {
         // Skip first frame, skip if not doing images
-    } else if (0 == (m_savedFrameEvents.count() % 60) || snapshot) {
+    } else if (0 == ((m_savedFrameEvents.count()-1) % 60) || snapshot) {
         fe.image = img;
     } else {
         QCryptographicHash hash(QCryptographicHash::Md5);
@@ -309,14 +350,14 @@ void QDeclarativeTester::updateCurrentTime(int msec)
         if (QDeclarativeVisualTestFrame *frame = qobject_cast<QDeclarativeVisualTestFrame *>(event)) {
             if (frame->msec() < msec) {
                 if (options & QDeclarativeViewer::TestImages && !(options & QDeclarativeViewer::Record)) {
-                    qWarning() << "QDeclarativeTester: Extra frame.  Seen:" 
+                    qWarning() << "QDeclarativeTester(" << m_script << "): Extra frame.  Seen:"
                                << msec << "Expected:" << frame->msec();
                     imagefailure();
                 }
             } else if (frame->msec() == msec) {
                 if (!frame->hash().isEmpty() && frame->hash().toUtf8() != fe.hash.toHex()) {
                     if (options & QDeclarativeViewer::TestImages && !(options & QDeclarativeViewer::Record)) {
-                        qWarning() << "QDeclarativeTester: Mismatched frame hash at" << msec
+                        qWarning() << "QDeclarativeTester(" << m_script << "): Mismatched frame hash at" << msec
                                    << ".  Seen:" << fe.hash.toHex()
                                    << "Expected:" << frame->hash().toUtf8();
                         imagefailure();
@@ -328,9 +369,14 @@ void QDeclarativeTester::updateCurrentTime(int msec)
 
             if (options & QDeclarativeViewer::TestImages && !(options & QDeclarativeViewer::Record) && !frame->image().isEmpty()) {
                 QImage goodImage(frame->image().toLocalFile());
+                if (frame->msec() == 16 && goodImage.size() != img.size()){
+                    //Also an image mismatch, but this warning is more informative. Only checked at start though.
+                    qWarning() << "QDeclarativeTester(" << m_script << "): Size mismatch. This test must be run at " << goodImage.size();
+                    imagefailure();
+                }
                 if (goodImage != img) {
                     QString reject(frame->image().toLocalFile() + ".reject.png");
-                    qWarning() << "QDeclarativeTester: Image mismatch.  Reject saved to:" 
+                    qWarning() << "QDeclarativeTester(" << m_script << "): Image mismatch.  Reject saved to:"
                                << reject;
                     img.save(reject);
                     bool doDiff = (goodImage.size() == img.size());
@@ -383,7 +429,7 @@ void QDeclarativeTester::updateCurrentTime(int msec)
                 ke.destination = ViewPort;
             }
             m_savedKeyEvents.append(ke);
-        } 
+        }
         testscriptidx++;
     }
 

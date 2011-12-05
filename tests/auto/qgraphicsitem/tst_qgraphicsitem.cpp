@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -65,6 +65,8 @@
 #include <QInputContext>
 #include <QPushButton>
 #include <QLineEdit>
+#include <QGraphicsLinearLayout>
+#include <float.h>
 
 #include "../../shared/util.h"
 
@@ -93,6 +95,8 @@ Q_DECLARE_METATYPE(QRectF)
 #else
 #define COMPARE_REGIONS QTRY_COMPARE
 #endif
+
+#include "../platformquirks.h"
 
 static QGraphicsRectItem staticItem; //QTBUG-7629, we should not crash at exit.
 
@@ -272,7 +276,7 @@ class MyGraphicsView : public QGraphicsView
 public:
     int repaints;
     QRegion paintedRegion;
-    MyGraphicsView(QGraphicsScene *scene) : QGraphicsView(scene), repaints(0) {}
+    MyGraphicsView(QGraphicsScene *scene, QWidget *parent=0) : QGraphicsView(scene,parent), repaints(0) {}
     void paintEvent(QPaintEvent *e)
     {
         paintedRegion += e->region();
@@ -377,6 +381,7 @@ private slots:
     void itemClipsChildrenToShape2();
     void itemClipsChildrenToShape3();
     void itemClipsChildrenToShape4();
+    void itemClipsChildrenToShape5();
     void itemClipsTextChildToShape();
     void itemClippingDiscovery();
     void ancestorFlags();
@@ -443,7 +448,10 @@ private slots:
     void updateMicroFocus();
     void textItem_shortcuts();
     void scroll();
-    void stopClickFocusPropagation();
+    void focusHandling_data();
+    void focusHandling();
+    void touchEventPropagation_data();
+    void touchEventPropagation();
     void deviceCoordinateCache_simpleRotations();
 
     // task specific tests below me
@@ -465,6 +473,8 @@ private slots:
     void doNotMarkFullUpdateIfNotInScene();
     void itemDiesDuringDraggingOperation();
     void QTBUG_12112_focusItem();
+    void QTBUG_13473_sceneposchange();
+    void QTBUG_16374_crashInDestructor();
 
 private:
     QList<QGraphicsItem *> paintedItems;
@@ -4068,9 +4078,10 @@ void tst_QGraphicsItem::cursor()
     item1->setCursor(Qt::IBeamCursor);
     item2->setCursor(Qt::PointingHandCursor);
 
-    QGraphicsView view(&scene);
+    QWidget topLevel;
+    QGraphicsView view(&scene,&topLevel);
     view.setFixedSize(200, 100);
-    view.show();
+    topLevel.show();
     QTest::mouseMove(&view, view.rect().center());
 
     QTest::qWait(25);
@@ -4092,6 +4103,8 @@ void tst_QGraphicsItem::cursor()
         QApplication::sendEvent(view.viewport(), &event);
     }
 
+    if (!PlatformQuirks::haveMouseCursor())
+        return;
 #if !defined(Q_OS_WINCE)
     QTest::qWait(250);
 #else
@@ -4957,7 +4970,10 @@ void tst_QGraphicsItem::paint()
 
     QGraphicsView view(&scene);
 
-    view.show();
+    if(PlatformQuirks::isAutoMaximizing())
+        view.showFullScreen();
+    else
+        view.show();
     QTest::qWaitForWindowShown(&view);
     QApplication::processEvents();
 #ifdef Q_OS_WIN32
@@ -5465,6 +5481,193 @@ void tst_QGraphicsItem::itemClipsChildrenToShape4()
     QTRY_COMPARE(innerWidget->painted, true);
 }
 
+//#define DEBUG_ITEM_CLIPS_CHILDREN_TO_SHAPE_5
+static inline void renderSceneToImage(QGraphicsScene *scene, QImage *image, const QString &filename)
+{
+    image->fill(0);
+    QPainter painter(image);
+    scene->render(&painter);
+    painter.end();
+#ifdef DEBUG_ITEM_CLIPS_CHILDREN_TO_SHAPE_5
+    image->save(filename);
+#else
+    Q_UNUSED(filename);
+#endif
+}
+
+void tst_QGraphicsItem::itemClipsChildrenToShape5()
+{
+    class ParentItem : public QGraphicsRectItem
+    {
+    public:
+        ParentItem(qreal x, qreal y, qreal width, qreal height)
+            : QGraphicsRectItem(x, y, width, height) {}
+
+        QPainterPath shape() const
+        {
+            QPainterPath path;
+            path.addRect(50, 50, 200, 200);
+            return path;
+        }
+    };
+
+    ParentItem *parent = new ParentItem(0, 0, 300, 300);
+    parent->setBrush(Qt::blue);
+    parent->setOpacity(0.5);
+
+    const QRegion parentRegion(0, 0, 300, 300);
+    const QRegion clippedParentRegion = parentRegion & QRect(50, 50, 200, 200);
+    QRegion childRegion;
+    QRegion grandChildRegion;
+
+    QGraphicsRectItem *topLeftChild = new QGraphicsRectItem(0, 0, 100, 100);
+    topLeftChild->setBrush(Qt::red);
+    topLeftChild->setParentItem(parent);
+    childRegion += QRect(0, 0, 100, 100);
+
+    QGraphicsRectItem *topRightChild = new QGraphicsRectItem(0, 0, 100, 100);
+    topRightChild->setBrush(Qt::red);
+    topRightChild->setParentItem(parent);
+    topRightChild->setFlag(QGraphicsItem::ItemClipsChildrenToShape);
+    topRightChild->setPos(200, 0);
+    childRegion += QRect(200, 0, 100, 100);
+
+    QGraphicsRectItem *topRightGrandChild = new QGraphicsRectItem(0, 0, 100, 100);
+    topRightGrandChild->setBrush(Qt::green);
+    topRightGrandChild->setParentItem(topRightChild);
+    topRightGrandChild->setPos(-40, 40);
+    grandChildRegion += QRect(200 - 40, 0 + 40, 100, 100) & QRect(200, 0, 100, 100);
+
+    QGraphicsRectItem *bottomLeftChild = new QGraphicsRectItem(0, 0, 100, 100);
+    bottomLeftChild->setBrush(Qt::red);
+    bottomLeftChild->setParentItem(parent);
+    bottomLeftChild->setFlag(QGraphicsItem::ItemClipsToShape);
+    bottomLeftChild->setPos(0, 200);
+    childRegion += QRect(0, 200, 100, 100);
+
+    QGraphicsRectItem *bottomLeftGrandChild = new QGraphicsRectItem(0, 0, 160, 160);
+    bottomLeftGrandChild->setBrush(Qt::green);
+    bottomLeftGrandChild->setParentItem(bottomLeftChild);
+    bottomLeftGrandChild->setFlag(QGraphicsItem::ItemClipsToShape);
+    bottomLeftGrandChild->setPos(0, -60);
+    grandChildRegion += QRect(0, 200 - 60, 160, 160);
+
+    QGraphicsRectItem *bottomRightChild = new QGraphicsRectItem(0, 0, 100, 100);
+    bottomRightChild->setBrush(Qt::red);
+    bottomRightChild->setParentItem(parent);
+    bottomRightChild->setPos(200, 200);
+    childRegion += QRect(200, 200, 100, 100);
+
+    QPoint controlPoints[17] = {
+        QPoint(5, 5)  , QPoint(95, 5)  , QPoint(205, 5)  , QPoint(295, 5)  ,
+        QPoint(5, 95) , QPoint(95, 95) , QPoint(205, 95) , QPoint(295, 95) ,
+                             QPoint(150, 150),
+        QPoint(5, 205), QPoint(95, 205), QPoint(205, 205), QPoint(295, 205),
+        QPoint(5, 295), QPoint(95, 295), QPoint(205, 295), QPoint(295, 295),
+    };
+
+    const QRegion clippedChildRegion = childRegion & QRect(50, 50, 200, 200);
+    const QRegion clippedGrandChildRegion = grandChildRegion & QRect(50, 50, 200, 200);
+
+    QGraphicsScene scene;
+    scene.addItem(parent);
+    QImage sceneImage(300, 300, QImage::Format_ARGB32);
+
+#define VERIFY_CONTROL_POINTS(pRegion, cRegion, gRegion) \
+    for (int i = 0; i < 17; ++i) { \
+        QPoint controlPoint = controlPoints[i]; \
+        QRgb pixel = sceneImage.pixel(controlPoint.x(), controlPoint.y()); \
+        if (pRegion.contains(controlPoint)) \
+            QVERIFY(qBlue(pixel) != 0); \
+        else \
+            QVERIFY(qBlue(pixel) == 0); \
+        if (cRegion.contains(controlPoint)) \
+            QVERIFY(qRed(pixel) != 0); \
+        else \
+            QVERIFY(qRed(pixel) == 0); \
+        if (gRegion.contains(controlPoint)) \
+            QVERIFY(qGreen(pixel) != 0); \
+        else \
+            QVERIFY(qGreen(pixel) == 0); \
+    }
+
+    const QList<QGraphicsItem *> children = parent->childItems();
+    const int childrenCount = children.count();
+
+    for (int i = 0; i < 5; ++i) {
+        QString clipString;
+        QString childString;
+        switch (i) {
+        case 0:
+            // All children stacked in front.
+            childString = QLatin1String("ChildrenInFront.png");
+            foreach (QGraphicsItem *child, children)
+                child->setFlag(QGraphicsItem::ItemStacksBehindParent, false);
+            break;
+        case 1:
+            // All children stacked behind.
+            childString = QLatin1String("ChildrenBehind.png");
+            foreach (QGraphicsItem *child, children)
+                child->setFlag(QGraphicsItem::ItemStacksBehindParent, true);
+            break;
+        case 2:
+            // First half of the children behind, second half in front.
+            childString = QLatin1String("FirstHalfBehind_SecondHalfInFront.png");
+            for (int j = 0; j < childrenCount; ++j) {
+                QGraphicsItem *child = children.at(j);
+                child->setFlag(QGraphicsItem::ItemStacksBehindParent, (j < childrenCount / 2));
+            }
+            break;
+        case 3:
+            // First half of the children in front, second half behind.
+            childString = QLatin1String("FirstHalfInFront_SecondHalfBehind.png");
+            for (int j = 0; j < childrenCount; ++j) {
+                QGraphicsItem *child = children.at(j);
+                child->setFlag(QGraphicsItem::ItemStacksBehindParent, (j >= childrenCount / 2));
+            }
+            break;
+        case 4:
+            // Child2 and child4 behind, rest in front.
+            childString = QLatin1String("Child2And4Behind_RestInFront.png");
+            for (int j = 0; j < childrenCount; ++j) {
+                QGraphicsItem *child = children.at(j);
+                if (j == 1 || j == 3)
+                    child->setFlag(QGraphicsItem::ItemStacksBehindParent, true);
+                else
+                    child->setFlag(QGraphicsItem::ItemStacksBehindParent, false);
+            }
+            break;
+        default:
+            qFatal("internal error");
+        }
+
+        // Nothing is clipped.
+        parent->setFlag(QGraphicsItem::ItemClipsChildrenToShape, false);
+        parent->setFlag(QGraphicsItem::ItemClipsToShape, false);
+        clipString = QLatin1String("nothingClipped_");
+        renderSceneToImage(&scene, &sceneImage, clipString + childString);
+        VERIFY_CONTROL_POINTS(parentRegion, childRegion, grandChildRegion);
+
+        // Parent clips children to shape.
+        parent->setFlag(QGraphicsItem::ItemClipsChildrenToShape);
+        clipString = QLatin1String("parentClipsChildrenToShape_");
+        renderSceneToImage(&scene, &sceneImage, clipString + childString);
+        VERIFY_CONTROL_POINTS(parentRegion, clippedChildRegion, clippedGrandChildRegion);
+
+        // Parent clips itself and children to shape.
+        parent->setFlag(QGraphicsItem::ItemClipsToShape);
+        clipString = QLatin1String("parentClipsItselfAndChildrenToShape_");
+        renderSceneToImage(&scene, &sceneImage, clipString + childString);
+        VERIFY_CONTROL_POINTS(clippedParentRegion, clippedChildRegion, clippedGrandChildRegion);
+
+        // Parent clips itself to shape.
+        parent->setFlag(QGraphicsItem::ItemClipsChildrenToShape, false);
+        clipString = QLatin1String("parentClipsItselfToShape_");
+        renderSceneToImage(&scene, &sceneImage, clipString + childString);
+        VERIFY_CONTROL_POINTS(clippedParentRegion, childRegion, grandChildRegion);
+    }
+}
+
 void tst_QGraphicsItem::itemClipsTextChildToShape()
 {
     // Construct a scene with a rect that clips its children, with one text
@@ -5786,9 +5989,10 @@ void tst_QGraphicsItem::untransformable()
     QGraphicsScene scene(-500, -500, 1000, 1000);
     scene.addItem(item1);
 
-    QGraphicsView view(&scene);
+    QWidget topLevel;
+    QGraphicsView view(&scene,&topLevel);
     view.resize(300, 300);
-    view.show();
+    topLevel.show();
     view.scale(8, 8);
     view.centerOn(0, 0);
 
@@ -6427,7 +6631,10 @@ void tst_QGraphicsItem::opacity2()
     scene.addItem(parent);
 
     MyGraphicsView view(&scene);
-    view.show();
+    if(PlatformQuirks::isAutoMaximizing())
+        view.showFullScreen();
+    else
+        view.show();
     QTest::qWaitForWindowShown(&view);
     QTRY_VERIFY(view.repaints >= 1);
 
@@ -6861,6 +7068,7 @@ void tst_QGraphicsItem::tabChangesFocus()
     widget.setLayout(layout);
     widget.show();
     QTest::qWaitForWindowShown(&widget);
+    QTest::qWait(2000);
 
     QTRY_VERIFY(scene.isActive());
 
@@ -7306,9 +7514,11 @@ void tst_QGraphicsItem::update()
 {
     QGraphicsScene scene;
     scene.setSceneRect(-100, -100, 200, 200);
-    MyGraphicsView view(&scene);
+    QWidget topLevel;
+    MyGraphicsView view(&scene,&topLevel);
 
-    view.show();
+    topLevel.resize(300, 300);
+    topLevel.show();
 #ifdef Q_WS_X11
     qt_x11_wait_for_window_manager(&view);
 #endif
@@ -7587,10 +7797,11 @@ void tst_QGraphicsItem::itemUsesExtendedStyleOption()
     MyStyleOptionTester *rect = new MyStyleOptionTester(QRect(0, 0, 100, 100));
     scene.addItem(rect);
     rect->setPos(200, 200);
-    QGraphicsView view(&scene);
-    view.setWindowFlags(Qt::X11BypassWindowManagerHint);
+    QWidget topLevel;
+    QGraphicsView view(&scene, &topLevel);
+    topLevel.setWindowFlags(Qt::X11BypassWindowManagerHint);
     rect->startTrack = false;
-    view.show();
+    topLevel.show();
     QTest::qWaitForWindowShown(&view);
     QTest::qWait(60);
     rect->startTrack = true;
@@ -7791,6 +8002,9 @@ void tst_QGraphicsItem::sorting_data()
 
 void tst_QGraphicsItem::sorting()
 {
+    if (PlatformQuirks::isAutoMaximizing())
+        QSKIP("Skipped because Platform is auto maximizing", SkipAll);
+
     _paintedItems.clear();
 
     QGraphicsScene scene;
@@ -7815,7 +8029,16 @@ void tst_QGraphicsItem::sorting()
     QGraphicsView view(&scene);
     view.setResizeAnchor(QGraphicsView::NoAnchor);
     view.setTransformationAnchor(QGraphicsView::NoAnchor);
+#ifdef Q_OS_SYMBIAN
+    // Adjust area in devices where scrollbars are thicker than 25 pixels as they will
+    // obstruct painting otherwise.
+    int scrollWidth = qMax(25, view.verticalScrollBar()->width());
+    int scrollHeight = qMax(25, view.horizontalScrollBar()->height());
+
+    view.resize(95 + scrollWidth, 75 + scrollHeight);
+#else
     view.resize(120, 100);
+#endif
     view.setFrameStyle(0);
     view.show();
 #ifdef Q_WS_X11
@@ -7826,7 +8049,7 @@ void tst_QGraphicsItem::sorting()
     _paintedItems.clear();
 
     view.viewport()->repaint();
-#ifdef Q_WS_MAC
+#if defined(Q_WS_MAC)
     // There's no difference between repaint and update on the Mac,
     // so we have to process events here to make sure we get the event.
     QTest::qWait(100);
@@ -7925,10 +8148,13 @@ void tst_QGraphicsItem::hitTestGraphicsEffectItem()
     QGraphicsScene scene;
     scene.setSceneRect(-100, -100, 200, 200);
 
-    QGraphicsView view(&scene);
-    view.show();
+    QWidget toplevel;
+
+    QGraphicsView view(&scene, &toplevel);
+    toplevel.resize(300, 300);
+    toplevel.show();
 #ifdef Q_WS_X11
-    qt_x11_wait_for_window_manager(&view);
+    qt_x11_wait_for_window_manager(&toplevel);
 #endif
     QTest::qWait(100);
 
@@ -8877,6 +9103,10 @@ void tst_QGraphicsItem::focusScope()
     scope2->hide();
     scope2->show();
     QVERIFY(!scope2->hasFocus());
+    QVERIFY(scope1->hasFocus());
+    scope2->setFocus();
+    QVERIFY(scope2->hasFocus());
+    scope3->setFocus();
     QVERIFY(scope3->hasFocus());
 
     QGraphicsRectItem *rect4 = new QGraphicsRectItem;
@@ -10320,8 +10550,39 @@ void tst_QGraphicsItem::scroll()
     QCOMPARE(item2->lastExposedRect, expectedItem2Expose);
 }
 
-void tst_QGraphicsItem::stopClickFocusPropagation()
+Q_DECLARE_METATYPE(QGraphicsItem::GraphicsItemFlag);
+
+void tst_QGraphicsItem::focusHandling_data()
 {
+    QTest::addColumn<QGraphicsItem::GraphicsItemFlag>("focusFlag");
+    QTest::addColumn<bool>("useStickyFocus");
+    QTest::addColumn<int>("expectedFocusItem"); // 0: none, 1: focusableUnder, 2: itemWithFocus
+
+    QTest::newRow("Focus goes through.")
+        << static_cast<QGraphicsItem::GraphicsItemFlag>(0x0) << false << 1;
+
+    QTest::newRow("Focus goes through, even with sticky scene.")
+        << static_cast<QGraphicsItem::GraphicsItemFlag>(0x0) << true  << 1;
+
+    QTest::newRow("With ItemStopsClickFocusPropagation, we cannot focus the item beneath the flagged one (but can still focus-out).")
+        << QGraphicsItem::ItemStopsClickFocusPropagation << false << 0;
+
+    QTest::newRow("With ItemStopsClickFocusPropagation, we cannot focus the item beneath the flagged one (and cannot focus-out if scene is sticky).")
+        << QGraphicsItem::ItemStopsClickFocusPropagation << true << 2;
+
+    QTest::newRow("With ItemStopsFocusHandling, focus cannot be changed by presses.")
+        << QGraphicsItem::ItemStopsFocusHandling << false << 2;
+
+    QTest::newRow("With ItemStopsFocusHandling, focus cannot be changed by presses (even if scene is sticky).")
+        << QGraphicsItem::ItemStopsFocusHandling << true << 2;
+}
+
+void tst_QGraphicsItem::focusHandling()
+{
+    QFETCH(QGraphicsItem::GraphicsItemFlag, focusFlag);
+    QFETCH(bool, useStickyFocus);
+    QFETCH(int, expectedFocusItem);
+
     class MyItem : public QGraphicsRectItem
     {
     public:
@@ -10332,12 +10593,9 @@ void tst_QGraphicsItem::stopClickFocusPropagation()
         }
     };
 
-    QGraphicsScene scene(-50, -50, 400, 400);
-    scene.setStickyFocus(true);
-
     QGraphicsRectItem *noFocusOnTop = new MyItem;
+    noFocusOnTop->setFlag(QGraphicsItem::ItemIsFocusable, false);
     noFocusOnTop->setBrush(Qt::yellow);
-    noFocusOnTop->setFlag(QGraphicsItem::ItemStopsClickFocusPropagation);
 
     QGraphicsRectItem *focusableUnder = new MyItem;
     focusableUnder->setBrush(Qt::blue);
@@ -10349,9 +10607,13 @@ void tst_QGraphicsItem::stopClickFocusPropagation()
     itemWithFocus->setFlag(QGraphicsItem::ItemIsFocusable);
     itemWithFocus->setPos(250, 10);
 
+    QGraphicsScene scene(-50, -50, 400, 400);
     scene.addItem(noFocusOnTop);
     scene.addItem(focusableUnder);
     scene.addItem(itemWithFocus);
+    scene.setStickyFocus(useStickyFocus);
+
+    noFocusOnTop->setFlag(focusFlag);
     focusableUnder->stackBefore(noFocusOnTop);
     itemWithFocus->setFocus();
 
@@ -10363,14 +10625,102 @@ void tst_QGraphicsItem::stopClickFocusPropagation()
     QTRY_COMPARE(QApplication::activeWindow(), static_cast<QWidget *>(&view));
     QVERIFY(itemWithFocus->hasFocus());
 
-    QPointF mousePressPoint = noFocusOnTop->mapToScene(QPointF());
-    mousePressPoint.rx() += 60;
-    mousePressPoint.ry() += 60;
+    const QPointF mousePressPoint = noFocusOnTop->mapToScene(noFocusOnTop->boundingRect().center());
     const QList<QGraphicsItem *> itemsAtMousePressPosition = scene.items(mousePressPoint);
-    QVERIFY(itemsAtMousePressPosition.contains(focusableUnder));
+    QVERIFY(itemsAtMousePressPosition.contains(noFocusOnTop));
 
     sendMousePress(&scene, mousePressPoint);
-    QVERIFY(itemWithFocus->hasFocus());
+
+    switch (expectedFocusItem) {
+    case 0:
+        QCOMPARE(scene.focusItem(), static_cast<QGraphicsRectItem *>(0));
+        break;
+    case 1:
+        QCOMPARE(scene.focusItem(), focusableUnder);
+        break;
+    case 2:
+        QCOMPARE(scene.focusItem(), itemWithFocus);
+        break;
+    }
+
+    // Sanity check - manually setting the focus must work regardless of our
+    // focus handling flags:
+    focusableUnder->setFocus();
+    QCOMPARE(scene.focusItem(), focusableUnder);
+}
+
+void tst_QGraphicsItem::touchEventPropagation_data()
+{
+    QTest::addColumn<QGraphicsItem::GraphicsItemFlag>("flag");
+    QTest::addColumn<int>("expectedCount");
+
+    QTest::newRow("ItemIsPanel")
+        << QGraphicsItem::ItemIsPanel << 0;
+    QTest::newRow("ItemStopsClickFocusPropagation")
+        << QGraphicsItem::ItemStopsClickFocusPropagation << 1;
+    QTest::newRow("ItemStopsFocusHandling")
+        << QGraphicsItem::ItemStopsFocusHandling << 1;
+}
+
+void tst_QGraphicsItem::touchEventPropagation()
+{
+    QFETCH(QGraphicsItem::GraphicsItemFlag, flag);
+    QFETCH(int, expectedCount);
+
+    class Testee : public QGraphicsRectItem
+    {
+    public:
+        int touchBeginEventCount;
+
+        Testee()
+            : QGraphicsRectItem(0, 0, 100, 100)
+            , touchBeginEventCount(0)
+        {
+            setAcceptTouchEvents(true);
+            setFlag(QGraphicsItem::ItemIsFocusable, false);
+        }
+
+        bool sceneEvent(QEvent *ev)
+        {
+            if (ev->type() == QEvent::TouchBegin)
+                ++touchBeginEventCount;
+
+            return QGraphicsRectItem::sceneEvent(ev);
+        }
+    };
+
+    Testee *touchEventReceiver = new Testee;
+    QGraphicsItem *topMost = new QGraphicsRectItem(touchEventReceiver->boundingRect());
+
+    QGraphicsScene scene;
+    scene.addItem(topMost);
+    scene.addItem(touchEventReceiver);
+
+    topMost->setAcceptTouchEvents(true);
+    topMost->setZValue(FLT_MAX);
+    topMost->setFlag(QGraphicsItem::ItemIsFocusable, false);
+    topMost->setFlag(flag, true);
+
+    QGraphicsView view(&scene);
+    view.setSceneRect(touchEventReceiver->boundingRect());
+    view.show();
+    QTest::qWaitForWindowShown(&view);
+
+    QCOMPARE(touchEventReceiver->touchBeginEventCount, 0);
+
+    QTouchEvent::TouchPoint tp(0);
+    tp.setState(Qt::TouchPointPressed);
+    tp.setScenePos(view.sceneRect().center());
+    tp.setLastScenePos(view.sceneRect().center());
+
+    QList<QTouchEvent::TouchPoint> touchPoints;
+    touchPoints << tp;
+
+    sendMousePress(&scene, tp.scenePos());
+    QTouchEvent touchBegin(QEvent::TouchBegin, QTouchEvent::TouchScreen, Qt::NoModifier, Qt::TouchPointPressed, touchPoints);
+
+    qApp->sendEvent(&scene, &touchBegin);
+    QCOMPARE(touchEventReceiver->touchBeginEventCount, expectedCount);
 }
 
 void tst_QGraphicsItem::deviceCoordinateCache_simpleRotations()
@@ -10528,7 +10878,10 @@ void tst_QGraphicsItem::QTBUG_6738_missingUpdateWithSetParent()
     scene.addItem(parent);
 
     MyGraphicsView view(&scene);
-    view.show();
+    if(PlatformQuirks::isAutoMaximizing())
+        view.showFullScreen();
+    else
+        view.show();
     QTest::qWaitForWindowShown(&view);
     QTRY_VERIFY(view.repaints > 0);
 
@@ -10576,7 +10929,10 @@ void tst_QGraphicsItem::QT_2653_fullUpdateDiscardingOpacityUpdate()
     // ItemIgnoresTransformations, ItemClipsChildrenToShape, ItemIsSelectable
     parentGreen->setFlag(QGraphicsItem::ItemIgnoresTransformations);
 
-    view.show();
+    if (PlatformQuirks::isAutoMaximizing())
+        view.showFullScreen();
+    else
+        view.show();
     QTest::qWaitForWindowShown(&view);
     view.reset();
 
@@ -10761,7 +11117,10 @@ void tst_QGraphicsItem::doNotMarkFullUpdateIfNotInScene()
     item3->setParentItem(item2);
     item2->setParentItem(item);
     scene.addItem(item);
-    view.show();
+    if(PlatformQuirks::isAutoMaximizing())
+        view.showFullScreen();
+    else
+        view.show();
     QTest::qWaitForWindowShown(&view);
     QTRY_COMPARE(view.repaints, 1);
     QTRY_COMPARE(item->painted, 1);
@@ -10825,6 +11184,83 @@ void tst_QGraphicsItem::QTBUG_12112_focusItem()
     item2->setFocus();
     QVERIFY(!item1->focusItem());
     QVERIFY(item2->focusItem());
+}
+
+void tst_QGraphicsItem::QTBUG_13473_sceneposchange()
+{
+    ScenePosChangeTester* parent = new ScenePosChangeTester;
+    ScenePosChangeTester* child = new ScenePosChangeTester(parent);
+
+    // parent's disabled ItemSendsGeometryChanges flag must not affect
+    // child's scene pos change notifications
+    parent->setFlag(QGraphicsItem::ItemSendsGeometryChanges, false);
+    child->setFlag(QGraphicsItem::ItemSendsScenePositionChanges, true);
+
+    QGraphicsScene scene;
+    scene.addItem(parent);
+
+    // ignore uninteresting changes
+    parent->clear();
+    child->clear();
+
+    // move
+    parent->moveBy(1.0, 1.0);
+    QCOMPARE(child->changes.count(QGraphicsItem::ItemScenePositionHasChanged), 1);
+
+    // transform
+    parent->setTransform(QTransform::fromScale(0.5, 0.5));
+    QCOMPARE(child->changes.count(QGraphicsItem::ItemScenePositionHasChanged), 2);
+}
+
+class MyGraphicsWidget : public QGraphicsWidget {
+Q_OBJECT
+public:
+    MyGraphicsWidget()
+        : QGraphicsWidget(0)
+    {
+        QGraphicsLinearLayout *lay = new QGraphicsLinearLayout(Qt::Vertical);
+        QLatin1String wiseWords("AZ BUKI VEDI");
+        QString sentence(wiseWords);
+        QStringList words = sentence.split(QLatin1Char(' '), QString::SkipEmptyParts);
+        for (int i = 0; i < words.count(); ++i) {
+            QGraphicsProxyWidget *proxy = new QGraphicsProxyWidget(this);
+            QLabel *label = new QLabel(words.at(i));
+            proxy->setWidget(label);
+            proxy->setFocusPolicy(Qt::StrongFocus);
+            proxy->setFlag(QGraphicsItem::ItemAcceptsInputMethod, true);
+            if (i%2 == 0)
+                proxy->setVisible(false);
+            proxy->setFocus();
+            lay->addItem(proxy);
+        }
+        setLayout(lay);
+    }
+
+};
+
+class MyWidgetWindow : public QGraphicsWidget
+{
+public:
+    MyWidgetWindow()
+        : QGraphicsWidget(0, Qt::Window)
+    {
+        QGraphicsLinearLayout *lay = new QGraphicsLinearLayout(Qt::Vertical);
+        MyGraphicsWidget *widget = new MyGraphicsWidget();
+        lay->addItem(widget);
+        setLayout(lay);
+    }
+};
+
+void tst_QGraphicsItem::QTBUG_16374_crashInDestructor()
+{
+    QGraphicsScene scene;
+    QGraphicsView view(&scene);
+
+    MyWidgetWindow win;
+    scene.addItem(&win);
+
+    view.show();
+    QTest::qWaitForWindowShown(&view);
 }
 
 QTEST_MAIN(tst_QGraphicsItem)

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -55,10 +55,11 @@
 #include <qdesktopwidget.h>
 #include <qfile.h>
 #include <qimagereader.h>
+#include <qbuffer.h>
 
 QT_BEGIN_NAMESPACE
 
-extern QGLWidget* qt_gl_share_widget();
+Q_OPENGL_EXPORT extern QGLWidget* qt_gl_share_widget();
 
 /*!
     \class QGLFramebufferObjectPool
@@ -369,40 +370,18 @@ void QGLPixmapData::ensureCreated() const
 void QGLPixmapData::fromImage(const QImage &image,
                               Qt::ImageConversionFlags flags)
 {
-    if (image.size() == QSize(w, h))
-        setSerialNumber(++qt_gl_pixmap_serial);
-    resize(image.width(), image.height());
+    QImage img = image;
+    createPixmapForImage(img, flags, false);
+}
 
-    if (pixelType() == BitmapType) {
-        m_source = image.convertToFormat(QImage::Format_MonoLSB);
+void QGLPixmapData::fromImageReader(QImageReader *imageReader,
+                                 Qt::ImageConversionFlags flags)
+{
+    QImage image = imageReader->read();
+    if (image.isNull())
+        return;
 
-    } else {
-        QImage::Format format = QImage::Format_RGB32;
-        if (qApp->desktop()->depth() == 16)
-            format = QImage::Format_RGB16;
-
-        if (image.hasAlphaChannel()
-            && ((flags & Qt::NoOpaqueDetection)
-                || const_cast<QImage &>(image).data_ptr()->checkForAlphaPixels()))
-            format = QImage::Format_ARGB32_Premultiplied;;
-
-        m_source = image.convertToFormat(format);
-    }
-
-    m_dirty = true;
-    m_hasFillColor = false;
-
-    m_hasAlpha = m_source.hasAlphaChannel();
-    w = image.width();
-    h = image.height();
-    is_null = (w <= 0 || h <= 0);
-    d = m_source.depth();
-
-    if (m_texture.id) {
-        QGLShareContextScope ctx(qt_gl_share_widget()->context());
-        glDeleteTextures(1, &m_texture.id);
-        m_texture.id = 0;
-    }
+    createPixmapForImage(image, flags, true);
 }
 
 bool QGLPixmapData::fromFile(const QString &filename, const char *format,
@@ -411,31 +390,37 @@ bool QGLPixmapData::fromFile(const QString &filename, const char *format,
     if (pixelType() == QPixmapData::BitmapType)
         return QPixmapData::fromFile(filename, format, flags);
     QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly))
-        return false;
-    QByteArray data = file.peek(64);
-    bool alpha;
-    if (m_texture.canBindCompressedTexture
-            (data.constData(), data.size(), format, &alpha)) {
-        resize(0, 0);
-        data = file.readAll();
-        file.close();
-        QGLShareContextScope ctx(qt_gl_share_widget()->context());
-        QSize size = m_texture.bindCompressedTexture
-            (data.constData(), data.size(), format);
-        if (!size.isEmpty()) {
-            w = size.width();
-            h = size.height();
-            is_null = false;
-            d = 32;
-            m_hasAlpha = alpha;
-            m_source = QImage();
-            m_dirty = isValid();
-            return true;
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray data = file.peek(64);
+        bool alpha;
+        if (m_texture.canBindCompressedTexture
+                (data.constData(), data.size(), format, &alpha)) {
+            resize(0, 0);
+            data = file.readAll();
+            file.close();
+            QGLShareContextScope ctx(qt_gl_share_widget()->context());
+            QSize size = m_texture.bindCompressedTexture
+                (data.constData(), data.size(), format);
+            if (!size.isEmpty()) {
+                w = size.width();
+                h = size.height();
+                is_null = false;
+                d = 32;
+                m_hasAlpha = alpha;
+                m_source = QImage();
+                m_dirty = isValid();
+                return true;
+            }
+            return false;
         }
-        return false;
     }
-    fromImage(QImageReader(&file, format).read(), flags);
+
+    QImage image = QImageReader(filename, format).read();
+    if (image.isNull())
+        return false;
+
+    createPixmapForImage(image, flags, true);
+
     return !isNull();
 }
 
@@ -459,7 +444,67 @@ bool QGLPixmapData::fromData(const uchar *buffer, uint len, const char *format,
             return true;
         }
     }
-    return QPixmapData::fromData(buffer, len, format, flags);
+
+    QByteArray a = QByteArray::fromRawData(reinterpret_cast<const char *>(buffer), len);
+    QBuffer b(&a);
+    b.open(QIODevice::ReadOnly);
+    QImage image = QImageReader(&b, format).read();
+    if (image.isNull())
+        return false;
+
+    createPixmapForImage(image, flags, true);
+
+    return !isNull();
+}
+
+/*!
+    out-of-place conversion (inPlace == false) will always detach()
+ */
+void QGLPixmapData::createPixmapForImage(QImage &image, Qt::ImageConversionFlags flags, bool inPlace)
+{
+    if (image.size() == QSize(w, h))
+        setSerialNumber(++qt_gl_pixmap_serial);
+
+    resize(image.width(), image.height());
+
+    if (pixelType() == BitmapType) {
+        m_source = image.convertToFormat(QImage::Format_MonoLSB);
+
+    } else {
+        QImage::Format format = QImage::Format_RGB32;
+        if (qApp->desktop()->depth() == 16)
+            format = QImage::Format_RGB16;
+
+        if (image.hasAlphaChannel()
+            && ((flags & Qt::NoOpaqueDetection)
+                || const_cast<QImage &>(image).data_ptr()->checkForAlphaPixels()))
+            format = QImage::Format_ARGB32_Premultiplied;;
+
+        if (inPlace && image.data_ptr()->convertInPlace(format, flags)) {
+            m_source = image;
+        } else {
+            m_source = image.convertToFormat(format);
+
+            // convertToFormat won't detach the image if format stays the same.
+            if (image.format() == format)
+                m_source.detach();
+        }
+    }
+
+    m_dirty = true;
+    m_hasFillColor = false;
+
+    m_hasAlpha = m_source.hasAlphaChannel();
+    w = image.width();
+    h = image.height();
+    is_null = (w <= 0 || h <= 0);
+    d = m_source.depth();
+
+    if (m_texture.id) {
+        QGLShareContextScope ctx(qt_gl_share_widget()->context());
+        glDeleteTextures(1, &m_texture.id);
+        m_texture.id = 0;
+    }
 }
 
 bool QGLPixmapData::scroll(int dx, int dy, const QRect &rect)
@@ -586,6 +631,12 @@ QImage QGLPixmapData::toImage() const
     if (m_renderFbo) {
         copyBackFromRenderFbo(true);
     } else if (!m_source.isNull()) {
+        QImageData *data = const_cast<QImage &>(m_source).data_ptr();
+        if (data->paintEngine && data->paintEngine->isActive()
+            && data->paintEngine->paintDevice() == &m_source)
+        {
+            return m_source.copy();
+        }
         return m_source;
     } else if (m_dirty || m_hasFillColor) {
         return fillImage(m_fillColor);
@@ -739,8 +790,8 @@ QGLTexture* QGLPixmapData::texture() const
     return &m_texture;
 }
 
-extern int qt_defaultDpiX();
-extern int qt_defaultDpiY();
+Q_GUI_EXPORT int qt_defaultDpiX();
+Q_GUI_EXPORT int qt_defaultDpiY();
 
 int QGLPixmapData::metric(QPaintDevice::PaintDeviceMetric metric) const
 {

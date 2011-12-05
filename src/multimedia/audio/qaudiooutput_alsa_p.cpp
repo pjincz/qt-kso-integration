@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtMultimedia module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -155,7 +155,7 @@ int QAudioOutputPrivate::xrun_recovery(int err)
 
 int QAudioOutputPrivate::setFormat()
 {
-    snd_pcm_format_t pcmformat = SND_PCM_FORMAT_S16;
+    snd_pcm_format_t pcmformat = SND_PCM_FORMAT_UNKNOWN;
 
     if(settings.sampleSize() == 8) {
         pcmformat = SND_PCM_FORMAT_U8;
@@ -208,7 +208,9 @@ int QAudioOutputPrivate::setFormat()
             pcmformat = SND_PCM_FORMAT_FLOAT64_BE;
     }
 
-    return snd_pcm_hw_params_set_format( handle, hwparams, pcmformat);
+    return pcmformat != SND_PCM_FORMAT_UNKNOWN
+            ? snd_pcm_hw_params_set_format( handle, hwparams, pcmformat)
+            : -1;
 }
 
 QIODevice* QAudioOutputPrivate::start(QIODevice* device)
@@ -275,9 +277,24 @@ bool QAudioOutputPrivate::open()
     elapsedTimeOffset = 0;
 
     int dir;
-    int err=-1;
+    int err = 0;
     int count=0;
     unsigned int freakuency=settings.frequency();
+
+    if (!settings.isValid()) {
+        qWarning("QAudioOutput: open error, invalid format.");
+    } else if (settings.frequency() <= 0) {
+        qWarning("QAudioOutput: open error, invalid sample rate (%d).",
+                 settings.frequency());
+    } else {
+        err = -1;
+    }
+
+    if (err == 0) {
+        errorState = QAudio::OpenError;
+        deviceState = QAudio::StoppedState;
+        return false;
+    }
 
     QString dev = QString(QLatin1String(m_device.constData()));
     QList<QByteArray> devices = QAudioDeviceInfoInternal::availableDevices(QAudio::AudioOutput);

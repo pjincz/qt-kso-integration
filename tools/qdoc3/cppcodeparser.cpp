@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -47,7 +47,6 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <qdebug.h>
 
 #include "codechunk.h"
 #include "config.h"
@@ -97,6 +96,22 @@ QT_BEGIN_NAMESPACE
 #define COMMAND_QMLDEFAULT              Doc::alias("default")
 #define COMMAND_QMLBASICTYPE            Doc::alias("qmlbasictype")
 #endif
+
+#define COMMAND_AUDIENCE                Doc::alias("audience")
+#define COMMAND_CATEGORY                Doc::alias("category")
+#define COMMAND_PRODNAME                Doc::alias("prodname")
+#define COMMAND_COMPONENT               Doc::alias("component")
+#define COMMAND_AUTHOR                  Doc::alias("author")
+#define COMMAND_PUBLISHER               Doc::alias("publisher")
+#define COMMAND_COPYRYEAR               Doc::alias("copyryear")
+#define COMMAND_COPYRHOLDER             Doc::alias("copyrholder")
+#define COMMAND_PERMISSIONS             Doc::alias("permissions")
+#define COMMAND_LIFECYCLEVERSION        Doc::alias("lifecycleversion")
+#define COMMAND_LIFECYCLEWSTATUS        Doc::alias("lifecyclestatus")
+#define COMMAND_LICENSEYEAR             Doc::alias("licenseyear")
+#define COMMAND_LICENSENAME             Doc::alias("licensename")
+#define COMMAND_LICENSEDESCRIPTION      Doc::alias("licensedescription")
+#define COMMAND_RELEASEDATE             Doc::alias("releasedate")
 
 QStringList CppCodeParser::exampleFiles;
 QStringList CppCodeParser::exampleDirs;
@@ -258,18 +273,18 @@ QString CppCodeParser::language()
 /*!
   Returns a list of extensions for header files.
  */
-QString CppCodeParser::headerFileNameFilter()
+QStringList CppCodeParser::headerFileNameFilter()
 {
-    return "*.ch *.h *.h++ *.hh *.hpp *.hxx";
+    return QStringList() << "*.ch" << "*.h" << "*.h++" << "*.hh" << "*.hpp" << "*.hxx";
 }
 
 /*!
   Returns a list of extensions for source files, i.e. not
   header files.
  */
-QString CppCodeParser::sourceFileNameFilter()
+QStringList CppCodeParser::sourceFileNameFilter()
 {
-    return "*.c++ *.cc *.cpp *.cxx";
+    return QStringList() << "*.c++" << "*.cc" << "*.cpp" << "*.cxx" << "*.mm";
 }
 
 /*!
@@ -864,10 +879,12 @@ Node *CppCodeParser::processTopicCommandGroup(const Doc& doc,
         }
         if (qmlPropGroup) {
             const ClassNode *correspondingClass = static_cast<const QmlClassNode*>(qmlPropGroup->parent())->classNode();
-            PropertyNode *correspondingProperty = 0;
-            if (correspondingClass)
-                correspondingProperty = static_cast<PropertyNode*>((Node*)correspondingClass->findNode(property, Node::Property));
             QmlPropertyNode *qmlPropNode = new QmlPropertyNode(qmlPropGroup,property,type,attached);
+
+            const PropertyNode *correspondingProperty = 0;
+            if (correspondingClass) {
+                correspondingProperty = qmlPropNode->correspondingProperty(tre);
+            }
             if (correspondingProperty) {
                 bool writableList = type.startsWith("list") && correspondingProperty->dataType().endsWith('*');
                 qmlPropNode->setWritable(writableList || correspondingProperty->isWritable());
@@ -966,16 +983,6 @@ void CppCodeParser::processOtherMetaCommand(const Doc& doc,
                     .arg(COMMAND_REIMP).arg(node->name()));
             }
 
-#if 0
-            // Reimplemented functions now reported in separate sections.
-            /*
-              Note: Setting the access to Private hides the documentation,
-              but setting the status to Internal makes the node available
-              in the XML output when the WebXMLGenerator is used.
-            */
-            func->setAccess(Node::Private);
-            func->setStatus(Node::Internal);
-#endif
             func->setReimp(true);
         }
         else {
@@ -1820,7 +1827,7 @@ bool CppCodeParser::matchProperty(InnerNode *parent)
              !match(Tok_QDOC_PROPERTY)) {
         return false;
     }
-    
+
     if (!match(expected_tok))
         return false;
 
@@ -1840,7 +1847,7 @@ bool CppCodeParser::matchProperty(InnerNode *parent)
         QString key = previousLexeme();
         QString value;
 
-        if (match(Tok_Ident)) {
+        if (match(Tok_Ident) || match(Tok_Number)) {
             value = previousLexeme();
         }
         else if (match(Tok_LeftParen)) {
@@ -1883,8 +1890,15 @@ bool CppCodeParser::matchProperty(InnerNode *parent)
             tre->addPropertyFunction(property, value, PropertyNode::Resetter);
         else if (key == "NOTIFY") {
             tre->addPropertyFunction(property, value, PropertyNode::Notifier);
-        }
-        else if (key == "SCRIPTABLE") {
+        } else if (key == "REVISION") {
+            int revision;
+            bool ok;
+            revision = value.toInt(&ok);
+            if (ok)
+                property->setRevision(revision);
+            else
+                parent->doc().location().warning(tr("Invalid revision number: %1").arg(value));
+        } else if (key == "SCRIPTABLE") {
             QString v = value.toLower();
             if (v == "true")
                 property->setScriptable(true);
@@ -1895,9 +1909,9 @@ bool CppCodeParser::matchProperty(InnerNode *parent)
                 property->setRuntimeScrFunc(value);
             }
         }
-        else if (key == "COSTANT") 
+        else if (key == "CONSTANT")
             property->setConstant();
-        else if (key == "FINAL") 
+        else if (key == "FINAL")
             property->setFinal();
     }
     match(Tok_RightParen);

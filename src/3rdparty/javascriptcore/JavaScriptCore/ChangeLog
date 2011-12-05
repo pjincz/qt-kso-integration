@@ -1,3 +1,24 @@
+2010-08-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Don't seed the JS random number generator from time()
+        https://bugs.webkit.org/show_bug.cgi?id=41868
+        <rdar://problem/8171025>
+
+        Switch to using the secure random number generator to
+        seed the fast random generator, and make the generator
+        be per global object.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::weakRandomNumber):
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncRandom):
+
 2010-06-18  Tucker Jay  <jay.tucker@nokia.com>
 
         Reviewed by NOBODY (OOPS!).
@@ -93,6 +114,16 @@
         Thanks for Vanboxem Rruben for the investigation.
 
         * wtf/Platform.h:
+
+2010-05-06  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        JavaScriptCore/wtf/RandomNumber.h should provide using WTF::*
+        https://bugs.webkit.org/show_bug.cgi?id=38719
+
+        * wtf/RandomNumber.h:
+          Add using directives.
 
 2010-04-28  Simon Hausmann  <simon.hausmann@nokia.com>, Kent Hansen <kent.hansen@nokia.com>
 
@@ -201,6 +232,34 @@
         without using doubles, but the code would be much more complicated, and there is no important
         reason to stick to integers here.
 
+2010-03-22  Siddharth Mathur  <siddharth.mathur@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Symbian] More efficient aligned memory allocation for JSC Collector
+        https://bugs.webkit.org/show_bug.cgi?id=34350
+
+        * JavaScriptCore.pri: Added 2 new Symbian source files and HAL linkage
+
+        * runtime/Collector.cpp: Reduced port-specific code and added private data member
+        (JSC::Heap::Heap):
+        (JSC::Heap::~Heap):
+        (JSC::Heap::destroy):
+        (JSC::Heap::allocateBlock):
+        (JSC::Heap::freeBlockPtr):
+
+        * runtime/Collector.h: Added private data member
+
+        * wtf/symbian: Added.
+        * wtf/symbian/BlockAllocatorSymbian.cpp: Added.
+        (WTF::AlignedBlockAllocator::AlignedBlockAllocator): Helper class to allocate 
+        aligned blocks more efficiently as required by Collector
+        (WTF::AlignedBlockAllocator::alloc):
+        (WTF::AlignedBlockAllocator::free):
+        (WTF::AlignedBlockAllocator::destroy):
+        (WTF::AlignedBlockAllocator::~AlignedBlockAllocator):
+        * wtf/symbian/BlockAllocatorSymbian.h: Added.
+
 2010-03-22  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Sam Weinig.
@@ -298,6 +357,31 @@
         https://bugs.webkit.org/show_bug.cgi?id=34740
 
         * wtf/AlwaysInline.h:
+
+2010-02-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33731
+        Many false leaks in release builds due to PtrAndFlags
+
+        Remove UntypedPtrAndBitfield (similar to PtrAndFlags) in UStringImpl,
+        and steal bits from the refCount instead.
+
+        * runtime/UStringImpl.cpp:
+        (JSC::UStringImpl::baseSharedBuffer):
+        (JSC::UStringImpl::~UStringImpl):
+        * runtime/UStringImpl.h:
+        (JSC::UStringImpl::cost):
+        (JSC::UStringImpl::isIdentifier):
+        (JSC::UStringImpl::setIsIdentifier):
+        (JSC::UStringImpl::ref):
+        (JSC::UStringImpl::deref):
+        (JSC::UStringImpl::UStringImpl):
+        (JSC::UStringImpl::bufferOwnerString):
+        (JSC::UStringImpl::bufferOwnership):
+        (JSC::UStringImpl::isStatic):
+        (JSC::UStringImpl::):
 
 2010-02-12  Kwang Yul Seo  <skyul@company100.net>
 

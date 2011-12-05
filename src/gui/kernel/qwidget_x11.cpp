@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -444,6 +444,7 @@ static QVector<Atom> getNetWmState(QWidget *w)
         && actualType == XA_ATOM && actualFormat == 32) {
         returnValue.resize(bytesLeft / 4);
         XFree((char*) propertyData);
+        propertyData = 0;
 
         // fetch all data
         if (XGetWindowProperty(X11->display, w->internalWinId(), ATOM(_NET_WM_STATE), 0,
@@ -458,7 +459,8 @@ static QVector<Atom> getNetWmState(QWidget *w)
         if (!returnValue.isEmpty()) {
             memcpy(returnValue.data(), propertyData, returnValue.size() * sizeof(Atom));
         }
-        XFree((char*) propertyData);
+        if (propertyData)
+            XFree((char*) propertyData);
     }
 
     return returnValue;
@@ -1280,39 +1282,49 @@ void QWidgetPrivate::setParent_sys(QWidget *parent, Qt::WindowFlags f)
 #endif
 }
 
-
-QPoint QWidget::mapToGlobal(const QPoint &pos) const
+QPoint QWidgetPrivate::mapToGlobal(const QPoint &pos) const
 {
-    Q_D(const QWidget);
-    if (!testAttribute(Qt::WA_WState_Created) || !internalWinId()) {
-        QPoint p = pos + data->crect.topLeft();
+    Q_Q(const QWidget);
+    if (!q->testAttribute(Qt::WA_WState_Created) || !q->internalWinId()) {
+        QPoint p = pos + q->data->crect.topLeft();
         //cannot trust that !isWindow() implies parentWidget() before create
-        return (isWindow() || !parentWidget()) ?  p : parentWidget()->mapToGlobal(p);
+        return (q->isWindow() || !q->parentWidget()) ?  p : q->parentWidget()->d_func()->mapToGlobal(p);
     }
-    int           x, y;
+    int x, y;
     Window child;
-    QPoint p = d->mapToWS(pos);
-    XTranslateCoordinates(X11->display, internalWinId(),
-                          QApplication::desktop()->screen(d->xinfo.screen())->internalWinId(),
+    QPoint p = mapToWS(pos);
+    XTranslateCoordinates(X11->display, q->internalWinId(),
+                          QApplication::desktop()->screen(xinfo.screen())->internalWinId(),
                           p.x(), p.y(), &x, &y, &child);
     return QPoint(x, y);
 }
 
+QPoint QWidgetPrivate::mapFromGlobal(const QPoint &pos) const
+{
+    Q_Q(const QWidget);
+    if (!q->testAttribute(Qt::WA_WState_Created) || !q->internalWinId()) {
+        //cannot trust that !isWindow() implies parentWidget() before create
+        QPoint p = (q->isWindow() || !q->parentWidget()) ?  pos : q->parentWidget()->d_func()->mapFromGlobal(pos);
+        return p - q->data->crect.topLeft();
+    }
+    int x, y;
+    Window child;
+    XTranslateCoordinates(X11->display,
+                          QApplication::desktop()->screen(xinfo.screen())->internalWinId(),
+                          q->internalWinId(), pos.x(), pos.y(), &x, &y, &child);
+    return mapFromWS(QPoint(x, y));
+}
+
+QPoint QWidget::mapToGlobal(const QPoint &pos) const
+{
+    Q_D(const QWidget);
+    return d->mapToGlobal(pos);
+}
 
 QPoint QWidget::mapFromGlobal(const QPoint &pos) const
 {
     Q_D(const QWidget);
-    if (!testAttribute(Qt::WA_WState_Created) || !internalWinId()) {
-        //cannot trust that !isWindow() implies parentWidget() before create
-        QPoint p = (isWindow() || !parentWidget()) ?  pos : parentWidget()->mapFromGlobal(pos);
-        return p - data->crect.topLeft();
-    }
-    int           x, y;
-    Window child;
-    XTranslateCoordinates(X11->display,
-                          QApplication::desktop()->screen(d->xinfo.screen())->internalWinId(),
-                          internalWinId(), pos.x(), pos.y(), &x, &y, &child);
-    return d->mapFromWS(QPoint(x, y));
+    return d->mapFromGlobal(pos);
 }
 
 void QWidgetPrivate::updateSystemBackground()
@@ -1933,20 +1945,27 @@ void QWidgetPrivate::show_sys()
         if (flags & Qt::WindowStaysOnTopHint) {
             if (flags & Qt::WindowStaysOnBottomHint)
                 qWarning() << "QWidget: Incompatible window flags: the window can't be on top and on bottom at the same time";
-            netWmState.append(ATOM(_NET_WM_STATE_ABOVE));
-            netWmState.append(ATOM(_NET_WM_STATE_STAYS_ON_TOP));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_ABOVE)))
+                netWmState.append(ATOM(_NET_WM_STATE_ABOVE));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_STAYS_ON_TOP)))
+                netWmState.append(ATOM(_NET_WM_STATE_STAYS_ON_TOP));
         } else if (flags & Qt::WindowStaysOnBottomHint) {
-            netWmState.append(ATOM(_NET_WM_STATE_BELOW));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_BELOW)))
+                netWmState.append(ATOM(_NET_WM_STATE_BELOW));
         }
         if (q->isFullScreen()) {
-            netWmState.append(ATOM(_NET_WM_STATE_FULLSCREEN));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_FULLSCREEN)))
+                netWmState.append(ATOM(_NET_WM_STATE_FULLSCREEN));
         }
         if (q->isMaximized()) {
-            netWmState.append(ATOM(_NET_WM_STATE_MAXIMIZED_HORZ));
-            netWmState.append(ATOM(_NET_WM_STATE_MAXIMIZED_VERT));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_MAXIMIZED_HORZ)))
+                netWmState.append(ATOM(_NET_WM_STATE_MAXIMIZED_HORZ));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_MAXIMIZED_VERT)))
+                netWmState.append(ATOM(_NET_WM_STATE_MAXIMIZED_VERT));
         }
         if (data.window_modality != Qt::NonModal) {
-            netWmState.append(ATOM(_NET_WM_STATE_MODAL));
+            if (!netWmState.contains(ATOM(_NET_WM_STATE_MODAL)))
+                netWmState.append(ATOM(_NET_WM_STATE_MODAL));
         }
 
         if (!netWmState.isEmpty()) {
@@ -2808,6 +2827,12 @@ void QWidgetPrivate::deleteTLSysExtra()
 {
     // don't destroy input context here. it will be destroyed in
     // QWidget::destroy() destroyInputContext();
+#ifndef QT_NO_XSYNC
+    if (extra && extra->topextra && extra->topextra->syncUpdateCounter) {
+        XSyncDestroyCounter(X11->display, extra->topextra->syncUpdateCounter);
+        extra->topextra->syncUpdateCounter = 0;
+    }
+#endif
 }
 
 void QWidgetPrivate::registerDropSite(bool on)

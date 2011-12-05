@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -70,6 +70,8 @@ private slots:
     void forceFocus();
     void noParentFocus();
     void signalEmission();
+    void qtBug13380();
+    void forceActiveFocus();
 };
 
 /*
@@ -396,6 +398,145 @@ void tst_qdeclarativefocusscope::signalEmission()
     QCOMPARE(item2->property("color"), red);
     QCOMPARE(item3->property("color"), blue);
     QCOMPARE(item4->property("color"), red);
+
+    item4->setFocus(false);
+    QCOMPARE(item1->property("color"), blue);
+    QCOMPARE(item2->property("color"), red);
+    QCOMPARE(item3->property("color"), blue);
+    QCOMPARE(item4->property("color"), blue);
+
+    delete view;
+}
+
+void tst_qdeclarativefocusscope::qtBug13380()
+{
+    QDeclarativeView *view = new QDeclarativeView;
+    view->setSource(QUrl::fromLocalFile(SRCDIR "/data/qtBug13380.qml"));
+
+    view->show();
+    QVERIFY(view->rootObject());
+    qApp->setActiveWindow(view);
+    qApp->processEvents();
+
+#ifdef Q_WS_X11
+    // to be safe and avoid failing setFocus with window managers
+    qt_x11_wait_for_window_manager(view);
+#endif
+
+    QVERIFY(view->hasFocus());
+    QVERIFY(view->scene()->hasFocus());
+    QVERIFY(view->rootObject()->property("noFocus").toBool());
+
+    view->rootObject()->setProperty("showRect", true);
+    QVERIFY(view->rootObject()->property("noFocus").toBool());
+
+    delete view;
+}
+
+void tst_qdeclarativefocusscope::forceActiveFocus()
+{
+    QDeclarativeView *view = new QDeclarativeView;
+    view->setSource(QUrl::fromLocalFile(SRCDIR "/data/forceActiveFocus.qml"));
+
+    QGraphicsObject *rootObject = view->rootObject();
+    QVERIFY(rootObject);
+
+    QDeclarativeItem *scope = findItem<QDeclarativeItem>(rootObject, QLatin1String("scope"));
+    QDeclarativeItem *itemA1 = findItem<QDeclarativeItem>(rootObject, QLatin1String("item-a1"));
+    QDeclarativeItem *scopeA = findItem<QDeclarativeItem>(rootObject, QLatin1String("scope-a"));
+    QDeclarativeItem *itemA2 = findItem<QDeclarativeItem>(rootObject, QLatin1String("item-a2"));
+    QDeclarativeItem *itemB1 = findItem<QDeclarativeItem>(rootObject, QLatin1String("item-b1"));
+    QDeclarativeItem *scopeB = findItem<QDeclarativeItem>(rootObject, QLatin1String("scope-b"));
+    QDeclarativeItem *itemB2 = findItem<QDeclarativeItem>(rootObject, QLatin1String("item-b2"));
+
+    QVERIFY(scope);
+    QVERIFY(itemA1);
+    QVERIFY(scopeA);
+    QVERIFY(itemA2);
+    QVERIFY(itemB1);
+    QVERIFY(scopeB);
+    QVERIFY(itemB2);
+
+    QSignalSpy rootSpy(rootObject, SIGNAL(activeFocusChanged(bool)));
+    QSignalSpy scopeSpy(scope, SIGNAL(activeFocusChanged(bool)));
+    QSignalSpy scopeASpy(scopeA, SIGNAL(activeFocusChanged(bool)));
+    QSignalSpy scopeBSpy(scopeB, SIGNAL(activeFocusChanged(bool)));
+
+    // First, walk the focus from item-a1 down to item-a2 and back again
+    itemA1->forceActiveFocus();
+    QVERIFY(itemA1->hasActiveFocus());
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    scopeA->forceActiveFocus();
+    QVERIFY(!itemA1->hasActiveFocus());
+    QVERIFY(scopeA->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 1);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    itemA2->forceActiveFocus();
+    QVERIFY(!itemA1->hasActiveFocus());
+    QVERIFY(itemA2->hasActiveFocus());
+    QVERIFY(scopeA->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 1);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    scopeA->forceActiveFocus();
+    QVERIFY(!itemA1->hasActiveFocus());
+    QVERIFY(itemA2->hasActiveFocus());
+    QVERIFY(scopeA->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 1);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    itemA1->forceActiveFocus();
+    QVERIFY(itemA1->hasActiveFocus());
+    QVERIFY(!scopeA->hasActiveFocus());
+    QVERIFY(!itemA2->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 2);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    // Then jump back and forth between branch 'a' and 'b'
+    itemB1->forceActiveFocus();
+    QVERIFY(itemB1->hasActiveFocus());
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    scopeA->forceActiveFocus();
+    QVERIFY(!itemA1->hasActiveFocus());
+    QVERIFY(!itemB1->hasActiveFocus());
+    QVERIFY(scopeA->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 3);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    scopeB->forceActiveFocus();
+    QVERIFY(!scopeA->hasActiveFocus());
+    QVERIFY(!itemB1->hasActiveFocus());
+    QVERIFY(scopeB->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 4);
+    QCOMPARE(scopeBSpy.count(), 1);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    itemA2->forceActiveFocus();
+    QVERIFY(!scopeB->hasActiveFocus());
+    QVERIFY(itemA2->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 5);
+    QCOMPARE(scopeBSpy.count(), 2);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
+
+    itemB2->forceActiveFocus();
+    QVERIFY(!itemA2->hasActiveFocus());
+    QVERIFY(itemB2->hasActiveFocus());
+    QCOMPARE(scopeASpy.count(), 6);
+    QCOMPARE(scopeBSpy.count(), 3);
+    QCOMPARE(rootSpy.count(), 1);
+    QCOMPARE(scopeSpy.count(), 1);
 
     delete view;
 }

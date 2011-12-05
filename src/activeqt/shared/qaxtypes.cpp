@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -265,7 +265,7 @@ bool QVariantToVARIANT(const QVariant &var, VARIANT &arg, const QByteArray &type
         return QVariantToVARIANT(var, *arg.pvarVal, typeName, false);
     }
 
-    if (out && proptype == QVariant::Invalid && typeName == "QVariant") {
+    if (out && proptype == QVariant::UserType && typeName == "QVariant") {
         VARIANT *pVariant = new VARIANT;
         QVariantToVARIANT(var, *pVariant, QByteArray(), false);
         arg.vt = VT_VARIANT|VT_BYREF;
@@ -547,7 +547,7 @@ bool QVariantToVARIANT(const QVariant &var, VARIANT &arg, const QByteArray &type
             SAFEARRAY *array = 0;
             bool is2D = false;
             // If the first element in the array is a list the whole list is 
-            // treated as a 2D array. The colum count is taken from the 1st element.
+            // treated as a 2D array. The column count is taken from the 1st element.
             if (count) {
                 QVariantList col = list.at(0).toList();
                 int maxColumns = col.count();

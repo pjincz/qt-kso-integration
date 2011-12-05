@@ -4658,11 +4658,11 @@ EXPORTS
 	_ZN20QGraphicsEllipseItemD1Ev @ 4657 NONAME
 	_ZN20QGraphicsEllipseItemD2Ev @ 4658 NONAME
 	_ZN20QGraphicsItemPrivate11removeChildEP13QGraphicsItem @ 4659 NONAME
-	_ZN20QGraphicsItemPrivate11setSubFocusEP13QGraphicsItem @ 4660 NONAME
+	_ZN20QGraphicsItemPrivate11setSubFocusEP13QGraphicsItem @ 4660 NONAME ABSENT
 	_ZN20QGraphicsItemPrivate12remapItemPosEP6QEventP13QGraphicsItem @ 4661 NONAME
 	_ZN20QGraphicsItemPrivate12resolveDepthEv @ 4662 NONAME
 	_ZN20QGraphicsItemPrivate12setPosHelperERK7QPointF @ 4663 NONAME
-	_ZN20QGraphicsItemPrivate13clearSubFocusEP13QGraphicsItem @ 4664 NONAME
+	_ZN20QGraphicsItemPrivate13clearSubFocusEP13QGraphicsItem @ 4664 NONAME ABSENT
 	_ZN20QGraphicsItemPrivate14setFocusHelperEN2Qt11FocusReasonEb @ 4665 NONAME ABSENT
 	_ZN20QGraphicsItemPrivate15resetFocusProxyEv @ 4666 NONAME
 	_ZN20QGraphicsItemPrivate16setEnabledHelperEbbb @ 4667 NONAME
@@ -12099,4 +12099,103 @@ EXPORTS
 	_ZNK20QGraphicsItemPrivate21effectiveBoundingRectEP13QGraphicsItem @ 12098 NONAME
 	_ZN19QApplicationPrivate21qmljs_debug_argumentsE @ 12099 NONAME DATA 4
 	_ZN19QApplicationPrivate25qmljsDebugArgumentsStringEv @ 12100 NONAME
+	_ZNK5QFont14lastResortFontEv @ 12101 NONAME
+	_ZN11QFontEngine33convertToPostscriptFontFamilyNameERK10QByteArray @ 12102 NONAME
+	_ZN15QStaticTextItem13setFontEngineEP11QFontEngine @ 12103 NONAME
+	_ZN15QStaticTextItemD1Ev @ 12104 NONAME
+	_ZN15QStaticTextItemD2Ev @ 12105 NONAME
+	_ZN19QEventDispatcherS6031reactivateDeferredActiveObjectsEv @ 12106 NONAME
+	_ZN20QGraphicsItemPrivate11setSubFocusEP13QGraphicsItemS1_ @ 12107 NONAME
+	_ZN20QGraphicsItemPrivate13clearSubFocusEP13QGraphicsItemS1_ @ 12108 NONAME
+	_ZN12QLineControl21resetCursorBlinkTimerEv @ 12109 NONAME
+	_ZN12QTextControl14setDragEnabledEb @ 12110 NONAME
+	_ZN19QTextDocumentLayout10timerEventEP11QTimerEvent @ 12111 NONAME
+	_ZN19QTextDocumentLayout11qt_metacallEN11QMetaObject4CallEiPPv @ 12112 NONAME
+	_ZN19QTextDocumentLayout11qt_metacastEPKc @ 12113 NONAME
+	_ZN19QTextDocumentLayout11setViewportERK6QRectF @ 12114 NONAME
+	_ZN19QTextDocumentLayout13setLineHeightEfNS_14LineHeightModeE @ 12115 NONAME
+	_ZN19QTextDocumentLayout14ensureLayoutedEf @ 12116 NONAME
+	_ZN19QTextDocumentLayout14layoutFinishedEv @ 12117 NONAME
+	_ZN19QTextDocumentLayout14setCursorWidthEi @ 12118 NONAME
+	_ZN19QTextDocumentLayout15documentChangedEiii @ 12119 NONAME
+	_ZN19QTextDocumentLayout16drawInlineObjectEP8QPainterRK6QRectF17QTextInlineObjectiRK11QTextFormat @ 12120 NONAME
+	_ZN19QTextDocumentLayout16staticMetaObjectE @ 12121 NONAME DATA 16
+	_ZN19QTextDocumentLayout18resizeInlineObjectE17QTextInlineObjectiRK11QTextFormat @ 12122 NONAME
+	_ZN19QTextDocumentLayout19getStaticMetaObjectEv @ 12123 NONAME
+	_ZN19QTextDocumentLayout19setFixedColumnWidthEi @ 12124 NONAME
+	_ZN19QTextDocumentLayout20positionInlineObjectE17QTextInlineObjectiRK11QTextFormat @ 12125 NONAME
+	_ZN19QTextDocumentLayout4drawEP8QPainterRKN27QAbstractTextDocumentLayout12PaintContextE @ 12126 NONAME
+	_ZN19QTextDocumentLayout8doLayoutEiii @ 12127 NONAME
+	_ZN19QTextDocumentLayoutC1EP13QTextDocument @ 12128 NONAME
+	_ZN19QTextDocumentLayoutC2EP13QTextDocument @ 12129 NONAME
+	_ZNK12QTextControl13isDragEnabledEv @ 12130 NONAME
+	_ZNK19QTextDocumentLayout10idealWidthEv @ 12131 NONAME
+	_ZNK19QTextDocumentLayout10metaObjectEv @ 12132 NONAME
+	_ZNK19QTextDocumentLayout11cursorWidthEv @ 12133 NONAME
+	_ZNK19QTextDocumentLayout12documentSizeEv @ 12134 NONAME
+	_ZNK19QTextDocumentLayout12layoutStatusEv @ 12135 NONAME
+	_ZNK19QTextDocumentLayout16dynamicPageCountEv @ 12136 NONAME
+	_ZNK19QTextDocumentLayout17blockBoundingRectERK10QTextBlock @ 12137 NONAME
+	_ZNK19QTextDocumentLayout17frameBoundingRectEP10QTextFrame @ 12138 NONAME
+	_ZNK19QTextDocumentLayout19contentHasAlignmentEv @ 12139 NONAME
+	_ZNK19QTextDocumentLayout19dynamicDocumentSizeEv @ 12140 NONAME
+	_ZNK19QTextDocumentLayout7hitTestERK7QPointFN2Qt15HitTestAccuracyE @ 12141 NONAME
+	_ZNK19QTextDocumentLayout9pageCountEv @ 12142 NONAME
+	_ZTI19QTextDocumentLayout @ 12143 NONAME
+	_ZTV19QTextDocumentLayout @ 12144 NONAME
+	_ZN12QTextControl23setWordSelectionEnabledEb @ 12145 NONAME
+	_ZNK12QTextControl22isWordSelectionEnabledEv @ 12146 NONAME
+	_ZN12QLineControl16updateMicroFocusEv @ 12147 NONAME
+	_ZNK14QWidgetPrivate20assignedInputContextEv @ 12148 NONAME
+	_ZN14QVolatileImage11paintEngineEv @ 12149 NONAME
+	_ZN14QVolatileImage12ensureFormatEN6QImage6FormatE @ 12150 NONAME
+	_ZN14QVolatileImage15setAlphaChannelERK7QPixmap @ 12151 NONAME
+	_ZN14QVolatileImage4bitsEv @ 12152 NONAME
+	_ZN14QVolatileImage4fillEj @ 12153 NONAME
+	_ZN14QVolatileImage8copyFromEPS_RK5QRect @ 12154 NONAME
+	_ZN14QVolatileImage8imageRefEv @ 12155 NONAME
+	_ZN14QVolatileImageC1EPvS0_ @ 12156 NONAME
+	_ZN14QVolatileImageC1ERK6QImage @ 12157 NONAME
+	_ZN14QVolatileImageC1ERKS_ @ 12158 NONAME
+	_ZN14QVolatileImageC1EiiN6QImage6FormatE @ 12159 NONAME
+	_ZN14QVolatileImageC1Ev @ 12160 NONAME
+	_ZN14QVolatileImageC2EPvS0_ @ 12161 NONAME
+	_ZN14QVolatileImageC2ERK6QImage @ 12162 NONAME
+	_ZN14QVolatileImageC2ERKS_ @ 12163 NONAME
+	_ZN14QVolatileImageC2EiiN6QImage6FormatE @ 12164 NONAME
+	_ZN14QVolatileImageC2Ev @ 12165 NONAME
+	_ZN14QVolatileImageD1Ev @ 12166 NONAME
+	_ZN14QVolatileImageD2Ev @ 12167 NONAME
+	_ZN14QVolatileImageaSERKS_ @ 12168 NONAME
+	_ZNK14QVolatileImage12bytesPerLineEv @ 12169 NONAME
+	_ZNK14QVolatileImage13endDataAccessEb @ 12170 NONAME
+	_ZNK14QVolatileImage15beginDataAccessEv @ 12171 NONAME
+	_ZNK14QVolatileImage15hasAlphaChannelEv @ 12172 NONAME
+	_ZNK14QVolatileImage20duplicateNativeImageEv @ 12173 NONAME
+	_ZNK14QVolatileImage5depthEv @ 12174 NONAME
+	_ZNK14QVolatileImage5widthEv @ 12175 NONAME
+	_ZNK14QVolatileImage6formatEv @ 12176 NONAME
+	_ZNK14QVolatileImage6heightEv @ 12177 NONAME
+	_ZNK14QVolatileImage6isNullEv @ 12178 NONAME
+	_ZNK14QVolatileImage7toImageEv @ 12179 NONAME
+	_ZNK14QVolatileImage9byteCountEv @ 12180 NONAME
+	_ZNK14QVolatileImage9constBitsEv @ 12181 NONAME
+	_ZN15QGraphicsSystem22releaseCachedResourcesEv @ 12182 NONAME ABSENT
+	_Z32qt_s60_setPartialScreenInputModeb @ 12183 NONAME
+	_Z29qt_draw_decoration_for_glyphsP8QPainterPKjPK11QFixedPointiP11QFontEngineRK5QFontRK15QTextCharFormat @ 12184 NONAME
+	_ZNK14QVolatileImage14paintingActiveEv @ 12185 NONAME
+	_ZN11QTextEngine17leadingSpaceWidthERK11QScriptLine @ 12186 NONAME
+	_ZN15QGraphicsLayout28instantInvalidatePropagationEv @ 12187 NONAME
+	_ZN15QGraphicsLayout31setInstantInvalidatePropagationEb @ 12188 NONAME
+	_ZN15QGraphicsSystem17platformExtensionEv @ 12189 NONAME
+	_ZN24QSymbianGraphicsSystemEx10hasBCM2727Ev @ 12190 NONAME
+	_ZN24QSymbianGraphicsSystemEx13forceToRasterEP7QWidget @ 12191 NONAME
+	_ZN24QSymbianGraphicsSystemEx22releaseAllGpuResourcesEv @ 12192 NONAME
+	_ZN24QSymbianGraphicsSystemEx25releaseCachedGpuResourcesEv @ 12193 NONAME
+	_ZTI17QGraphicsSystemEx @ 12194 NONAME
+	_ZTI24QSymbianGraphicsSystemEx @ 12195 NONAME
+	_ZTV24QSymbianGraphicsSystemEx @ 12196 NONAME
+	_ZNK11QPixmapData15toVolatileImageEv @ 12197 NONAME
+	_ZNK14QVolatileImage13constImageRefEv @ 12198 NONAME
+	_Z43qt_s60_setPartialScreenAutomaticTranslationb @ 12199 NONAME
 

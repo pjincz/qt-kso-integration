@@ -1,45 +1,46 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
 #include "qnetworkcookiejar.h"
+#include "qnetworkcookiejartlds_p.h"
 #include "qnetworkcookiejar_p.h"
 
 #include "QtNetwork/qnetworkcookie.h"
@@ -157,7 +158,8 @@ static inline bool isParentDomain(QString domain, QString reference)
     jar. Default values for path and domain are taken from the \a
     url object.
 
-    Returns true if one or more cookes are set for url otherwise false.
+    Returns true if one or more cookies are set for \a url,
+    otherwise false.
 
     If a cookie already exists in the cookie jar, it will be
     overridden by those in \a cookieList.
@@ -208,32 +210,43 @@ bool QNetworkCookieJar::setCookiesFromUrl(const QList<QNetworkCookie> &cookieLis
 
             QString domain = cookie.domain();
             if (!(isParentDomain(domain, defaultDomain)
-                || isParentDomain(defaultDomain, domain))) {
-                    continue;           // not accepted
-            }
+                || isParentDomain(defaultDomain, domain)))
+                continue; // not accepted
 
-            // reject if domain is like ".com"
-            // (i.e., reject if domain does not contain embedded dots, see RFC 2109 section 4.3.2)
-            // this is just a rudimentary check and does not cover all cases
-            if (domain.lastIndexOf(QLatin1Char('.')) == 0)
-                continue;           // not accepted
-
+            // the check for effective TLDs makes the "embedded dot" rule from RFC 2109 section 4.3.2
+            // redundant; the "leading dot" rule has been relaxed anyway, see above
+            // we remove the leading dot for this check
+            if (QNetworkCookieJarPrivate::isEffectiveTLD(domain.remove(0, 1)))
+                continue; // not accepted
         }
 
-        QList<QNetworkCookie>::Iterator it = d->allCookies.begin(),
-                                       end = d->allCookies.end();
-        for ( ; it != end; ++it)
+        for (int i = 0; i < d->allCookies.size(); ++i) {
             // does this cookie already exist?
-            if (cookie.name() == it->name() &&
-                cookie.domain() == it->domain() &&
-                cookie.path() == it->path()) {
+            const QNetworkCookie &current = d->allCookies.at(i);
+            if (cookie.name() == current.name() &&
+                cookie.domain() == current.domain() &&
+                cookie.path() == current.path()) {
                 // found a match
-                d->allCookies.erase(it);
+                d->allCookies.removeAt(i);
                 break;
             }
+        }
 
         // did not find a match
         if (!isDeletion) {
+            int countForDomain = 0;
+            for (int i = d->allCookies.size() - 1; i >= 0; --i) {
+                // Start from the end and delete the oldest cookies to keep a maximum count of 50.
+                const QNetworkCookie &current = d->allCookies.at(i);
+                if (isParentDomain(cookie.domain(), current.domain())
+                    || isParentDomain(current.domain(), cookie.domain())) {
+                    if (countForDomain >= 49)
+                        d->allCookies.removeAt(i);
+                    else
+                        ++countForDomain;
+                }
+            }
+
             d->allCookies += cookie;
             ++added;
         }
@@ -250,7 +263,7 @@ bool QNetworkCookieJar::setCookiesFromUrl(const QList<QNetworkCookie> &cookieLis
     If more than one cookie with the same name is found, but with
     differing paths, the one with longer path is returned before the
     one with shorter path. In other words, this function returns
-    cookies sorted by path length.
+    cookies sorted decreasingly by path length.
 
     The default QNetworkCookieJar class implements only a very basic
     security policy (it makes sure that the cookies' domain and path
@@ -302,6 +315,45 @@ QList<QNetworkCookie> QNetworkCookieJar::cookiesForUrl(const QUrl &url) const
     }
 
     return result;
+}
+
+bool QNetworkCookieJarPrivate::isEffectiveTLD(const QString &domain)
+{
+    // for domain 'foo.bar.com':
+    // 1. return if TLD table contains 'foo.bar.com'
+    if (containsTLDEntry(domain))
+        return true;
+
+    if (domain.contains(QLatin1Char('.'))) {
+        int count = domain.size() - domain.indexOf(QLatin1Char('.'));
+        QString wildCardDomain;
+        wildCardDomain.reserve(count + 1);
+        wildCardDomain.append(QLatin1Char('*'));
+        wildCardDomain.append(domain.right(count));
+        // 2. if table contains '*.bar.com',
+        // test if table contains '!foo.bar.com'
+        if (containsTLDEntry(wildCardDomain)) {
+            QString exceptionDomain;
+            exceptionDomain.reserve(domain.size() + 1);
+            exceptionDomain.append(QLatin1Char('!'));
+            exceptionDomain.append(domain);
+            return (! containsTLDEntry(exceptionDomain));
+        }
+    }
+    return false;
+}
+
+bool QNetworkCookieJarPrivate::containsTLDEntry(const QString &entry)
+{
+    int index = qHash(entry) % tldCount;
+    int currentDomainIndex = tldIndices[index];
+    while (currentDomainIndex < tldIndices[index+1]) {
+        QString currentEntry = QString::fromUtf8(tldData + currentDomainIndex);
+        if (currentEntry == entry)
+            return true;
+        currentDomainIndex += qstrlen(tldData + currentDomainIndex) + 1; // +1 for the ending \0
+    }
+    return false;
 }
 
 QT_END_NAMESPACE

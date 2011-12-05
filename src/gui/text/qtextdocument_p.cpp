@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -91,7 +91,7 @@ QT_BEGIN_NAMESPACE
   END_OF_PARA/START_OF_FRAME/END_OF_FRAME (see below).
 
   Lists are not in here, as they are treated specially. A list is just
-  a collection of (not neccessarily connected) blocks, that share the
+  a collection of (not necessarily connected) blocks, that share the
   same objectIndex() in the format that refers to the list format and
   object.
 
@@ -320,7 +320,7 @@ void QTextDocumentPrivate::setLayout(QAbstractTextDocumentLayout *layout)
 
 void QTextDocumentPrivate::insert_string(int pos, uint strPos, uint length, int format, QTextUndoCommand::Operation op)
 {
-    // ##### optimise when only appending to the fragment!
+    // ##### optimize when only appending to the fragment!
     Q_ASSERT(noBlockInString(text.mid(strPos, length)));
 
     split(pos);
@@ -539,6 +539,7 @@ int QTextDocumentPrivate::remove_block(int pos, int *blockFormat, int command, Q
 	int n = blocks.next(b);
 	Q_ASSERT((int)blocks.position(n) == pos + 1);
 	blocks.setSize(b, blocks.size(b) + blocks.size(n) - 1);
+        blocks.fragment(b)->userState = blocks.fragment(n)->userState;
 	b = n;
     }
     *blockFormat = blocks.fragment(b)->format;
@@ -663,7 +664,8 @@ void QTextDocumentPrivate::move(int pos, int to, int length, QTextUndoCommand::O
 
     Q_ASSERT(blocks.length() == fragments.length());
 
-    finishEdit();
+    if (!blockCursorAdjustment)
+        finishEdit();
 }
 
 void QTextDocumentPrivate::remove(int pos, int length, QTextUndoCommand::Operation op)
@@ -678,6 +680,7 @@ void QTextDocumentPrivate::remove(int pos, int length, QTextUndoCommand::Operati
             curs->changed = true;
         }
     }
+    finishEdit();
 }
 
 void QTextDocumentPrivate::setCharFormat(int pos, int length, const QTextCharFormat &newFormat, FormatChangeMode mode)
@@ -1446,7 +1449,7 @@ void QTextDocumentPrivate::clearFrame(QTextFrame *f)
 
 void QTextDocumentPrivate::scan_frames(int pos, int charsRemoved, int charsAdded)
 {
-    // ###### optimise
+    // ###### optimize
     Q_UNUSED(pos);
     Q_UNUSED(charsRemoved);
     Q_UNUSED(charsAdded);

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -69,9 +69,15 @@ private slots:
     void numberModel();
     void objectList();
     void stringList();
-    void dataModel();
+    void dataModel_adding();
+    void dataModel_removing();
+    void dataModel_changes();
     void itemModel();
+    void resetModel();
+    void modelChanged();
     void properties();
+    void testQtQuick11Attributes();
+    void testQtQuick11Attributes_data();
 
 private:
     QDeclarativeView *createView();
@@ -186,6 +192,11 @@ void tst_QDeclarativeRepeater::numberModel()
     QVERIFY(repeater != 0);
     QCOMPARE(repeater->parentItem()->childItems().count(), 5+1);
 
+    QVERIFY(!repeater->itemAt(-1));
+    for (int i=0; i<repeater->count(); i++)
+        QCOMPARE(repeater->itemAt(i), repeater->parentItem()->childItems().at(i));
+    QVERIFY(!repeater->itemAt(repeater->count()));
+
     QMetaObject::invokeMethod(canvas->rootObject(), "checkProperties");
     QVERIFY(testObject->error() == false);
 
@@ -222,6 +233,17 @@ void tst_QDeclarativeRepeater::objectList()
     QVERIFY(repeater != 0);
     QCOMPARE(repeater->property("errors").toInt(), 0);//If this fails either they are out of order or can't find the object's data
     QCOMPARE(repeater->property("instantiated").toInt(), 100);
+
+    QVERIFY(!repeater->itemAt(-1));
+    for (int i=0; i<data.count(); i++)
+        QCOMPARE(repeater->itemAt(i), repeater->parentItem()->childItems().at(i));
+    QVERIFY(!repeater->itemAt(data.count()));
+
+    QSignalSpy addedSpy(repeater, SIGNAL(itemAdded(int,QDeclarativeItem*)));
+    QSignalSpy removedSpy(repeater, SIGNAL(itemRemoved(int,QDeclarativeItem*)));
+    ctxt->setContextProperty("testData", QVariant::fromValue(data));
+    QCOMPARE(addedSpy.count(), data.count());
+    QCOMPARE(removedSpy.count(), data.count());
 
     qDeleteAll(data);
     delete canvas;
@@ -284,7 +306,137 @@ void tst_QDeclarativeRepeater::stringList()
     delete canvas;
 }
 
-void tst_QDeclarativeRepeater::dataModel()
+void tst_QDeclarativeRepeater::dataModel_adding()
+{
+    QDeclarativeView *canvas = createView();
+    QDeclarativeContext *ctxt = canvas->rootContext();
+    TestObject *testObject = new TestObject;
+    ctxt->setContextProperty("testObject", testObject);
+
+    TestModel testModel;
+    ctxt->setContextProperty("testData", &testModel);
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/repeater2.qml"));
+    qApp->processEvents();
+
+    QDeclarativeRepeater *repeater = findItem<QDeclarativeRepeater>(canvas->rootObject(), "repeater");
+    QVERIFY(repeater != 0);
+    QDeclarativeItem *container = findItem<QDeclarativeItem>(canvas->rootObject(), "container");
+    QVERIFY(container != 0);
+
+    QVERIFY(!repeater->itemAt(0));
+
+    QSignalSpy countSpy(repeater, SIGNAL(countChanged()));
+    QSignalSpy addedSpy(repeater, SIGNAL(itemAdded(int,QDeclarativeItem*)));
+
+    // add to empty model
+    testModel.addItem("two", "2");
+    QCOMPARE(repeater->itemAt(0), container->childItems().at(0));
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(addedSpy.count(), 1);
+    QCOMPARE(addedSpy.at(0).at(0).toInt(), 0);
+    QCOMPARE(addedSpy.at(0).at(1).value<QDeclarativeItem*>(), container->childItems().at(0));
+    addedSpy.clear();
+
+    // insert at start
+    testModel.insertItem(0, "one", "1");
+    QCOMPARE(repeater->itemAt(0), container->childItems().at(0));
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(addedSpy.count(), 1);
+    QCOMPARE(addedSpy.at(0).at(0).toInt(), 0);
+    QCOMPARE(addedSpy.at(0).at(1).value<QDeclarativeItem*>(), container->childItems().at(0));
+    addedSpy.clear();
+
+    // insert at end
+    testModel.insertItem(2, "four", "4");
+    QCOMPARE(repeater->itemAt(2), container->childItems().at(2));
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(addedSpy.count(), 1);
+    QCOMPARE(addedSpy.at(0).at(0).toInt(), 2);
+    QCOMPARE(addedSpy.at(0).at(1).value<QDeclarativeItem*>(), container->childItems().at(2));
+    addedSpy.clear();
+
+    // insert in middle
+    testModel.insertItem(2, "three", "3");
+    QCOMPARE(repeater->itemAt(2), container->childItems().at(2));
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(addedSpy.count(), 1);
+    QCOMPARE(addedSpy.at(0).at(0).toInt(), 2);
+    QCOMPARE(addedSpy.at(0).at(1).value<QDeclarativeItem*>(), container->childItems().at(2));
+    addedSpy.clear();
+
+    delete testObject;
+    delete canvas;
+}
+
+void tst_QDeclarativeRepeater::dataModel_removing()
+{
+    QDeclarativeView *canvas = createView();
+    QDeclarativeContext *ctxt = canvas->rootContext();
+    TestObject *testObject = new TestObject;
+    ctxt->setContextProperty("testObject", testObject);
+
+    TestModel testModel;
+    testModel.addItem("one", "1");
+    testModel.addItem("two", "2");
+    testModel.addItem("three", "3");
+    testModel.addItem("four", "4");
+    testModel.addItem("five", "5");
+
+    ctxt->setContextProperty("testData", &testModel);
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/repeater2.qml"));
+    qApp->processEvents();
+
+    QDeclarativeRepeater *repeater = findItem<QDeclarativeRepeater>(canvas->rootObject(), "repeater");
+    QVERIFY(repeater != 0);
+    QDeclarativeItem *container = findItem<QDeclarativeItem>(canvas->rootObject(), "container");
+    QVERIFY(container != 0);
+    QCOMPARE(container->childItems().count(), repeater->count()+1);
+
+    QSignalSpy countSpy(repeater, SIGNAL(countChanged()));
+    QSignalSpy removedSpy(repeater, SIGNAL(itemRemoved(int,QDeclarativeItem*)));
+
+    // remove at start
+    QDeclarativeItem *item = repeater->itemAt(0);
+    QCOMPARE(item, container->childItems().at(0));
+
+    testModel.removeItem(0);
+    QVERIFY(repeater->itemAt(0) != item);
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(removedSpy.count(), 1);
+    QCOMPARE(removedSpy.at(0).at(0).toInt(), 0);
+    QCOMPARE(removedSpy.at(0).at(1).value<QDeclarativeItem*>(), item);
+    removedSpy.clear();
+
+    // remove at end
+    int lastIndex = testModel.count()-1;
+    item = repeater->itemAt(lastIndex);
+    QCOMPARE(item, container->childItems().at(lastIndex));
+
+    testModel.removeItem(lastIndex);
+    QVERIFY(repeater->itemAt(lastIndex) != item);
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(removedSpy.count(), 1);
+    QCOMPARE(removedSpy.at(0).at(0).toInt(), lastIndex);
+    QCOMPARE(removedSpy.at(0).at(1).value<QDeclarativeItem*>(), item);
+    removedSpy.clear();
+
+    // remove from middle
+    item = repeater->itemAt(1);
+    QCOMPARE(item, container->childItems().at(1));
+
+    testModel.removeItem(1);
+    QVERIFY(repeater->itemAt(lastIndex) != item);
+    QCOMPARE(countSpy.count(), 1); countSpy.clear();
+    QCOMPARE(removedSpy.count(), 1);
+    QCOMPARE(removedSpy.at(0).at(0).toInt(), 1);
+    QCOMPARE(removedSpy.at(0).at(1).value<QDeclarativeItem*>(), item);
+    removedSpy.clear();
+
+    delete testObject;
+    delete canvas;
+}
+
+void tst_QDeclarativeRepeater::dataModel_changes()
 {
     QDeclarativeView *canvas = createView();
     QDeclarativeContext *ctxt = canvas->rootContext();
@@ -297,26 +449,14 @@ void tst_QDeclarativeRepeater::dataModel()
     testModel.addItem("three", "3");
 
     ctxt->setContextProperty("testData", &testModel);
-
     canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/repeater2.qml"));
     qApp->processEvents();
 
     QDeclarativeRepeater *repeater = findItem<QDeclarativeRepeater>(canvas->rootObject(), "repeater");
     QVERIFY(repeater != 0);
-
     QDeclarativeItem *container = findItem<QDeclarativeItem>(canvas->rootObject(), "container");
     QVERIFY(container != 0);
-
-    QCOMPARE(container->childItems().count(), 4);
-
-    QSignalSpy repeaterSpy(repeater, SIGNAL(countChanged()));
-    testModel.addItem("four", "4");
-    QCOMPARE(container->childItems().count(), 5);
-    QCOMPARE(repeaterSpy.count(),1);
-
-    testModel.removeItem(2);
-    QCOMPARE(container->childItems().count(), 4);
-    QCOMPARE(repeaterSpy.count(),2);
+    QCOMPARE(container->childItems().count(), repeater->count()+1);
 
     // Check that model changes are propagated
     QDeclarativeText *text = findItem<QDeclarativeText>(canvas->rootObject(), "myName", 1);
@@ -377,6 +517,93 @@ void tst_QDeclarativeRepeater::itemModel()
     delete canvas;
 }
 
+void tst_QDeclarativeRepeater::resetModel()
+{
+    QDeclarativeView *canvas = createView();
+
+    QStringList dataA;
+    for (int i=0; i<10; i++)
+        dataA << QString::number(i);
+
+    QDeclarativeContext *ctxt = canvas->rootContext();
+    ctxt->setContextProperty("testData", dataA);
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/repeater1.qml"));
+    qApp->processEvents();
+    QDeclarativeRepeater *repeater = findItem<QDeclarativeRepeater>(canvas->rootObject(), "repeater");
+    QVERIFY(repeater != 0);
+    QDeclarativeItem *container = findItem<QDeclarativeItem>(canvas->rootObject(), "container");
+    QVERIFY(container != 0);
+
+    QCOMPARE(repeater->count(), dataA.count());
+    for (int i=0; i<repeater->count(); i++)
+        QCOMPARE(repeater->itemAt(i), container->childItems().at(i+1)); // +1 to skip first Text object
+
+    QSignalSpy modelChangedSpy(repeater, SIGNAL(modelChanged()));
+    QSignalSpy countSpy(repeater, SIGNAL(countChanged()));
+    QSignalSpy addedSpy(repeater, SIGNAL(itemAdded(int,QDeclarativeItem*)));
+    QSignalSpy removedSpy(repeater, SIGNAL(itemRemoved(int,QDeclarativeItem*)));
+
+    QStringList dataB;
+    for (int i=0; i<20; i++)
+        dataB << QString::number(i);
+
+    // reset context property
+    ctxt->setContextProperty("testData", dataB);
+    QCOMPARE(repeater->count(), dataB.count());
+
+    QCOMPARE(modelChangedSpy.count(), 1);
+    QCOMPARE(countSpy.count(), 1);
+    QCOMPARE(removedSpy.count(), dataA.count());
+    QCOMPARE(addedSpy.count(), dataB.count());
+    for (int i=0; i<dataB.count(); i++) {
+        QCOMPARE(addedSpy.at(i).at(0).toInt(), i);
+        QCOMPARE(addedSpy.at(i).at(1).value<QDeclarativeItem*>(), repeater->itemAt(i));
+    }
+    modelChangedSpy.clear();
+    countSpy.clear();
+    removedSpy.clear();
+    addedSpy.clear();
+
+    // reset via setModel()
+    repeater->setModel(dataA);
+    QCOMPARE(repeater->count(), dataA.count());
+
+    QCOMPARE(modelChangedSpy.count(), 1);
+    QCOMPARE(countSpy.count(), 1);
+    QCOMPARE(removedSpy.count(), dataB.count());
+    QCOMPARE(addedSpy.count(), dataA.count());
+    for (int i=0; i<dataA.count(); i++) {
+        QCOMPARE(addedSpy.at(i).at(0).toInt(), i);
+        QCOMPARE(addedSpy.at(i).at(1).value<QDeclarativeItem*>(), repeater->itemAt(i));
+    }
+
+    delete canvas;
+}
+
+// QTBUG-17156
+void tst_QDeclarativeRepeater::modelChanged()
+{
+    QDeclarativeEngine engine;
+    QDeclarativeComponent component(&engine, TEST_FILE("/modelChanged.qml"));
+
+    QDeclarativeItem *rootObject = qobject_cast<QDeclarativeItem*>(component.create());
+    QVERIFY(rootObject);
+    QDeclarativeRepeater *repeater = findItem<QDeclarativeRepeater>(rootObject, "repeater");
+    QVERIFY(repeater);
+
+    repeater->setModel(4);
+    QCOMPARE(repeater->count(), 4);
+    QCOMPARE(repeater->property("itemsCount").toInt(), 4);
+    QCOMPARE(repeater->property("itemsFound").toList().count(), 4);
+
+    repeater->setModel(10);
+    QCOMPARE(repeater->count(), 10);
+    QCOMPARE(repeater->property("itemsCount").toInt(), 10);
+    QCOMPARE(repeater->property("itemsFound").toList().count(), 10);
+
+    delete rootObject;
+}
+
 void tst_QDeclarativeRepeater::properties()
 {
     QDeclarativeEngine engine;
@@ -406,6 +633,50 @@ void tst_QDeclarativeRepeater::properties()
 
     delete rootObject;
 }
+
+void tst_QDeclarativeRepeater::testQtQuick11Attributes()
+{
+    QFETCH(QString, code);
+    QFETCH(QString, warning);
+    QFETCH(QString, error);
+
+    QDeclarativeEngine engine;
+    QObject *obj;
+
+    QDeclarativeComponent invalid(&engine);
+    invalid.setData("import QtQuick 1.0; Repeater { " + code.toUtf8() + " }", QUrl(""));
+    QTest::ignoreMessage(QtWarningMsg, warning.toUtf8());
+    obj = invalid.create();
+    QCOMPARE(invalid.errorString(), error);
+    delete obj;
+
+    QDeclarativeComponent valid(&engine);
+    valid.setData("import QtQuick 1.1; Repeater { " + code.toUtf8() + " }", QUrl(""));
+    obj = valid.create();
+    QVERIFY(obj);
+    QVERIFY(valid.errorString().isEmpty());
+    delete obj;
+}
+
+void tst_QDeclarativeRepeater::testQtQuick11Attributes_data()
+{
+    QTest::addColumn<QString>("code");
+    QTest::addColumn<QString>("warning");
+    QTest::addColumn<QString>("error");
+
+    QTest::newRow("itemAdded") << "onItemAdded: count"
+            << "QDeclarativeComponent: Component is not ready"
+            << ":1 \"Repeater.onItemAdded\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("itemRemoved") << "onItemRemoved: count"
+            << "QDeclarativeComponent: Component is not ready"
+            << ":1 \"Repeater.onItemRemoved\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("itemAt") << "Component.onCompleted: itemAt(0)"
+            << "<Unknown File>:1: ReferenceError: Can't find variable: itemAt"
+            << "";
+}
+
 
 QDeclarativeView *tst_QDeclarativeRepeater::createView()
 {

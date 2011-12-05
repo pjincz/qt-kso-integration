@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -2379,11 +2379,12 @@ void tst_QTreeView::extendedSelection()
     QFETCH(int, selectedCount);
 
     QStandardItemModel model(5, 2);
-    QTreeView view;
+    QWidget topLevel;
+    QTreeView view(&topLevel);
     view.resize(qMax(mousePressPos.x() * 2, 200), qMax(mousePressPos.y() * 2, 200));
     view.setModel(&model);
     view.setSelectionMode(QAbstractItemView::ExtendedSelection);
-    view.show();
+    topLevel.show();
     QTest::mousePress(view.viewport(), Qt::LeftButton, 0, mousePressPos);
     QCOMPARE(view.selectionModel()->selectedIndexes().count(), selectedCount);
 }
@@ -3280,9 +3281,10 @@ void tst_QTreeView::task220298_selectColumns()
 void tst_QTreeView::task224091_appendColumns()
 {
     QStandardItemModel *model = new QStandardItemModel();
-    QTreeView *treeView = new QTreeView();
+    QWidget* topLevel= new QWidget;
+    QTreeView *treeView = new QTreeView(topLevel);
     treeView->setModel(model);
-    treeView->show();
+    topLevel->show();
     treeView->resize(50,50);
 
     QTest::qWaitForWindowShown(treeView);
@@ -3299,7 +3301,7 @@ void tst_QTreeView::task224091_appendColumns()
 
     QTRY_VERIFY(treeView->verticalScrollBar()->isVisible());
 
-    delete treeView;
+    delete topLevel;
     delete model;
 }
 
@@ -3758,7 +3760,8 @@ void tst_QTreeView::taskQTBUG_9216_setSizeAndUniformRowHeightsWrongRepaint()
 
 void tst_QTreeView::keyboardNavigationWithDisabled()
 {
-    QTreeView view;
+    QWidget topLevel;
+    QTreeView view(&topLevel);
     QStandardItemModel model(90, 0);
     for (int i = 0; i < 90; i ++) {
         model.setItem(i, new QStandardItem(QString::number(i)));
@@ -3767,10 +3770,10 @@ void tst_QTreeView::keyboardNavigationWithDisabled()
     view.setModel(&model);
 
     view.resize(200, view.visualRect(model.index(0,0)).height()*10);
-    view.show();
-    QApplication::setActiveWindow(&view);
-    QTest::qWaitForWindowShown(&view);
-    QTRY_VERIFY(view.isActiveWindow());
+    topLevel.show();
+    QApplication::setActiveWindow(&topLevel);
+    QTest::qWaitForWindowShown(&topLevel);
+    QTRY_VERIFY(topLevel.isActiveWindow());
 
     view.setCurrentIndex(model.index(1, 0));
     QTest::keyClick(view.viewport(), Qt::Key_Up);

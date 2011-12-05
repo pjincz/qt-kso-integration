@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -70,6 +70,8 @@
 #include <qtoolbar.h>
 #include <QtGui/qpaintengine.h>
 #include <private/qbackingstore_p.h>
+#include <qmenubar.h>
+#include <qtableview.h>
 
 #include <QtGui/QGraphicsView>
 #include <QtGui/QGraphicsProxyWidget>
@@ -81,8 +83,14 @@
 #include <avkon.hrh>                // EEikStatusPaneUidTitle
 #include <akntitle.h>               // CAknTitlePane
 #include <akncontext.h>             // CAknContextPane
+#endif
+
+#ifdef Q_OS_SYMBIAN
 #include <eikspane.h>               // CEikStatusPane
 #include <eikbtgpc.h>               // CEikButtonGroupContainer
+#include <eikenv.h>                 // CEikonEnv
+#include <eikaufty.h>               // MEikAppUiFactory
+#include <eikmenub.h>               // CEikMenuBar
 #endif
 
 #ifdef Q_WS_QWS
@@ -338,6 +346,7 @@ private slots:
     void immediateRepaintAfterInvalidateBuffer();
 #endif
     void effectiveWinId();
+    void effectiveWinId2();
     void customDpi();
     void customDpiProperty();
 
@@ -387,6 +396,7 @@ private slots:
     void maximizedWindowModeTransitions();
     void minimizedWindowModeTransitions();
     void normalWindowModeTransitions();
+    void focusSwitchClosesPopupMenu();
 #endif
 
     void focusProxyAndInputMethods();
@@ -397,6 +407,7 @@ private slots:
     void childAt();
 #ifdef Q_WS_MAC
     void childAt_unifiedToolBar();
+    void taskQTBUG_17333_ResizeInfiniteRecursion();
 #ifdef QT_MAC_USE_COCOA
     void taskQTBUG_11373();
 #endif // QT_MAC_USE_COCOA
@@ -4381,7 +4392,6 @@ class WinIdChangeWidget : public QWidget {
 public:
     WinIdChangeWidget(QWidget *p = 0)
         : QWidget(p)
-        , m_winIdChangeEventCount(0)
     {
 
     }
@@ -4389,13 +4399,14 @@ protected:
     bool event(QEvent *e)
     {
         if (e->type() == QEvent::WinIdChange) {
-            ++m_winIdChangeEventCount;
+            m_winIdList.append(internalWinId());
             return true;
         }
         return QWidget::event(e);
     }
 public:
-    int m_winIdChangeEventCount;
+    QList<WId> m_winIdList;
+    int winIdChangeEventCount() const { return m_winIdList.count(); }
 };
 
 void tst_QWidget::winIdChangeEvent()
@@ -4406,7 +4417,7 @@ void tst_QWidget::winIdChangeEvent()
         const WId winIdBefore = widget.internalWinId();
         const WId winIdAfter = widget.winId();
         QVERIFY(winIdBefore != winIdAfter);
-        QCOMPARE(widget.m_winIdChangeEventCount, 1);
+        QCOMPARE(widget.winIdChangeEventCount(), 1);
     }
 
     {
@@ -4415,11 +4426,13 @@ void tst_QWidget::winIdChangeEvent()
         QWidget parent1, parent2;
         WinIdChangeWidget child(&parent1);
         const WId winIdBefore = child.winId();
-        QCOMPARE(child.m_winIdChangeEventCount, 1);
+        QCOMPARE(child.winIdChangeEventCount(), 1);
         child.setParent(&parent2);
         const WId winIdAfter = child.internalWinId();
         QVERIFY(winIdBefore != winIdAfter);
-        QCOMPARE(child.m_winIdChangeEventCount, 2);
+        QCOMPARE(child.winIdChangeEventCount(), 3);
+        // winId is set to zero during reparenting
+        QVERIFY(0 == child.m_winIdList[1]);
     }
 
     {
@@ -4429,15 +4442,16 @@ void tst_QWidget::winIdChangeEvent()
         QWidget parent(&grandparent1);
         WinIdChangeWidget child(&parent);
         const WId winIdBefore = child.winId();
-        QCOMPARE(child.m_winIdChangeEventCount, 1);
+        QCOMPARE(child.winIdChangeEventCount(), 1);
         parent.setParent(&grandparent2);
         const WId winIdAfter = child.internalWinId();
 #ifdef Q_OS_SYMBIAN
         QVERIFY(winIdBefore != winIdAfter);
-        QCOMPARE(child.m_winIdChangeEventCount, 2);
+        QVERIFY(winIdAfter != 0);
+        QCOMPARE(child.winIdChangeEventCount(), 2);
 #else
         QCOMPARE(winIdBefore, winIdAfter);
-        QCOMPARE(child.m_winIdChangeEventCount, 1);
+        QCOMPARE(child.winIdChangeEventCount(), 1);
 #endif
     }
 
@@ -4449,7 +4463,7 @@ void tst_QWidget::winIdChangeEvent()
         child.setParent(&parent2);
         const WId winIdAfter = child.internalWinId();
         QCOMPARE(winIdBefore, winIdAfter);
-        QCOMPARE(child.m_winIdChangeEventCount, 0);
+        QCOMPARE(child.winIdChangeEventCount(), 0);
     }
 
     {
@@ -4458,12 +4472,14 @@ void tst_QWidget::winIdChangeEvent()
         WinIdChangeWidget child(&parent);
         child.winId();
         const WId winIdBefore = child.internalWinId();
-        QCOMPARE(child.m_winIdChangeEventCount, 1);
+        QCOMPARE(child.winIdChangeEventCount(), 1);
         const Qt::WindowFlags flags = child.windowFlags();
         child.setWindowFlags(flags | Qt::Window);
         const WId winIdAfter = child.internalWinId();
         QVERIFY(winIdBefore != winIdAfter);
-        QCOMPARE(child.m_winIdChangeEventCount, 2);
+        QCOMPARE(child.winIdChangeEventCount(), 3);
+        // winId is set to zero during reparenting
+        QVERIFY(0 == child.m_winIdList[1]);
     }
 }
 
@@ -8509,6 +8525,30 @@ void tst_QWidget::effectiveWinId()
     QVERIFY(child.effectiveWinId());
 }
 
+void tst_QWidget::effectiveWinId2()
+{
+    QWidget parent;
+
+    class MyWidget : public QWidget {
+        bool event(QEvent *e)
+        {
+            if (e->type() == QEvent::WinIdChange) {
+                // Shouldn't crash.
+                effectiveWinId();
+            }
+
+            return QWidget::event(e);
+        }
+    };
+
+    MyWidget child;
+    child.setParent(&parent);
+    parent.show();
+
+    child.setParent(0);
+    child.setParent(&parent);
+}
+
 class CustomWidget : public QWidget
 {
 public:
@@ -9710,14 +9750,25 @@ void tst_QWidget::destroyBackingStoreWhenHidden()
     child.setAutoFillBackground(true);
     child.setPalette(Qt::blue);
 
+    QWidget grandChild(&child);
+    grandChild.setAutoFillBackground(true);
+    grandChild.setPalette(Qt::yellow);
+
     QVBoxLayout layout(&parent);
     layout.setContentsMargins(10, 10, 10, 10);
     layout.addWidget(&child);
     parent.setLayout(&layout);
 
-    child.winId();
+    QVBoxLayout childLayout(&child);
+    childLayout.setContentsMargins(10, 10, 10, 10);
+    childLayout.addWidget(&grandChild);
+    child.setLayout(&childLayout);
+
+    // Ensure that this widget and all its ancestors are native
+    grandChild.winId();
 
     parent.show();
+
     QTest::qWaitForWindowShown(&parent);
 
     // Check that child window does not obscure parent window
@@ -9726,18 +9777,24 @@ void tst_QWidget::destroyBackingStoreWhenHidden()
     // Native child widget should share parent's backing store
     QVERIFY(0 != backingStore(parent));
     QVERIFY(0 == backingStore(child));
+    QVERIFY(0 == backingStore(grandChild));
 
     // Make child widget full screen
     child.setWindowFlags((child.windowFlags() | Qt::Window) ^ Qt::SubWindow);
     child.setWindowState(child.windowState() | Qt::WindowFullScreen);
     child.show();
+
+    // Paint into the child to ensure that it gets a backing store
+    QPainter painter(&child);
+    painter.fillRect(QRect(0, 0, 90, 90), Qt::white);
+
     QTest::qWaitForWindowShown(&child);
 
     // Ensure that 'window hidden' event is received by parent
     qApp->processEvents();
 
     // Check that child window obscures parent window
-    QVERIFY(parent.visibleRegion().subtracted(child.visibleRegion()).isEmpty());
+    QVERIFY(parent.visibleRegion().subtracted(child.visibleRegion() + grandChild.visibleRegion()).isEmpty());
 
     // Now that extent of child widget goes beyond parent's extent,
     // a new backing store should be created for the child widget.
@@ -9753,11 +9810,12 @@ void tst_QWidget::destroyBackingStoreWhenHidden()
     QTest::qWaitForWindowShown(&child);
 
     // Check that parent is now visible again
-    QVERIFY(!parent.visibleRegion().subtracted(child.visibleRegion()).isEmpty());
+    QVERIFY(!parent.visibleRegion().subtracted(child.visibleRegion() + grandChild.visibleRegion()).isEmpty());
 
     // Native child widget should once again share parent's backing store
     QVERIFY(0 != backingStore(parent));
     QVERIFY(0 == backingStore(child));
+    QVERIFY(0 == backingStore(grandChild));
     }
 
     // 6. Partial reveal followed by full reveal
@@ -10030,7 +10088,7 @@ void tst_QWidget::cbaVisibility()
     // Verify window decorations i.e. status pane and CBA are visible.
     CEikStatusPane* statusPane = CEikonEnv::Static()->AppUiFactory()->StatusPane();
     QVERIFY(statusPane->IsVisible());
-    CEikButtonGroupContainer* buttonGroup = CEikonEnv::Static()->AppUiFactory()->Cba();
+    CEikButtonGroupContainer* buttonGroup = CEikButtonGroupContainer::Current();
     QVERIFY(buttonGroup->IsVisible());
 }
 
@@ -10047,7 +10105,7 @@ void tst_QWidget::fullScreenWindowModeTransitions()
     const QRect fullScreenGeometry = qApp->desktop()->screenGeometry(&widget);
     const QRect maximumScreenGeometry = qApp->desktop()->availableGeometry(&widget);
     CEikStatusPane *statusPane = CEikonEnv::Static()->AppUiFactory()->StatusPane();
-    CEikButtonGroupContainer *buttonGroup = CEikonEnv::Static()->AppUiFactory()->Cba();
+    CEikButtonGroupContainer *buttonGroup = CEikButtonGroupContainer::Current();
 
     //Enter
     widget.showNormal();
@@ -10101,7 +10159,7 @@ void tst_QWidget::maximizedWindowModeTransitions()
     const QRect fullScreenGeometry = qApp->desktop()->screenGeometry(&widget);
     const QRect maximumScreenGeometry = qApp->desktop()->availableGeometry(&widget);
     CEikStatusPane *statusPane = CEikonEnv::Static()->AppUiFactory()->StatusPane();
-    CEikButtonGroupContainer *buttonGroup = CEikonEnv::Static()->AppUiFactory()->Cba();
+    CEikButtonGroupContainer *buttonGroup = CEikButtonGroupContainer::Current();
 
     //Enter
     widget.showNormal();
@@ -10157,7 +10215,7 @@ void tst_QWidget::minimizedWindowModeTransitions()
     const QRect fullScreenGeometry = qApp->desktop()->screenGeometry(&widget);
     const QRect maximumScreenGeometry = qApp->desktop()->availableGeometry(&widget);
     CEikStatusPane *statusPane = CEikonEnv::Static()->AppUiFactory()->StatusPane();
-    CEikButtonGroupContainer *buttonGroup = CEikonEnv::Static()->AppUiFactory()->Cba();
+    CEikButtonGroupContainer *buttonGroup = CEikButtonGroupContainer::Current();
 
     //Enter
     widget.showNormal();
@@ -10213,7 +10271,7 @@ void tst_QWidget::normalWindowModeTransitions()
     const QRect fullScreenGeometry = qApp->desktop()->screenGeometry(&widget);
     const QRect maximumScreenGeometry = qApp->desktop()->availableGeometry(&widget);
     CEikStatusPane *statusPane = CEikonEnv::Static()->AppUiFactory()->StatusPane();
-    CEikButtonGroupContainer *buttonGroup = CEikonEnv::Static()->AppUiFactory()->Cba();
+    CEikButtonGroupContainer *buttonGroup = CEikButtonGroupContainer::Current();
 
     //Enter
     widget.showMaximized();
@@ -10252,6 +10310,31 @@ void tst_QWidget::normalWindowModeTransitions()
     QCOMPARE(widget.geometry(), normalGeometry);
     QVERIFY(!buttonGroup->IsVisible());
     QVERIFY(!statusPane->IsVisible());
+}
+
+void tst_QWidget::focusSwitchClosesPopupMenu()
+{
+    QMainWindow mainWindow;
+    QAction action("Test action", &mainWindow);
+    mainWindow.menuBar()->addAction(&action);
+
+    mainWindow.show();
+    QT_TRAP_THROWING(CEikonEnv::Static()->AppUiFactory()->MenuBar()->TryDisplayMenuBarL());
+    QVERIFY(CEikonEnv::Static()->AppUiFactory()->MenuBar()->IsDisplayed());
+
+    // Close the popup by opening a new window.
+    QMainWindow mainWindow2;
+    QAction action2("Test action", &mainWindow2);
+    mainWindow2.menuBar()->addAction(&action2);
+    mainWindow2.show();
+    QVERIFY(!CEikonEnv::Static()->AppUiFactory()->MenuBar()->IsDisplayed());
+
+    QT_TRAP_THROWING(CEikonEnv::Static()->AppUiFactory()->MenuBar()->TryDisplayMenuBarL());
+    QVERIFY(CEikonEnv::Static()->AppUiFactory()->MenuBar()->IsDisplayed());
+
+    // Close the popup by switching focus.
+    mainWindow.activateWindow();
+    QVERIFY(!CEikonEnv::Static()->AppUiFactory()->MenuBar()->IsDisplayed());
 }
 #endif
 
@@ -10510,6 +10593,18 @@ void tst_QWidget::childAt_unifiedToolBar()
 
     QCOMPARE(mainWindow.childAt(toolBarTopLeft), static_cast<QWidget *>(toolBar));
     QCOMPARE(mainWindow.childAt(labelTopLeft), static_cast<QWidget *>(label));
+}
+
+void tst_QWidget::taskQTBUG_17333_ResizeInfiniteRecursion()
+{
+    QTableView tb;
+    const char *s = "border: 1px solid;";
+    tb.setStyleSheet(s);
+    tb.show();
+
+    QTest::qWaitForWindowShown(&tb);
+    tb.setGeometry(QRect(100, 100, 0, 100));
+    // No crash, it works.
 }
 
 #ifdef QT_MAC_USE_COCOA

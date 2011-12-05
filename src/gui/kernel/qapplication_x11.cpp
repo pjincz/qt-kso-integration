@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -74,7 +74,6 @@
 #include "qevent_p.h"
 #include "qvarlengtharray.h"
 #include "qdebug.h"
-#include <private/qunicodetables_p.h>
 #include <private/qcrashhandler_p.h>
 #include <private/qcolor_p.h>
 #include <private/qcursor_p.h>
@@ -2335,6 +2334,30 @@ void qt_init(QApplicationPrivate *priv, int,
                 X11->desktopEnvironment = DE_4DWM;
                 break;
             }
+
+            if (XGetWindowProperty(X11->display, QX11Info::appRootWindow(),
+                               ATOM(_NET_SUPPORTING_WM_CHECK),
+                               0, 1024, False, XA_WINDOW, &type,
+                               &format, &length, &after, &data) == Success) {
+                if (type == XA_WINDOW && format == 32) {
+                    Window windowManagerWindow = *((Window*) data);
+                    XFree(data);
+                    data = 0;
+
+                    if (windowManagerWindow != XNone) {
+                        Atom utf8atom = ATOM(UTF8_STRING);
+                        if (XGetWindowProperty(QX11Info::display(), windowManagerWindow, ATOM(_NET_WM_NAME),
+                                               0, 1024, False, utf8atom, &type,
+                                               &format, &length, &after, &data) == Success) {
+                            if (type == utf8atom && format == 8) {
+                                if (qstrcmp((const char *)data, "MCompositor") == 0)
+                                    X11->desktopEnvironment = DE_MEEGO_COMPOSITOR;
+                            }
+                        }
+                    }
+                }
+            }
+
         } while(0);
 
         if (data)
@@ -3743,7 +3766,7 @@ int QApplication::x11ProcessEvent(XEvent* event)
                 // toplevel reparented...
                 QWidget *newparent = QWidget::find(event->xreparent.parent);
                 if (! newparent || (newparent->windowType() == Qt::Desktop)) {
-                    // we dont' know about the new parent (or we've been
+                    // we don't know about the new parent (or we've been
                     // reparented to root), perhaps a window manager
                     // has been (re)started?  reset the focus model to unknown
                     X11->focus_model = QX11Data::FM_Unknown;
@@ -5633,10 +5656,21 @@ static void sm_performSaveYourself(QSessionManagerPrivate* smd)
     sm_setProperty(QString::fromLatin1(SmProgram), argument0);
     // tell the session manager about our user as well.
     struct passwd *entryPtr = 0;
-#if !defined(QT_NO_THREAD) && defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD)
-    QVarLengthArray<char, 1024> buf(sysconf(_SC_GETPW_R_SIZE_MAX));
+#if defined(_POSIX_THREAD_SAFE_FUNCTIONS) && (_POSIX_THREAD_SAFE_FUNCTIONS - 0 > 0)
+    QVarLengthArray<char, 1024> buf(qMax<long>(sysconf(_SC_GETPW_R_SIZE_MAX), 1024L));
     struct passwd entry;
-    getpwuid_r(geteuid(), &entry, buf.data(), buf.size(), &entryPtr);
+    while (getpwuid_r(geteuid(), &entry, buf.data(), buf.size(), &entryPtr) == ERANGE) {
+        if (buf.size() >= 32768) {
+            // too big already, fail
+            static char badusername[] = "";
+            entryPtr = &entry;
+            entry.pw_name = badusername;
+            break;
+        }
+
+        // retry with a bigger buffer
+        buf.resize(buf.size() * 2);
+    }
 #else
     entryPtr = getpwuid(geteuid());
 #endif

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -46,12 +46,15 @@
 #include <qdeclarativeinfo.h>
 #include <qdeclarativepixmapcache_p.h>
 
-#include <QFile>
-
 QT_BEGIN_NAMESPACE
 
+QDeclarativeImageBase::QDeclarativeImageBase(QDeclarativeItem *parent)
+  : QDeclarativeImplicitSizeItem(*(new QDeclarativeImageBasePrivate), parent)
+{
+}
+
 QDeclarativeImageBase::QDeclarativeImageBase(QDeclarativeImageBasePrivate &dd, QDeclarativeItem *parent)
-  : QDeclarativeItem(dd, parent)
+  : QDeclarativeImplicitSizeItem(dd, parent)
 {
 }
 
@@ -115,6 +118,7 @@ void QDeclarativeImageBase::setSourceSize(const QSize& size)
         return;
 
     d->sourcesize = size;
+    d->explicitSourceSize = true;
     emit sourceSizeChanged();
     if (isComponentComplete())
         load();
@@ -123,7 +127,60 @@ void QDeclarativeImageBase::setSourceSize(const QSize& size)
 QSize QDeclarativeImageBase::sourceSize() const
 {
     Q_D(const QDeclarativeImageBase);
-    return d->sourcesize.isValid() ? d->sourcesize : QSize(implicitWidth(),implicitHeight());
+
+    int width = d->sourcesize.width();
+    int height = d->sourcesize.height();
+    return QSize(width != -1 ? width : d->pix.width(), height != -1 ? height : d->pix.height());
+}
+
+void QDeclarativeImageBase::resetSourceSize()
+{
+    Q_D(QDeclarativeImageBase);
+    if (!d->explicitSourceSize)
+        return;
+    d->explicitSourceSize = false;
+    d->sourcesize = QSize();
+    emit sourceSizeChanged();
+    if (isComponentComplete())
+        load();
+}
+
+bool QDeclarativeImageBase::cache() const
+{
+    Q_D(const QDeclarativeImageBase);
+    return d->cache;
+}
+
+void QDeclarativeImageBase::setCache(bool cache)
+{
+    Q_D(QDeclarativeImageBase);
+    if (d->cache == cache)
+        return;
+
+    d->cache = cache;
+    emit cacheChanged();
+    if (isComponentComplete())
+        load();
+}
+
+void QDeclarativeImageBase::setMirror(bool mirror)
+{
+    Q_D(QDeclarativeImageBase);
+    if (mirror == d->mirror)
+        return;
+
+    d->mirror = mirror;
+
+    if (isComponentComplete())
+        update();
+
+    emit mirrorChanged();
+}
+
+bool QDeclarativeImageBase::mirror() const
+{
+    Q_D(const QDeclarativeImageBase);
+    return d->mirror;
 }
 
 void QDeclarativeImageBase::load()
@@ -131,17 +188,21 @@ void QDeclarativeImageBase::load()
     Q_D(QDeclarativeImageBase);
 
     if (d->url.isEmpty()) {
-        d->pix.clear();
+        d->pix.clear(this);
         d->status = Null;
         d->progress = 0.0;
-        setImplicitWidth(0);
-        setImplicitHeight(0);
+        pixmapChange();
         emit progressChanged(d->progress);
         emit statusChanged(d->status);
-        pixmapChange();
         update();
     } else {
-        d->pix.load(qmlEngine(this), d->url, d->sourcesize, d->async);
+        QDeclarativePixmap::Options options;
+        if (d->async)
+            options |= QDeclarativePixmap::Asynchronous;
+        if (d->cache)
+            options |= QDeclarativePixmap::Cache;
+        d->pix.clear(this);
+        d->pix.load(qmlEngine(this), d->url, d->explicitSourceSize ? sourceSize() : QSize(), options);
 
         if (d->pix.isLoading()) {
             d->progress = 0.0;
@@ -183,20 +244,16 @@ void QDeclarativeImageBase::requestFinished()
 
     d->progress = 1.0;
 
-    setImplicitWidth(d->pix.width());
-    setImplicitHeight(d->pix.height());
+    pixmapChange();
 
-    if (d->sourcesize.width() != d->pix.width() || d->sourcesize.height() != d->pix.height()) {
-        d->sourcesize.setWidth(d->pix.width());
-        d->sourcesize.setHeight(d->pix.height());
+    if (d->sourcesize.width() != d->pix.width() || d->sourcesize.height() != d->pix.height())
         emit sourceSizeChanged();
-    }
 
     if (d->status != oldStatus)
         emit statusChanged(d->status);
     if (d->progress != oldProgress)
         emit progressChanged(d->progress);
-    pixmapChange();
+
     update();
 }
 
@@ -219,6 +276,9 @@ void QDeclarativeImageBase::componentComplete()
 
 void QDeclarativeImageBase::pixmapChange()
 {
+    Q_D(QDeclarativeImageBase);
+    setImplicitWidth(d->pix.width());
+    setImplicitHeight(d->pix.height());
 }
 
 QT_END_NAMESPACE

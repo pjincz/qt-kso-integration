@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -134,6 +134,7 @@ private slots:
     void numberParsing();
     void automaticSemicolonInsertion();
     void abortEvaluation();
+    void abortEvaluation_QTBUG9433();
     void isEvaluating();
     void printFunctionWithCustomHandler();
     void printThrowsException();
@@ -163,10 +164,12 @@ private slots:
     void translationContext_data();
     void translationContext();
     void translateScriptIdBased();
+    void translateFromBuiltinCallback();
     void functionScopes();
     void nativeFunctionScopes();
     void evaluateProgram();
     void collectGarbageAfterConnect();
+    void collectGarbageAfterNativeArguments();
     void promoteThisObjectToQObjectInConstructor();
 
     void qRegExpInport_data();
@@ -3007,7 +3010,8 @@ public:
     enum AbortionResult {
         None = 0,
         String = 1,
-        Error = 2
+        Error = 2,
+        Number = 3
     };
 
     EventReceiver3(QScriptEngine *eng) {
@@ -3027,6 +3031,8 @@ public:
             case Error:
                 engine->abortEvaluation(engine->currentContext()->throwError("AbortedWithError"));
                 break;
+            case Number:
+                engine->abortEvaluation(QScriptValue(1234));
             }
         }
         return QObject::event(e);
@@ -3059,7 +3065,7 @@ void tst_QScriptEngine::abortEvaluation()
     EventReceiver3 receiver(&eng);
 
     eng.setProcessEventsInterval(100);
-    for (int x = 0; x < 3; ++x) {
+    for (int x = 0; x < 4; ++x) {
         QCoreApplication::postEvent(&receiver, new QEvent(QEvent::Type(QEvent::User+1)));
         receiver.resultType = EventReceiver3::AbortionResult(x);
         QScriptValue ret = eng.evaluate(QString::fromLatin1("while (1) { }"));
@@ -3067,6 +3073,11 @@ void tst_QScriptEngine::abortEvaluation()
         case EventReceiver3::None:
             QVERIFY(!eng.hasUncaughtException());
             QVERIFY(!ret.isValid());
+            break;
+        case EventReceiver3::Number:
+            QVERIFY(!eng.hasUncaughtException());
+            QVERIFY(ret.isNumber());
+            QCOMPARE(ret.toInt32(), 1234);
             break;
         case EventReceiver3::String:
             QVERIFY(!eng.hasUncaughtException());
@@ -3082,7 +3093,7 @@ void tst_QScriptEngine::abortEvaluation()
     }
 
     // scripts cannot intercept the abortion with try/catch
-    for (int y = 0; y < 3; ++y) {
+    for (int y = 0; y < 4; ++y) {
         QCoreApplication::postEvent(&receiver, new QEvent(QEvent::Type(QEvent::User+1)));
         receiver.resultType = EventReceiver3::AbortionResult(y);
         QScriptValue ret = eng.evaluate(QString::fromLatin1(
@@ -3097,6 +3108,11 @@ void tst_QScriptEngine::abortEvaluation()
         case EventReceiver3::None:
             QVERIFY(!eng.hasUncaughtException());
             QVERIFY(!ret.isValid());
+            break;
+        case EventReceiver3::Number:
+            QVERIFY(!eng.hasUncaughtException());
+            QVERIFY(ret.isNumber());
+            QCOMPARE(ret.toInt32(), 1234);
             break;
         case EventReceiver3::String:
             QVERIFY(!eng.hasUncaughtException());
@@ -3116,6 +3132,46 @@ void tst_QScriptEngine::abortEvaluation()
         QScriptValue ret = eng.evaluate("myFunctionAbortingEvaluation()");
         QVERIFY(!ret.isValid());
     }
+}
+
+class ThreadedEngine : public QThread {
+    Q_OBJECT;
+
+private:
+    QScriptEngine* m_engine;
+protected:
+    void run() {
+        m_engine = new QScriptEngine();
+        m_engine->setGlobalObject(m_engine->newQObject(this));
+        m_engine->evaluate("while(1) { sleep(); }");
+        delete m_engine;
+    }
+
+public slots:
+    void sleep()
+    {
+        QTest::qSleep(25);
+        m_engine->abortEvaluation();
+    }
+};
+
+void tst_QScriptEngine::abortEvaluation_QTBUG9433()
+{
+    ThreadedEngine engine;
+    engine.start();
+    QVERIFY(engine.isRunning());
+    QTest::qSleep(50);
+    for (uint i = 0; i < 50; ++i) { // up to ~2500 ms
+        if (engine.isFinished())
+            return;
+        QTest::qSleep(50);
+    }
+    if (!engine.isFinished()) {
+        engine.terminate();
+        engine.wait(7000);
+        QFAIL("abortEvaluation doesn't work");
+    }
+
 }
 
 static QScriptValue myFunctionReturningIsEvaluating(QScriptContext *, QScriptEngine *eng)
@@ -4671,6 +4727,21 @@ void tst_QScriptEngine::translateScriptIdBased()
              QString::fromLatin1("qtn_foo_bar")); // Doesn't have plural
 }
 
+void tst_QScriptEngine::translateFromBuiltinCallback()
+{
+    QScriptEngine eng;
+    eng.installTranslatorFunctions();
+
+    // Callback has no translation context.
+    eng.evaluate("function foo() { qsTr('foo'); }");
+
+    // Stack at translation time will be:
+    // qsTr, foo, forEach, global
+    // qsTr() needs to walk to the outer-most (global) frame before it finds
+    // a translation context, and this should not crash.
+    eng.evaluate("[10,20].forEach(foo)", "script.js");
+}
+
 void tst_QScriptEngine::functionScopes()
 {
     QScriptEngine eng;
@@ -4968,6 +5039,16 @@ void tst_QScriptEngine::collectGarbageAfterConnect()
     engine.evaluate("widget = null;");
     collectGarbage_helper(engine);
     QVERIFY(widget == 0);
+}
+
+void tst_QScriptEngine::collectGarbageAfterNativeArguments()
+{
+    // QTBUG-17788
+    QScriptEngine eng;
+    QScriptContext *ctx = eng.pushContext();
+    QScriptValue arguments = ctx->argumentsObject();
+    // Shouldn't crash when marking the arguments object.
+    collectGarbage_helper(eng);
 }
 
 static QScriptValue constructQObjectFromThisObject(QScriptContext *ctx, QScriptEngine *eng)

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -112,6 +112,10 @@ signals:
 public:
     QMutex mutex;
     QWaitCondition cond;
+    volatile int result1;
+    volatile int result2;
+    MultipleExecThread() : result1(0xdead), result2(0xbeef) {}
+
     void run()
     {
         QMutexLocker locker(&mutex);
@@ -124,13 +128,13 @@ public:
         connect(&timer, SIGNAL(timeout()), SLOT(quit()), Qt::DirectConnection);
         timer.setInterval(1000);
         timer.start();
-        (void) exec();
+        result1 = exec();
 
         // this should return immediately, since exit() has been called
         cond.wakeOne();
         cond.wait(&mutex);
         QEventLoop eventLoop;
-        (void) eventLoop.exec();
+        result2 = eventLoop.exec();
     }
 };
 
@@ -197,7 +201,9 @@ private slots:
     void symbianNestedActiveSchedulerLoop();
     void processEvents();
     void exec();
+    void reexec();
     void exit();
+    void execAfterExit();
     void wakeUp();
     void quit();
     void processEventsExcludeSocket();
@@ -398,7 +404,9 @@ void tst_QEventLoop::exec()
     }
 
     {
-        // calling exec() after exit()/quit() should return immediately
+        // calling QEventLoop::exec() after a thread loop has exit()ed should return immediately
+        // Note: this behaviour differs from QCoreApplication and QEventLoop
+        // see tst_QCoreApplication::eventLoopExecAfterExit, tst_QEventLoop::reexec
         MultipleExecThread thread;
 
         // start thread and wait for checkpoint
@@ -411,6 +419,8 @@ void tst_QEventLoop::exec()
         thread.cond.wakeOne();
         thread.cond.wait(&thread.mutex);
         QVERIFY(spy.count() > 0);
+        int v = thread.result1;
+        QCOMPARE(v, 0);
 
         // exec should return immediately
         spy.clear();
@@ -418,6 +428,8 @@ void tst_QEventLoop::exec()
         thread.mutex.unlock();
         thread.wait();
         QCOMPARE(spy.count(), 0);
+        v = thread.result2;
+        QCOMPARE(v, -1);
     }
 
     {
@@ -431,7 +443,7 @@ void tst_QEventLoop::exec()
         QCOMPARE(executor.returnCode, -1);
     }
 
-#if !defined(QT_NO_EXCEPTIONS) && !defined(Q_OS_WINCE_WM) && !defined(Q_OS_SYMBIAN)
+#if !defined(QT_NO_EXCEPTIONS) && !defined(Q_OS_WINCE_WM) && !defined(Q_OS_SYMBIAN) && !defined(NO_EVENTLOOP_EXCEPTIONS)
     // Windows Mobile cannot handle cross library exceptions
     // qobject.cpp will try to rethrow the exception after handling
     // which causes gwes.exe to crash
@@ -462,8 +474,31 @@ void tst_QEventLoop::exec()
 #endif
 }
 
+void tst_QEventLoop::reexec()
+{
+    QEventLoop loop;
+
+    // exec once
+    QMetaObject::invokeMethod(&loop, "quit", Qt::QueuedConnection);
+    QCOMPARE(loop.exec(), 0);
+
+    // and again
+    QMetaObject::invokeMethod(&loop, "quit", Qt::QueuedConnection);
+    QCOMPARE(loop.exec(), 0);
+}
+
 void tst_QEventLoop::exit()
 { DEPENDS_ON(exec()); }
+
+void tst_QEventLoop::execAfterExit()
+{
+    QEventLoop loop;
+    EventLoopExiter obj(&loop);
+
+    QMetaObject::invokeMethod(&obj, "exit", Qt::QueuedConnection);
+    loop.exit(1);
+    QCOMPARE(loop.exec(), 0);
+}
 
 void tst_QEventLoop::wakeUp()
 {

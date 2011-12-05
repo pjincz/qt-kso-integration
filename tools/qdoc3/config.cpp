@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,10 +48,8 @@
 #include <QFile>
 #include <QTemporaryFile>
 #include <QTextStream>
-
-#include "archiveextractor.h"
+#include <qdebug.h>
 #include "config.h"
-#include "uncompressor.h"
 #include <stdlib.h>
 
 QT_BEGIN_NAMESPACE
@@ -150,7 +148,6 @@ QStringList MetaStack::getExpanded(const Location& location)
 }
 
 QT_STATIC_CONST_IMPL QString Config::dot = QLatin1String(".");
-QMap<QString, QString> Config::uncompressedFiles;
 QMap<QString, QString> Config::extractedDirs;
 int Config::numInstances;
 
@@ -178,30 +175,10 @@ Config::Config(const QString& programName)
 }
 
 /*!
-  The destructor deletes all the temporary files and
-  directories it built.
+  The destructor has nothing special to do.
  */
 Config::~Config()
 {
-    if (--numInstances == 0) {
-	QMap<QString, QString>::ConstIterator f = uncompressedFiles.begin();
-	while (f != uncompressedFiles.end()) {
-	    QDir().remove(*f);
-	    ++f;
-	}
-	uncompressedFiles.clear();
-
-	QMap<QString, QString>::ConstIterator d = extractedDirs.begin();
-	while (d != extractedDirs.end()) {
-	    removeDirContents(*d);
-	    QDir dir(*d);
-	    QString name = dir.dirName();
-	    dir.cdUp();
-	    dir.rmdir(name);
-	    ++d;
-	}
-	extractedDirs.clear();
-    }
 }
 
 /*!
@@ -223,6 +200,30 @@ void Config::load(const QString& fileName)
 	loc.setEtc(true);
     }
     lastLoc = Location::null;
+}
+
+/*!
+  Writes the qdoc configuration data to the named file.
+  The previous contents of the file are overwritten.
+ */
+void Config::unload(const QString& fileName)
+{
+    
+    QStringMultiMap::ConstIterator v = stringValueMap.begin();
+    while (v != stringValueMap.end()) {
+        qDebug() << v.key() << " = " << v.value();
+#if 0        
+        if (v.key().startsWith(varDot)) {
+            QString subVar = v.key().mid(varDot.length());
+            int dot = subVar.indexOf(QLatin1Char('.'));
+            if (dot != -1)
+                subVar.truncate(dot);
+            t.insert(subVar,v.value());
+        }
+#endif
+        ++v;
+    }
+    qDebug() << "fileName:" << fileName;
 }
 
 /*!
@@ -353,13 +354,16 @@ QList<QRegExp> Config::getRegExpList(const QString& var) const
 }
 
 /*!
-  This function is slower than it could be.
+  This function is slower than it could be. What it does is
+  find all the keys that begin with \a var + dot and return
+  the matching keys in a set, stripped of the matching prefix
+  and dot.
  */
 QSet<QString> Config::subVars(const QString& var) const
 {
     QSet<QString> result;
     QString varDot = var + QLatin1Char('.');
-    QMap<QString, QString>::ConstIterator v = stringValueMap.begin();
+    QStringMultiMap::ConstIterator v = stringValueMap.begin();
     while (v != stringValueMap.end()) {
         if (v.key().startsWith(varDot)) {
             QString subVar = v.key().mid(varDot.length());
@@ -374,6 +378,27 @@ QSet<QString> Config::subVars(const QString& var) const
 }
 
 /*!
+  Same as subVars(), but in this case we return a string map
+  with the matching keys (stripped of the prefix \a var and
+  mapped to their values. The pairs are inserted into \a t
+ */
+void Config::subVarsAndValues(const QString& var, QStringMultiMap& t) const
+{
+    QString varDot = var + QLatin1Char('.');
+    QStringMultiMap::ConstIterator v = stringValueMap.begin();
+    while (v != stringValueMap.end()) {
+        if (v.key().startsWith(varDot)) {
+            QString subVar = v.key().mid(varDot.length());
+            int dot = subVar.indexOf(QLatin1Char('.'));
+            if (dot != -1)
+                subVar.truncate(dot);
+            t.insert(subVar,v.value());
+        }
+        ++v;
+    }
+}
+
+/*!
   Builds and returns a list of file pathnames for the file
   type specified by \a filesVar (e.g. "headers" or "sources").
   The files are found in the directories specified by
@@ -383,16 +408,12 @@ QSet<QString> Config::subVars(const QString& var) const
  */
 QStringList Config::getAllFiles(const QString &filesVar,
                                 const QString &dirsVar,
-				const QString &defaultNameFilter,
                                 const QSet<QString> &excludedDirs)
 {
     QStringList result = getStringList(filesVar);
     QStringList dirs = getStringList(dirsVar);
 
-    QString nameFilter = getString(filesVar + dot +
-        QLatin1String(CONFIG_FILEEXTENSIONS));
-    if (nameFilter.isEmpty())
-        nameFilter = defaultNameFilter;
+    QString nameFilter = getString(filesVar + dot + QLatin1String(CONFIG_FILEEXTENSIONS));
 
     QStringList::ConstIterator d = dirs.begin();
     while (d != dirs.end()) {
@@ -456,62 +477,18 @@ QString Config::findFile(const Location& location,
     QStringList::ConstIterator c = components.begin();
     for (;;) {
 	bool isArchive = (c != components.end() - 1);
-	ArchiveExtractor *extractor = 0;
 	QString userFriendly = *c;
 
-	if (isArchive) {
-	    extractor = ArchiveExtractor::extractorForFileName(userFriendly);
-        }
-
-	if (extractor == 0) {
-	    Uncompressor *uncompressor =
-		    Uncompressor::uncompressorForFileName(userFriendly);
-	    if (uncompressor != 0) {
-		QString fileNameWithCorrectExtension =
-			uncompressor->uncompressedFilePath(
-				fileInfo.filePath());
-		QString uncompressed = uncompressedFiles[fileInfo.filePath()];
-		if (uncompressed.isEmpty()) {
-		    uncompressed =
-                        QTemporaryFile(fileInfo.filePath()).fileName();
-		    uncompressor->uncompressFile(location,
-                                                 fileInfo.filePath(),
-                                                 uncompressed);
-		    uncompressedFiles[fileInfo.filePath()] = uncompressed;
-		}
-		fileInfo.setFile(uncompressed);
-
-		if (isArchive) {
-		    extractor = ArchiveExtractor::extractorForFileName(
-					fileNameWithCorrectExtension);
-		}
-                else {
-		    userFriendly = fileNameWithCorrectExtension;
-		}
-	    }
-	}
 	userFriendlyFilePath += userFriendly;
 
 	if (isArchive) {
-	    if (extractor == 0)
-		location.fatal(tr("Unknown archive type '%1'")
-				.arg(userFriendlyFilePath));
 	    QString extracted = extractedDirs[fileInfo.filePath()];
-	    if (extracted.isEmpty()) {
-		extracted = QTemporaryFile(fileInfo.filePath()).fileName();
-		if (!QDir().mkdir(extracted))
-		    location.fatal(tr("Cannot create temporary directory '%1'")
-				    .arg(extracted));
-		extractor->extractArchive(location, fileInfo.filePath(),
-					   extracted);
-		extractedDirs[fileInfo.filePath()] = extracted;
-	    }
 	    ++c;
 	    fileInfo.setFile(QDir(extracted), *c);
 	}
-        else {
+        else
 	    break;
-	}
+
 	userFriendlyFilePath += "?";
     }
     return fileInfo.filePath();
@@ -719,6 +696,7 @@ void Config::load(Location location, const QString& fileName)
             } while (isMetaKeyChar(c));
 
             QStringList keys = stack.getExpanded(location);
+            //qDebug() << "KEYS:" << keys;
             SKIP_SPACES();
 
             if (keys.count() == 1 && keys.first() == "include") {

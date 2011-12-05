@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -58,7 +58,7 @@ QT_BEGIN_NAMESPACE
 DEFINE_BOOL_CONFIG_OPTION(stateChangeDebug, STATECHANGE_DEBUG);
 
 QDeclarativeAction::QDeclarativeAction()
-: restore(true), actionDone(false), reverseEvent(false), deletableToBinding(false), fromBinding(0), toBinding(0), event(0),
+: restore(true), actionDone(false), reverseEvent(false), deletableToBinding(false), fromBinding(0), event(0),
   specifiedObject(0)
 {
 }
@@ -66,8 +66,8 @@ QDeclarativeAction::QDeclarativeAction()
 QDeclarativeAction::QDeclarativeAction(QObject *target, const QString &propertyName,
                const QVariant &value)
 : restore(true), actionDone(false), reverseEvent(false), deletableToBinding(false), 
-  property(target, propertyName), toValue(value), 
-  fromBinding(0), toBinding(0), event(0), 
+  property(target, propertyName, qmlEngine(target)), toValue(value),
+  fromBinding(0), event(0),
   specifiedObject(target), specifiedProperty(propertyName)
 {
     if (property.isValid())
@@ -78,7 +78,7 @@ QDeclarativeAction::QDeclarativeAction(QObject *target, const QString &propertyN
                QDeclarativeContext *context, const QVariant &value)
 : restore(true), actionDone(false), reverseEvent(false), deletableToBinding(false),
   property(target, propertyName, context), toValue(value),
-  fromBinding(0), toBinding(0), event(0),
+  fromBinding(0), event(0),
   specifiedObject(target), specifiedProperty(propertyName)
 {
     if (property.isValid())
@@ -152,14 +152,14 @@ QDeclarativeStateOperation::QDeclarativeStateOperation(QObjectPrivate &dd, QObje
 
     Notice the default state is referred to using an empty string ("").
 
-    States are commonly used together with \l {Transitions} to provide
+    States are commonly used together with \l{QML Animation and Transitions}{Transitions} to provide
     animations when state changes occur.
 
     \note Setting the state of an object from within another state of the same object is
     not allowed.
 
     \sa {declarative/animation/states}{states example}, {qmlstates}{States},
-    {qdeclarativeanimation.html#transitions}{QML Transitions}, QtDeclarative
+    {QML Animation and Transitions}{Transitions}, QtDeclarative
 */
 QDeclarativeState::QDeclarativeState(QObject *parent)
 : QObject(*(new QDeclarativeStatePrivate), parent)
@@ -216,15 +216,18 @@ bool QDeclarativeState::isWhenKnown() const
 
     \snippet doc/src/snippets/declarative/state-when.qml 0
 
-    If multiple states in a group have \c when clauses that evaluate to \c true at the same time,
-    the first matching state will be applied. For example, in the following snippet
-    \c state1 will always be selected rather than \c state2 when sharedCondition becomes
-    \c true.
+    If multiple states in a group have \c when clauses that evaluate to \c true
+    at the same time, the first matching state will be applied. For example, in
+    the following snippet \c state1 will always be selected rather than
+    \c state2 when sharedCondition becomes \c true.
     \qml
-    states: [
-        State { name: "state1"; when: sharedCondition },
-        State { name: "state2"; when: sharedCondition }
-    ]
+    Item {
+        states: [
+            State { name: "state1"; when: sharedCondition },
+            State { name: "state2"; when: sharedCondition }
+        ]
+        // ...
+    }
     \endqml
 */
 QDeclarativeBinding *QDeclarativeState::when() const
@@ -370,7 +373,7 @@ void QDeclarativeAction::deleteFromBinding()
     }
 }
 
-bool QDeclarativeState::containsPropertyInRevertList(QObject *target, const QByteArray &name) const
+bool QDeclarativeState::containsPropertyInRevertList(QObject *target, const QString &name) const
 {
     Q_D(const QDeclarativeState);
 
@@ -379,7 +382,7 @@ bool QDeclarativeState::containsPropertyInRevertList(QObject *target, const QByt
 
         while (revertListIterator.hasNext()) {
             const QDeclarativeSimpleAction &simpleAction = revertListIterator.next();
-            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty().toUtf8() == name)
+            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty() == name)
                 return true;
         }
     }
@@ -387,7 +390,7 @@ bool QDeclarativeState::containsPropertyInRevertList(QObject *target, const QByt
     return false;
 }
 
-bool QDeclarativeState::changeValueInRevertList(QObject *target, const QByteArray &name, const QVariant &revertValue)
+bool QDeclarativeState::changeValueInRevertList(QObject *target, const QString &name, const QVariant &revertValue)
 {
     Q_D(QDeclarativeState);
 
@@ -396,7 +399,7 @@ bool QDeclarativeState::changeValueInRevertList(QObject *target, const QByteArra
 
         while (revertListIterator.hasNext()) {
             QDeclarativeSimpleAction &simpleAction = revertListIterator.next();
-            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty().toUtf8() == name) {
+            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty() == name) {
                     simpleAction.setValue(revertValue);
                     return true;
             }
@@ -406,7 +409,7 @@ bool QDeclarativeState::changeValueInRevertList(QObject *target, const QByteArra
     return false;
 }
 
-bool QDeclarativeState::changeBindingInRevertList(QObject *target, const QByteArray &name, QDeclarativeAbstractBinding *binding)
+bool QDeclarativeState::changeBindingInRevertList(QObject *target, const QString &name, QDeclarativeAbstractBinding *binding)
 {
     Q_D(QDeclarativeState);
 
@@ -415,7 +418,7 @@ bool QDeclarativeState::changeBindingInRevertList(QObject *target, const QByteAr
 
         while (revertListIterator.hasNext()) {
             QDeclarativeSimpleAction &simpleAction = revertListIterator.next();
-            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty().toUtf8() == name) {
+            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty() == name) {
                 if (simpleAction.binding())
                     simpleAction.binding()->destroy();
 
@@ -428,7 +431,7 @@ bool QDeclarativeState::changeBindingInRevertList(QObject *target, const QByteAr
     return false;
 }
 
-bool QDeclarativeState::removeEntryFromRevertList(QObject *target, const QByteArray &name)
+bool QDeclarativeState::removeEntryFromRevertList(QObject *target, const QString &name)
 {
     Q_D(QDeclarativeState);
 
@@ -437,7 +440,7 @@ bool QDeclarativeState::removeEntryFromRevertList(QObject *target, const QByteAr
 
         while (revertListIterator.hasNext()) {
             QDeclarativeSimpleAction &simpleAction = revertListIterator.next();
-            if (simpleAction.property().object() == target && simpleAction.property().name().toUtf8() == name) {
+            if (simpleAction.property().object() == target && simpleAction.property().name() == name) {
                 QDeclarativeAbstractBinding *oldBinding = QDeclarativePropertyPrivate::binding(simpleAction.property());
                 if (oldBinding) {
                     QDeclarativePropertyPrivate::setBinding(simpleAction.property(), 0);
@@ -503,11 +506,11 @@ void QDeclarativeState::addEntriesToRevertList(const QList<QDeclarativeAction> &
             const QDeclarativeAction &action = actionListIterator.next();
             QDeclarativeSimpleAction simpleAction(action);
             action.property.write(action.toValue);
-            if (action.toBinding) {
+            if (!action.toBinding.isNull()) {
                 QDeclarativeAbstractBinding *oldBinding = QDeclarativePropertyPrivate::binding(simpleAction.property());
                 if (oldBinding)
                     QDeclarativePropertyPrivate::setBinding(simpleAction.property(), 0);
-                QDeclarativePropertyPrivate::setBinding(simpleAction.property(), action.toBinding, QDeclarativePropertyPrivate::DontRemoveBinding);
+                QDeclarativePropertyPrivate::setBinding(simpleAction.property(), action.toBinding.data(), QDeclarativePropertyPrivate::DontRemoveBinding);
             }
 
             simpleActionList.append(simpleAction);
@@ -517,7 +520,7 @@ void QDeclarativeState::addEntriesToRevertList(const QList<QDeclarativeAction> &
     }
 }
 
-QVariant QDeclarativeState::valueInRevertList(QObject *target, const QByteArray &name) const
+QVariant QDeclarativeState::valueInRevertList(QObject *target, const QString &name) const
 {
     Q_D(const QDeclarativeState);
 
@@ -526,7 +529,7 @@ QVariant QDeclarativeState::valueInRevertList(QObject *target, const QByteArray 
 
         while (revertListIterator.hasNext()) {
             const QDeclarativeSimpleAction &simpleAction = revertListIterator.next();
-            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty().toUtf8() == name)
+            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty() == name)
                 return simpleAction.value();
         }
     }
@@ -534,7 +537,7 @@ QVariant QDeclarativeState::valueInRevertList(QObject *target, const QByteArray 
     return QVariant();
 }
 
-QDeclarativeAbstractBinding *QDeclarativeState::bindingInRevertList(QObject *target, const QByteArray &name) const
+QDeclarativeAbstractBinding *QDeclarativeState::bindingInRevertList(QObject *target, const QString &name) const
 {
     Q_D(const QDeclarativeState);
 
@@ -543,7 +546,7 @@ QDeclarativeAbstractBinding *QDeclarativeState::bindingInRevertList(QObject *tar
 
         while (revertListIterator.hasNext()) {
             const QDeclarativeSimpleAction &simpleAction = revertListIterator.next();
-            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty().toUtf8() == name)
+            if (simpleAction.specifiedObject() == target && simpleAction.specifiedProperty() == name)
                 return simpleAction.binding();
         }
     }
@@ -675,7 +678,7 @@ void QDeclarativeState::apply(QDeclarativeStateGroup *group, QDeclarativeTransit
             a.property = d->revertList.at(ii).property();
             a.fromValue = cur;
             a.toValue = d->revertList.at(ii).value();
-            a.toBinding = d->revertList.at(ii).binding();
+            a.toBinding = QDeclarativeAbstractBinding::getPointer(d->revertList.at(ii).binding());
             a.specifiedObject = d->revertList.at(ii).specifiedObject();
             a.specifiedProperty = d->revertList.at(ii).specifiedProperty();
             a.event = d->revertList.at(ii).event();

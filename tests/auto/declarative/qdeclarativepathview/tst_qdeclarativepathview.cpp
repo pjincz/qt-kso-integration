@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -53,6 +53,7 @@
 #include <QtDeclarative/private/qdeclarativevaluetype_p.h>
 #include <QAbstractListModel>
 #include <QStringListModel>
+#include <QStandardItemModel>
 #include <QFile>
 
 #include "../../../shared/util.h"
@@ -61,6 +62,25 @@
 // In Symbian OS test data is located in applications private dir
 #define SRCDIR "."
 #endif
+
+static void initStandardTreeModel(QStandardItemModel *model)
+{
+    QStandardItem *item;
+    item = new QStandardItem(QLatin1String("Row 1 Item"));
+    model->insertRow(0, item);
+
+    item = new QStandardItem(QLatin1String("Row 2 Item"));
+    item->setCheckable(true);
+    model->insertRow(1, item);
+
+    QStandardItem *childItem = new QStandardItem(QLatin1String("Row 2 Child Item"));
+    item->setChild(0, childItem);
+
+    item = new QStandardItem(QLatin1String("Row 3 Item"));
+    item->setIcon(QIcon());
+    model->insertRow(2, item);
+}
+
 
 class tst_QDeclarativePathView : public QObject
 {
@@ -85,7 +105,13 @@ private slots:
     void pathUpdateOnStartChanged();
     void package();
     void emptyModel();
+    void closed();
     void pathUpdate();
+    void visualDataModel();
+    void undefinedPath();
+    void mouseDrag();
+    void treeModel();
+    void changePreferredHighlight();
 
 private:
     QDeclarativeView *createView();
@@ -227,6 +253,8 @@ void tst_QDeclarativePathView::items()
     QDeclarativePathView *pathview = findItem<QDeclarativePathView>(canvas->rootObject(), "view");
     QVERIFY(pathview != 0);
 
+    QCOMPARE(pathview->count(), model.count());
+    QCOMPARE(canvas->rootObject()->property("count").toInt(), model.count());
     QCOMPARE(pathview->childItems().count(), model.count()+1); // assumes all are visible, including highlight
 
     for (int i = 0; i < model.count(); ++i) {
@@ -350,6 +378,10 @@ void tst_QDeclarativePathView::dataModel()
     model.addItem("yellow", "7");
     model.addItem("thistle", "8");
     model.addItem("cyan", "9");
+    model.addItem("peachpuff", "10");
+    model.addItem("powderblue", "11");
+    model.addItem("gold", "12");
+    model.addItem("sandybrown", "13");
 
     ctxt->setContextProperty("testData", &model);
 
@@ -370,7 +402,8 @@ void tst_QDeclarativePathView::dataModel()
     model.insertItem(4, "orange", "10");
     QTest::qWait(100);
 
-    QTRY_COMPARE(findItems<QDeclarativeItem>(pathview, "wrapper").count(), 10);
+    QCOMPARE(canvas->rootObject()->property("viewCount").toInt(), model.count());
+    QTRY_COMPARE(findItems<QDeclarativeItem>(pathview, "wrapper").count(), 14);
 
     QVERIFY(pathview->currentIndex() == 0);
 
@@ -379,6 +412,7 @@ void tst_QDeclarativePathView::dataModel()
     QCOMPARE(text->text(), model.name(4));
 
     model.removeItem(2);
+    QCOMPARE(canvas->rootObject()->property("viewCount").toInt(), model.count());
     text = findItem<QDeclarativeText>(pathview, "myText", 2);
     QVERIFY(text);
     QCOMPARE(text->text(), model.name(2));
@@ -418,6 +452,25 @@ void tst_QDeclarativePathView::dataModel()
     foreach (QDeclarativeItem *item, items) {
         QVERIFY(item->property("onPath").toBool());
     }
+
+    // QTBUG-14199
+    pathview->setOffset(7);
+    pathview->setOffset(0);
+    QCOMPARE(findItems<QDeclarativeItem>(pathview, "wrapper").count(), 5);
+
+    pathview->setCurrentIndex(model.count()-1);
+    model.removeItem(model.count()-1);
+    QCOMPARE(pathview->currentIndex(), model.count()-1);
+
+    // QTBUG-18825
+    // Confirm that the target offset is adjusted when removing items
+    pathview->setCurrentIndex(model.count()-1);
+    QTRY_COMPARE(pathview->offset(), 1.);
+    pathview->setCurrentIndex(model.count()-5);
+    model.removeItem(model.count()-1);
+    model.removeItem(model.count()-1);
+    model.removeItem(model.count()-1);
+    QTRY_COMPARE(pathview->offset(), 2.);
 
     delete canvas;
 }
@@ -787,6 +840,26 @@ void tst_QDeclarativePathView::emptyModel()
     delete canvas;
 }
 
+void tst_QDeclarativePathView::closed()
+{
+    QDeclarativeEngine engine;
+
+    {
+        QDeclarativeComponent c(&engine, QUrl::fromLocalFile(SRCDIR "/data/openPath.qml"));
+        QDeclarativePath *obj = qobject_cast<QDeclarativePath*>(c.create());
+        QVERIFY(obj);
+        QCOMPARE(obj->isClosed(), false);
+        delete obj;
+    }
+
+    {
+        QDeclarativeComponent c(&engine, QUrl::fromLocalFile(SRCDIR "/data/closedPath.qml"));
+        QDeclarativePath *obj = qobject_cast<QDeclarativePath*>(c.create());
+        QVERIFY(obj);
+        QCOMPARE(obj->isClosed(), true);
+        delete obj;
+    }
+}
 
 // QTBUG-14239
 void tst_QDeclarativePathView::pathUpdate()
@@ -801,6 +874,130 @@ void tst_QDeclarativePathView::pathUpdate()
     QDeclarativeItem *item = findItem<QDeclarativeItem>(pathView, "wrapper", 0);
     QVERIFY(item);
     QCOMPARE(item->x(), 150.0);
+
+    delete canvas;
+}
+
+void tst_QDeclarativePathView::visualDataModel()
+{
+    QDeclarativeEngine engine;
+    QDeclarativeComponent c(&engine, QUrl::fromLocalFile(SRCDIR "/data/vdm.qml"));
+
+    QDeclarativePathView *obj = qobject_cast<QDeclarativePathView*>(c.create());
+    QVERIFY(obj != 0);
+
+    QCOMPARE(obj->count(), 3);
+
+    delete obj;
+}
+
+void tst_QDeclarativePathView::undefinedPath()
+{
+    QDeclarativeEngine engine;
+    QDeclarativeComponent c(&engine, QUrl::fromLocalFile(SRCDIR "/data/undefinedpath.qml"));
+
+    QDeclarativePathView *obj = qobject_cast<QDeclarativePathView*>(c.create());
+    QVERIFY(obj != 0);
+
+    QCOMPARE(obj->count(), 3);
+
+    delete obj;
+}
+
+void tst_QDeclarativePathView::mouseDrag()
+{
+    QDeclarativeView *canvas = createView();
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/dragpath.qml"));
+    canvas->show();
+    QApplication::setActiveWindow(canvas);
+    QTest::qWaitForWindowShown(canvas);
+    QTRY_COMPARE(QApplication::activeWindow(), static_cast<QWidget *>(canvas));
+
+    QDeclarativePathView *pathview = qobject_cast<QDeclarativePathView*>(canvas->rootObject());
+    QVERIFY(pathview != 0);
+
+    int current = pathview->currentIndex();
+
+    QTest::mousePress(canvas->viewport(), Qt::LeftButton, 0, canvas->mapFromScene(QPoint(10,100)));
+
+    {
+        QMouseEvent mv(QEvent::MouseMove, canvas->mapFromScene(QPoint(30,100)), Qt::LeftButton, Qt::LeftButton,Qt::NoModifier);
+        QApplication::sendEvent(canvas->viewport(), &mv);
+    }
+    {
+        QMouseEvent mv(QEvent::MouseMove, canvas->mapFromScene(QPoint(90,100)), Qt::LeftButton, Qt::LeftButton,Qt::NoModifier);
+        QApplication::sendEvent(canvas->viewport(), &mv);
+    }
+
+    QVERIFY(pathview->currentIndex() != current);
+
+    QTest::mouseRelease(canvas->viewport(), Qt::LeftButton, 0, canvas->mapFromScene(QPoint(40,100)));
+
+    delete canvas;
+}
+
+void tst_QDeclarativePathView::treeModel()
+{
+    QDeclarativeView *canvas = createView();
+
+    QStandardItemModel model;
+    initStandardTreeModel(&model);
+    canvas->engine()->rootContext()->setContextProperty("myModel", &model);
+
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/treemodel.qml"));
+
+    QDeclarativePathView *pathview = qobject_cast<QDeclarativePathView*>(canvas->rootObject());
+    QVERIFY(pathview != 0);
+    QCOMPARE(pathview->count(), 3);
+
+    QDeclarativeText *item = findItem<QDeclarativeText>(pathview, "wrapper", 0);
+    QVERIFY(item);
+    QCOMPARE(item->text(), QLatin1String("Row 1 Item"));
+
+    QVERIFY(QMetaObject::invokeMethod(pathview, "setRoot", Q_ARG(QVariant, 1)));
+    QCOMPARE(pathview->count(), 1);
+
+    QTRY_VERIFY(item = findItem<QDeclarativeText>(pathview, "wrapper", 0));
+    QTRY_COMPARE(item->text(), QLatin1String("Row 2 Child Item"));
+
+    delete canvas;
+}
+
+void tst_QDeclarativePathView::changePreferredHighlight()
+{
+    QDeclarativeView *canvas = createView();
+    canvas->setFixedSize(400,200);
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/dragpath.qml"));
+    canvas->show();
+    QApplication::setActiveWindow(canvas);
+    QTest::qWaitForWindowShown(canvas);
+    QTRY_COMPARE(QApplication::activeWindow(), static_cast<QWidget *>(canvas));
+
+    QDeclarativePathView *pathview = qobject_cast<QDeclarativePathView*>(canvas->rootObject());
+    QVERIFY(pathview != 0);
+
+    int current = pathview->currentIndex();
+    QCOMPARE(current, 0);
+
+    QDeclarativeRectangle *firstItem = findItem<QDeclarativeRectangle>(pathview, "wrapper", 0);
+    QVERIFY(firstItem);
+    QDeclarativePath *path = qobject_cast<QDeclarativePath*>(pathview->path());
+    QVERIFY(path);
+    QPointF start = path->pointAt(0.5);
+    start.setX(qRound(start.x()));
+    start.setY(qRound(start.y()));
+    QPointF offset;//Center of item is at point, but pos is from corner
+    offset.setX(firstItem->width()/2);
+    offset.setY(firstItem->height()/2);
+    QTRY_COMPARE(firstItem->pos() + offset, start);
+
+    pathview->setPreferredHighlightBegin(0.8);
+    pathview->setPreferredHighlightEnd(0.8);
+    start = path->pointAt(0.8);
+    start.setX(qRound(start.x()));
+    start.setY(qRound(start.y()));
+    QTRY_COMPARE(firstItem->pos() + offset, start);
+    QCOMPARE(pathview->currentIndex(), 0);
 
     delete canvas;
 }

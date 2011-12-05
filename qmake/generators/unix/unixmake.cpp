@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the qmake application of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -622,31 +622,44 @@ UnixMakefileGenerator::processPrlFiles()
 
         //merge them into a logical order
         if(!project->isActiveConfig("no_smart_library_merge") && !project->isActiveConfig("no_lflags_merge")) {
-            QStringList lflags;
+            QHash<QString, QStringList> lflags;
             for(int lit = 0; lit < l.size(); ++lit) {
+                QString arch("default");
                 QString opt = l.at(lit).trimmed();
                 if(opt.startsWith("-")) {
+                    if (Option::target_mode == Option::TARG_MACX_MODE && opt.startsWith("-Xarch")) {
+                        if (opt.length() > 7) {
+                            arch = opt.mid(7);
+                            opt = l.at(++lit);
+                        }
+                    }
+
                     if(opt.startsWith("-L") ||
                        (Option::target_mode == Option::TARG_MACX_MODE && opt.startsWith("-F"))) {
-                        if(lit == 0 || l.lastIndexOf(opt, lit-1) == -1)
-                            lflags.append(opt);
-                    } else if(opt.startsWith("-l")) {
-                        if(lit == l.size()-1 || l.indexOf(opt, lit+1) == -1)
-                            lflags.append(opt);
+                        if(!lflags[arch].contains(opt))
+                            lflags[arch].append(opt);
+                    } else if(opt.startsWith("-l") || opt == "-pthread") {
+                        // Make sure we keep the dependency-order of libraries
+                        if (lflags[arch].contains(opt))
+                            lflags[arch].removeAll(opt);
+                        lflags[arch].append(opt);
                     } else if(Option::target_mode == Option::TARG_MACX_MODE && opt.startsWith("-framework")) {
                         if(opt.length() > 11)
                             opt = opt.mid(11);
-                        else
+                        else {
                             opt = l.at(++lit);
+                            if (Option::target_mode == Option::TARG_MACX_MODE && opt.startsWith("-Xarch"))
+                                opt = l.at(++lit); // The user has done the right thing and prefixed each part
+                        }
                         bool found = false;
-                        for(int x = lit+1; x < l.size(); ++x) {
-                            QString xf = l.at(x);
+                        for(int x = 0; x < lflags[arch].size(); ++x) {
+                            QString xf = lflags[arch].at(x);
                             if(xf.startsWith("-framework")) {
                                 QString framework;
                                 if(xf.length() > 11)
                                     framework = xf.mid(11);
                                 else
-                                    framework = l.at(++x);
+                                    framework = lflags[arch].at(++x);
                                 if(framework == opt) {
                                     found = true;
                                     break;
@@ -654,18 +667,30 @@ UnixMakefileGenerator::processPrlFiles()
                             }
                         }
                         if(!found) {
-                            lflags.append("-framework");
-                            lflags.append(opt);
+                            lflags[arch].append("-framework");
+                            lflags[arch].append(opt);
                         }
                     } else {
-                        lflags.append(opt);
+                        lflags[arch].append(opt);
                     }
                 } else if(!opt.isNull()) {
-                    if(lit == 0 || l.lastIndexOf(opt, lit-1) == -1)
-                        lflags.append(opt);
+                    if(!lflags[arch].contains(opt))
+                        lflags[arch].append(opt);
                 }
             }
-            l = lflags;
+
+            l =  lflags.take("default");
+
+            // Process architecture specific options (Xarch)
+            QHash<QString, QStringList>::const_iterator archIterator = lflags.constBegin();
+            while (archIterator != lflags.constEnd()) {
+                const QStringList archOptions = archIterator.value();
+                for (int i = 0; i < archOptions.size(); ++i) {
+                    l.append(QLatin1String("-Xarch_") + archIterator.key());
+                    l.append(archOptions.at(i));
+                }
+                ++archIterator;
+            }
         }
     }
 }

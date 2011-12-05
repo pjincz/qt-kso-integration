@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtCore module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -54,6 +54,11 @@
 #include <private/qeventdispatcher_unix_p.h>
 #endif
 
+#ifdef Q_OS_SYMBIAN
+#include <hal.h>
+#include <hal_data.h>
+#endif
+
 #include "qthreadstorage.h"
 
 #include "qthread_p.h"
@@ -62,6 +67,12 @@
 
 #include <sched.h>
 #include <errno.h>
+
+// You only find these enumerations on Symbian^3 onwards, so we need to provide our own
+// to remain compatible with older releases. They won't be called by pre-Sym^3 SDKs.
+
+// HALData::ENumCpus
+#define QT_HALData_ENumCpus 119
 
 #ifdef Q_OS_BSD4
 #include <sys/sysctl.h>
@@ -96,6 +107,11 @@
 // from linux/sched.h
 # define SCHED_IDLE    5
 #endif
+
+#if defined(Q_OS_DARWIN) || !defined(Q_OS_OPENBSD) && defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING-0 >= 0)
+#define QT_HAS_THREAD_PRIORITY_SCHEDULING
+#endif
+
 
 QT_BEGIN_NAMESPACE
 
@@ -142,6 +158,39 @@ static void destroy_current_thread_data_key()
 }
 Q_DESTRUCTOR_FUNCTION(destroy_current_thread_data_key)
 
+
+// Utility functions for getting, setting and clearing thread specific data.
+// In Symbian, TLS access is significantly faster than pthread_getspecific.
+// However Symbian does not have the thread destruction cleanup functionality
+// that pthread has, so pthread_setspecific is also used.
+static QThreadData *get_thread_data()
+{
+#ifdef Q_OS_SYMBIAN
+    return reinterpret_cast<QThreadData *>(Dll::Tls());
+#else
+    pthread_once(&current_thread_data_once, create_current_thread_data_key);
+    return reinterpret_cast<QThreadData *>(pthread_getspecific(current_thread_data_key));
+#endif
+}
+
+static void set_thread_data(QThreadData *data)
+{
+#ifdef Q_OS_SYMBIAN
+    qt_symbian_throwIfError(Dll::SetTls(data));
+#endif
+    pthread_once(&current_thread_data_once, create_current_thread_data_key);
+    pthread_setspecific(current_thread_data_key, data);
+}
+
+static void clear_thread_data()
+{
+#ifdef Q_OS_SYMBIAN
+    Dll::FreeTls();
+#endif
+    pthread_setspecific(current_thread_data_key, 0);
+}
+
+
 #ifdef Q_OS_SYMBIAN
 static void init_symbian_thread_handle(RThread &thread)
 {
@@ -158,26 +207,24 @@ static void init_symbian_thread_handle(RThread &thread)
 
 QThreadData *QThreadData::current()
 {
-    pthread_once(&current_thread_data_once, create_current_thread_data_key);
-
-    QThreadData *data = reinterpret_cast<QThreadData *>(pthread_getspecific(current_thread_data_key));
+    QThreadData *data = get_thread_data();
     if (!data) {
         void *a;
         if (QInternal::activateCallbacks(QInternal::AdoptCurrentThread, &a)) {
             QThread *adopted = static_cast<QThread*>(a);
             Q_ASSERT(adopted);
             data = QThreadData::get2(adopted);
-            pthread_setspecific(current_thread_data_key, data);
+            set_thread_data(data);
             adopted->d_func()->running = true;
             adopted->d_func()->finished = false;
             static_cast<QAdoptedThread *>(adopted)->init();
         } else {
             data = new QThreadData;
-            pthread_setspecific(current_thread_data_key, data);
             QT_TRY {
+                set_thread_data(data);
                 data->thread = new QAdoptedThread(data);
             } QT_CATCH(...) {
-                pthread_setspecific(current_thread_data_key, 0);
+                clear_thread_data();
                 data->deref();
                 data = 0;
                 QT_RETHROW;
@@ -268,8 +315,7 @@ void *QThreadPrivate::start(void *arg)
     User::SetCritical(User::EProcessCritical);
 #endif
 
-    pthread_once(&current_thread_data_once, create_current_thread_data_key);
-    pthread_setspecific(current_thread_data_key, data);
+    set_thread_data(data);
 
     data->ref();
     data->quitNow = false;
@@ -387,8 +433,20 @@ int QThread::idealThreadCount()
     // as of aug 2008 Integrity only supports one single core CPU
     cores = 1;
 #elif defined(Q_OS_SYMBIAN)
-	 // ### TODO - Get the number of cores from HAL? when multicore architectures (SMP) are supported
-    cores = 1;
+    if (QSysInfo::symbianVersion() >= QSysInfo::SV_SF_3) {
+        TInt inumcpus;
+        TInt err;
+        err = HAL::Get((HALData::TAttribute)QT_HALData_ENumCpus, inumcpus);
+        if (err != KErrNone) {
+            cores = 1;
+        } else if ( inumcpus <= 0 ) {
+            cores = 1;
+        } else {
+            cores = inumcpus;
+        }
+    } else {
+        cores = 1;
+    }
 #elif defined(Q_OS_VXWORKS)
     // VxWorks
 #  if defined(QT_VXWORKS_HAS_CPUSET)
@@ -473,6 +531,7 @@ void QThread::usleep(unsigned long usecs)
     thread_sleep(&ti);
 }
 
+#ifdef QT_HAS_THREAD_PRIORITY_SCHEDULING
 // Does some magic and calculate the Unix scheduler priorities
 // sched_policy is IN/OUT: it must be set to a valid policy before calling this function
 // sched_priority is OUT only
@@ -503,6 +562,7 @@ static bool calculateUnixPriority(int priority, int *sched_policy, int *sched_pr
     *sched_priority = prio;
     return true;
 }
+#endif
 
 void QThread::start(Priority priority)
 {
@@ -514,6 +574,8 @@ void QThread::start(Priority priority)
     d->running = true;
     d->finished = false;
     d->terminated = false;
+    d->returnCode = 0;
+    d->exited = false;
 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -521,7 +583,7 @@ void QThread::start(Priority priority)
 
     d->priority = priority;
 
-#if defined(Q_OS_DARWIN) || !defined(Q_OS_OPENBSD) && !defined(Q_OS_SYMBIAN) && defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING-0 >= 0)
+#if defined(QT_HAS_THREAD_PRIORITY_SCHEDULING) && !defined(Q_OS_SYMBIAN)
 // ### Need to implement thread sheduling and priorities for symbian os. Implementation removed for now
     switch (priority) {
     case InheritPriority:
@@ -562,7 +624,7 @@ void QThread::start(Priority priority)
             break;
         }
     }
-#endif // _POSIX_THREAD_PRIORITY_SCHEDULING
+#endif // QT_HAS_THREAD_PRIORITY_SCHEDULING
 
 #ifdef Q_OS_SYMBIAN
     if (d->stackSize == 0)
@@ -725,7 +787,7 @@ void QThread::setPriority(Priority priority)
 
     // copied from start() with a few modifications:
 
-#if defined(Q_OS_DARWIN) || !defined(Q_OS_OPENBSD) && defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING-0 >= 0)
+#ifdef QT_HAS_THREAD_PRIORITY_SCHEDULING
     int sched_policy;
     sched_param param;
 

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -84,43 +84,23 @@ QDeclarativeRepeaterPrivate::~QDeclarativeRepeaterPrivate()
 
     \image repeater-simple.png
 
-    The \l model of a Repeater can be any of the supported \l {qmlmodels}{Data Models}.
+    A Repeater's \l model can be any of the supported \l {qmlmodels}{data models}.
+    Additionally, like delegates for other views, a Repeater delegate can access
+    its index within the repeater, as well as the model data relevant to the
+    delegate. See the \l delegate property documentation for details.
 
     Items instantiated by the Repeater are inserted, in order, as
     children of the Repeater's parent.  The insertion starts immediately after
     the repeater's position in its parent stacking list.  This allows
     a Repeater to be used inside a layout. For example, the following Repeater's
     items are stacked between a red rectangle and a blue rectangle:
-   
+
     \snippet doc/src/snippets/declarative/repeaters/repeater.qml layout
 
     \image repeater.png
 
 
-    \section2 The \c index and \c modelData properties
-
-    The index of a delegate is exposed as an accessible \c index property in the delegate.
-    Properties of the model are also available depending upon the type of \l {qmlmodels}{Data Model}.
-
-    Here is a Repeater that uses the \c index property inside the instantiated items:
-
-    \table
-    \row
-    \o \snippet doc/src/snippets/declarative/repeaters/repeater.qml index
-    \o \image repeater-index.png
-    \endtable
-
-    Here is another Repeater that uses the \c modelData property to reference the data for a
-    particular index:
-
-    \table
-    \row
-    \o \snippet doc/src/snippets/declarative/repeaters/repeater.qml modeldata
-    \o \image repeater-modeldata.png
-    \endtable
-
-
-    A Repeater item owns all items it instantiates. Removing or dynamically destroying
+    \note A Repeater item owns all items it instantiates. Removing or dynamically destroying
     an item created by a Repeater results in unpredictable behavior.
 
 
@@ -134,17 +114,38 @@ QDeclarativeRepeaterPrivate::~QDeclarativeRepeaterPrivate()
     create items as they are required.
 
     Also, note that Repeater is \l {Item}-based, and can only repeat \l {Item}-derived objects. 
-    For example, it cannot be used to repeat QObjects:
+    For example, it cannot be used to repeat QtObjects:
     \badcode
     Item {
-        //XXX does not work! Can't repeat QObject as it doesn't derive from Item.
+        //XXX does not work! Can't repeat QtObject as it doesn't derive from Item.
         Repeater {
             model: 10
-            QObject {}
+            QtObject {}
         }
     }
     \endcode
  */
+
+/*!
+    \qmlsignal Repeater::onItemAdded(int index, Item item)
+    \since QtQuick 1.1
+
+    This handler is called when an item is added to the repeater. The \a index
+    parameter holds the index at which the item has been inserted within the
+    repeater, and the \a item parameter holds the \l Item that has been added.
+*/
+
+/*!
+    \qmlsignal Repeater::onItemRemoved(int index, Item item)
+    \since QtQuick 1.1
+
+    This handler is called when an item is removed from the repeater. The \a index
+    parameter holds the index at which the item was removed from the repeater,
+    and the \a item parameter holds the \l Item that was removed.
+
+    Do not keep a reference to \a item if it was created by this repeater, as
+    in these cases it will be deleted shortly after the handler is called.
+*/
 
 QDeclarativeRepeater::QDeclarativeRepeater(QDeclarativeItem *parent)
   : QDeclarativeItem(*(new QDeclarativeRepeaterPrivate), parent)
@@ -160,26 +161,16 @@ QDeclarativeRepeater::~QDeclarativeRepeater()
 
     The model providing data for the repeater.
 
-    This property can be set to any of the following:
+    This property can be set to any of the supported \l {qmlmodels}{data models}:
 
     \list
-    \o A number that indicates the number of delegates to be created
+    \o A number that indicates the number of delegates to be created by the repeater
     \o A model (e.g. a ListModel item, or a QAbstractItemModel subclass)
     \o A string list
     \o An object list
     \endlist
 
-    In each case, the data element and the index is exposed to each instantiated
-    component.  The index is always exposed as an accessible \c index property.
-    In the case of an object or string list, the data element (of type string
-    or object) is available as the \c modelData property.  In the case of a Qt model,
-    all roles are available as named properties just like in the view classes.
-
-    As a special case the model can also be merely a number. In this case it will
-    create that many instances of the component. They will also be assigned an index
-    based on the order they are created.
-
-    Models can also be created directly in QML, using a \l{ListModel} or \l{XmlListModel}.
+    The type of model affects the properties that are exposed to the \l delegate.
 
     \sa {qmlmodels}{Data Models}
 */
@@ -202,12 +193,11 @@ void QDeclarativeRepeater::setModel(const QVariant &model)
         disconnect(d->model, SIGNAL(itemsMoved(int,int,int)), this, SLOT(itemsMoved(int,int,int)));
         disconnect(d->model, SIGNAL(modelReset()), this, SLOT(modelReset()));
         /*
-        disconnect(d->model, SIGNAL(createdItem(int, QDeclarativeItem*)), this, SLOT(createdItem(int,QDeclarativeItem*)));
+        disconnect(d->model, SIGNAL(createdItem(int,QDeclarativeItem*)), this, SLOT(createdItem(int,QDeclarativeItem*)));
         disconnect(d->model, SIGNAL(destroyingItem(QDeclarativeItem*)), this, SLOT(destroyingItem(QDeclarativeItem*)));
     */
     }
     d->dataSource = model;
-    emit modelChanged();
     QObject *object = qvariant_cast<QObject*>(model);
     QDeclarativeVisualModel *vim = 0;
     if (object && (vim = qobject_cast<QDeclarativeVisualModel *>(object))) {
@@ -230,11 +220,12 @@ void QDeclarativeRepeater::setModel(const QVariant &model)
         connect(d->model, SIGNAL(itemsMoved(int,int,int)), this, SLOT(itemsMoved(int,int,int)));
         connect(d->model, SIGNAL(modelReset()), this, SLOT(modelReset()));
         /*
-        connect(d->model, SIGNAL(createdItem(int, QDeclarativeItem*)), this, SLOT(createdItem(int,QDeclarativeItem*)));
+        connect(d->model, SIGNAL(createdItem(int,QDeclarativeItem*)), this, SLOT(createdItem(int,QDeclarativeItem*)));
         connect(d->model, SIGNAL(destroyingItem(QDeclarativeItem*)), this, SLOT(destroyingItem(QDeclarativeItem*)));
         */
         regenerate();
     }
+    emit modelChanged();
     emit countChanged();
 }
 
@@ -243,8 +234,33 @@ void QDeclarativeRepeater::setModel(const QVariant &model)
     \default
 
     The delegate provides a template defining each item instantiated by the repeater.
-    The index is exposed as an accessible \c index property.  Properties of the
-    model are also available depending upon the type of \l {qmlmodels}{Data Model}.
+
+    Delegates are exposed to a read-only \c index property that indicates the index
+    of the delegate within the repeater. For example, the following \l Text delegate
+    displays the index of each repeated item:
+
+    \table
+    \row
+    \o \snippet doc/src/snippets/declarative/repeaters/repeater.qml index
+    \o \image repeater-index.png
+    \endtable
+
+    If the \l model is a \l{QStringList-based model}{string list} or
+    \l{QObjectList-based model}{object list}, the delegate is also exposed to
+    a read-only \c modelData property that holds the string or object data. For
+    example:
+
+    \table
+    \row
+    \o \snippet doc/src/snippets/declarative/repeaters/repeater.qml modeldata
+    \o \image repeater-modeldata.png
+    \endtable
+
+    If the \l model is a model object (such as a \l ListModel) the delegate
+    can access all model roles as named properties, in the same way that delegates
+    do for view classes like ListView.
+
+    \sa {QML Data Models}
  */
 QDeclarativeComponent *QDeclarativeRepeater::delegate() const
 {
@@ -288,6 +304,21 @@ int QDeclarativeRepeater::count() const
     return 0;
 }
 
+/*!
+    \qmlmethod Item Repeater::itemAt(index)
+    \since QtQuick 1.1
+
+    Returns the \l Item that has been created at the given \a index, or \c null
+    if no item exists at \a index.
+*/
+QDeclarativeItem *QDeclarativeRepeater::itemAt(int index) const
+{
+    Q_D(const QDeclarativeRepeater);
+    if (index >= 0 && index < d->deletables.count())
+        return d->deletables[index];
+    return 0;
+
+}
 
 void QDeclarativeRepeater::componentComplete()
 {
@@ -309,8 +340,13 @@ QVariant QDeclarativeRepeater::itemChange(GraphicsItemChange change,
 void QDeclarativeRepeater::clear()
 {
     Q_D(QDeclarativeRepeater);
+    bool complete = isComponentComplete();
+
     if (d->model) {
-        foreach (QDeclarativeItem *item, d->deletables) {
+        while (d->deletables.count() > 0) {
+            QDeclarativeItem *item = d->deletables.takeLast();
+            if (complete)
+                emit itemRemoved(d->deletables.count()-1, item);
             d->model->release(item);
         }
     }
@@ -335,6 +371,7 @@ void QDeclarativeRepeater::regenerate()
             item->setParentItem(parentItem());
             item->stackBefore(this);
             d->deletables << item;
+            emit itemAdded(ii, item);
         }
     }
 }
@@ -355,6 +392,7 @@ void QDeclarativeRepeater::itemsInserted(int index, int count)
             else
                 item->stackBefore(this);
             d->deletables.insert(modelIndex, item);
+            emit itemAdded(modelIndex, item);
         }
     }
     emit countChanged();
@@ -367,6 +405,7 @@ void QDeclarativeRepeater::itemsRemoved(int index, int count)
         return;
     while (count--) {
         QDeclarativeItem *item = d->deletables.takeAt(index);
+        emit itemRemoved(index, item);
         if (item)
             d->model->release(item);
         else

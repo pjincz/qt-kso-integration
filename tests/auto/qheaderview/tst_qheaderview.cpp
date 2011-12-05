@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -196,6 +196,7 @@ private slots:
     void QTBUG12268_hiddenMovedSectionSorting();
 
 protected:
+    QWidget *topLevel;
     QHeaderView *view;
     QStandardItemModel *model;
 };
@@ -345,7 +346,8 @@ void tst_QHeaderView::cleanupTestCase()
 
 void tst_QHeaderView::init()
 {
-    view = new QHeaderView(Qt::Vertical);
+    topLevel = new QWidget();
+    view = new QHeaderView(Qt::Vertical,topLevel);
     // Some initial value tests before a model is added
     QCOMPARE(view->length(), 0);
     QVERIFY(view->sizeHint() == QSize(0,0));
@@ -373,7 +375,8 @@ void tst_QHeaderView::init()
     QSignalSpy spy(view, SIGNAL(sectionCountChanged(int, int)));
     view->setModel(model);
     QCOMPARE(spy.count(), 1);
-    view->show();
+    view->resize(200,200);
+    topLevel->show();
 }
 
 void tst_QHeaderView::cleanup()
@@ -508,7 +511,7 @@ void tst_QHeaderView::stretch()
     view->resize(viewSize);
     view->setStretchLastSection(true);
     QCOMPARE(view->stretchLastSection(), true);
-    view->show();
+    topLevel->show();
     QCOMPARE(view->width(), viewSize.width());
     QCOMPARE(view->visualIndexAt(view->viewport()->height() - 5), 3);
 
@@ -560,7 +563,7 @@ void tst_QHeaderView::sectionSize()
     QFETCH(int, lastVisibleSectionSize);
     QFETCH(int, persistentSectionSize);
 
-#ifdef Q_OS_WINCE
+#if defined(Q_OS_WINCE) || defined(Q_OS_SYMBIAN)
     // We test on a device with doubled pixels. Therefore we need to specify
     // different boundaries.
     initialDefaultSize = qMax(view->minimumSectionSize(), 30);
@@ -673,14 +676,26 @@ void tst_QHeaderView::visualIndexAt()
     QFETCH(QList<int>, coordinate);
     QFETCH(QList<int>, visual);
 
+#ifdef Q_OS_SYMBIAN
+    // Some Symbian devices have larger minimum section size than what is expected.
+    // Need to do this here instead of visualIndexAt_data() as view pointer doesn't
+    // seem to be valid there.
+    int minSize = view->minimumSectionSize();
+    if (minSize > 30) {
+        coordinate.clear();
+        coordinate << -1 << 0 << minSize + 1 << (minSize * 3) + 1 << 99999;
+    }
+#endif
     view->setStretchLastSection(true);
-    view->show();
+    topLevel->show();
 
     for (int i = 0; i < hidden.count(); ++i)
         view->setSectionHidden(hidden.at(i), true);
 
     for (int j = 0; j < from.count(); ++j)
         view->moveSection(from.at(j), to.at(j));
+
+    QTest::qWait(100);
 
     for (int k = 0; k < coordinate.count(); ++k)
         QCOMPARE(view->visualIndexAt(coordinate.at(k)), visual.at(k));
@@ -696,7 +711,7 @@ void tst_QHeaderView::length()
     view->setFont(font);
 #endif
     view->setStretchLastSection(true);
-    view->show();
+    topLevel->show();
 
     //minimumSectionSize should be the size of the last section of the widget is not tall enough
     int length = view->minimumSectionSize();
@@ -708,7 +723,7 @@ void tst_QHeaderView::length()
     QCOMPARE(length, view->length());
 
     view->setStretchLastSection(false);
-    view->show();
+    topLevel->show();
 
     QVERIFY(length != view->length());
 
@@ -759,7 +774,7 @@ void tst_QHeaderView::logicalIndexAt()
     QCOMPARE(view->logicalIndexAt(0), 0);
     QCOMPARE(view->logicalIndexAt(1), 0);
 
-    view->show();
+    topLevel->show();
     view->setStretchLastSection(true);
     // First item
     QCOMPARE(view->logicalIndexAt(0), 0);
@@ -1062,7 +1077,7 @@ void  tst_QHeaderView::resizeWithResizeModes()
         view->resizeSection(i, sections.at(i));
         view->setResizeMode(i, (QHeaderView::ResizeMode)modes.at(i));
     }
-    view->show();
+    topLevel->show();
     view->resize(size, size);
     for (int j = 0; j < expected.count(); ++j)
         QCOMPARE(view->sectionSize(j), expected.at(j));
@@ -1160,7 +1175,7 @@ void tst_QHeaderView::resizeSection()
 
     view->resize(400, 400);
 
-    view->show();
+    topLevel->show();
     view->setMovable(true);
     view->setStretchLastSection(false);
 
@@ -2035,14 +2050,14 @@ void tst_QHeaderView::QTBUG7833_sectionClicked()
 
 
     QTest::mouseClick(tv.horizontalHeader()->viewport(), Qt::LeftButton, Qt::NoModifier,
-                      QPoint(tv.horizontalHeader()->sectionViewportPosition(11) + 5, 5));
+                      QPoint(tv.horizontalHeader()->sectionViewportPosition(11) + tv.horizontalHeader()->sectionSize(11)/2, 5));
     QCOMPARE(clickedSpy.count(), 1);
     QCOMPARE(pressedSpy.count(), 1);
     QCOMPARE(clickedSpy.at(0).at(0).toInt(), 11);
     QCOMPARE(pressedSpy.at(0).at(0).toInt(), 11);
 
     QTest::mouseClick(tv.horizontalHeader()->viewport(), Qt::LeftButton, Qt::NoModifier,
-                      QPoint(tv.horizontalHeader()->sectionViewportPosition(8) + 5, 5));
+                      QPoint(tv.horizontalHeader()->sectionViewportPosition(8) + tv.horizontalHeader()->sectionSize(0)/2, 5));
 
     QCOMPARE(clickedSpy.count(), 2);
     QCOMPARE(pressedSpy.count(), 2);
@@ -2050,7 +2065,7 @@ void tst_QHeaderView::QTBUG7833_sectionClicked()
     QCOMPARE(pressedSpy.at(1).at(0).toInt(), 8);
 
     QTest::mouseClick(tv.horizontalHeader()->viewport(), Qt::LeftButton, Qt::NoModifier,
-                      QPoint(tv.horizontalHeader()->sectionViewportPosition(0) + 5, 5));
+                      QPoint(tv.horizontalHeader()->sectionViewportPosition(0) + tv.horizontalHeader()->sectionSize(0)/2, 5));
 
     QCOMPARE(clickedSpy.count(), 3);
     QCOMPARE(pressedSpy.count(), 3);

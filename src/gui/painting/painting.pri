@@ -8,6 +8,7 @@ HEADERS += \
         painting/qdrawutil.h \
         painting/qemulationpaintengine_p.h \
         painting/qgraphicssystem_p.h \
+        painting/qgraphicssystemex_p.h \
         painting/qmatrix.h \
         painting/qmemrotate_p.h \
         painting/qoutlinemapper_p.h \
@@ -188,12 +189,12 @@ embedded {
 
 symbian {
         SOURCES += \
-				painting/qpaintengine_s60.cpp \
+		painting/qpaintengine_raster_symbian.cpp \
                 painting/qregion_s60.cpp \
                 painting/qcolormap_s60.cpp
 
         HEADERS += \
-                painting/qpaintengine_s60_p.h
+                painting/qpaintengine_raster_symbian_p.h
 }
 
 x11|embedded {
@@ -240,13 +241,16 @@ embedded {
 
 
 symbian {
-        HEADERS += painting/qwindowsurface_s60_p.h
-        SOURCES += painting/qwindowsurface_s60.cpp
+        HEADERS += painting/qwindowsurface_s60_p.h \
+                    painting/qdrawhelper_arm_simd_p.h \
+                    painting/qgraphicssystemex_symbian_p.h
+        SOURCES += painting/qwindowsurface_s60.cpp \
+                    painting/qgraphicssystemex_symbian.cpp
         armccIfdefBlock = \
         "$${LITERAL_HASH}if defined(ARMV6)" \
+        "MACRO QT_HAVE_ARM_SIMD" \
         "SOURCEPATH 	painting" \
-        "SOURCE			qblendfunctions_armv6_rvct.s" \
-        "SOURCE			qdrawhelper_armv6_rvct.s" \
+        "SOURCE			qdrawhelper_arm_simd.cpp" \
         "$${LITERAL_HASH}endif"
 
         MMP_RULES += armccIfdefBlock

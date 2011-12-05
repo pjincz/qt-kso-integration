@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -50,6 +50,8 @@
 #include <qlineedit.h>
 #include <QScrollBar>
 #include <QStyledItemDelegate>
+#include <QDesktopWidget>
+#include <QApplication>
 
 #include "../../shared/util.h"
 
@@ -464,6 +466,7 @@ void tst_QTreeWidget::editItem()
     QTreeWidget tree;
     populate(&tree, topLevelItems, new TreeItem(QStringList() << "1" << "2"));
     tree.show();
+    QTest::qWaitForWindowShown(&tree);
 
     QSignalSpy itemChangedSpy(
         &tree, SIGNAL(itemChanged(QTreeWidgetItem*,int)));
@@ -3098,12 +3101,24 @@ void tst_QTreeWidget::task253109_itemHeight()
 
 void tst_QTreeWidget::task206367_duplication()
 {
-    QTreeWidget treeWidget;
-    treeWidget.show();
+    QWidget topLevel;
+    QTreeWidget treeWidget(&topLevel);
+    topLevel.show();
+#ifndef Q_WS_S60
     treeWidget.resize(200, 200);
+#endif
 
     treeWidget.setSortingEnabled(true);
     QTreeWidgetItem* rootItem = new QTreeWidgetItem( &treeWidget, QStringList("root") );
+#ifdef Q_WS_S60
+    // Ensure that eight items fit into tree widget. In Symbian VGA devices 8 rows of
+    // data will take more than 200 pixels.
+    int calculatedHeight = treeWidget.visualItemRect(treeWidget.topLevelItem(0)).height() +
+        2 * QApplication::style()->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, 0);
+    calculatedHeight *= 8; // eight 'rows': header, root and 2 items with 2 children
+    treeWidget.resize(200, qMax(200, calculatedHeight));
+#endif
+
     for (int nFile = 0; nFile < 2; nFile++ )  {
         QTreeWidgetItem* itemFile = new QTreeWidgetItem(rootItem, QStringList(QString::number(nFile)));
         for (int nRecord = 0; nRecord < 2; nRecord++)
@@ -3209,6 +3224,13 @@ void tst_QTreeWidget::task239150_editorWidth()
 {
     //we check that an item with no text will get an editor with a correct size
     QTreeWidget tree;
+#ifdef Q_OS_SYMBIAN
+    //By default widgets are 640*360 in Symbian. Call to create_sys() sets the real size of the widget.
+    //Therefore, with VGA Symbian devices, we need to update the widget width to match screen width.
+    //As VGA devices have larger font, longer texts wouldn't otherwise fit into tree widget.
+    if (QApplication::desktop() && QApplication::desktop()->availableGeometry().width() > tree.width())
+        tree.resize(QApplication::desktop()->availableGeometry().size());
+#endif
 
     QStyleOptionFrameV2 opt;
     opt.init(&tree);

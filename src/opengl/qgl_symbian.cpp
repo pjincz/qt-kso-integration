@@ -1,57 +1,60 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
-
 #include "qgl.h"
-#include <coemain.h>
-#include <coecntrl.h>
-#include <w32std.h>
-#include <private/qpixmap_s60_p.h>
+#include <private/qt_s60_p.h>
+#include <private/qpixmap_raster_symbian_p.h>
 #include <private/qimagepixmapcleanuphooks_p.h>
 #include <private/qgl_p.h>
 #include <private/qpaintengine_opengl_p.h>
 #include <private/qwidget_p.h> // to access QWExtra
+#include <private/qnativeimagehandleprovider_p.h>
+#include <private/qapplication_p.h>
+#include <private/qgraphicssystem_p.h>
+#include <private/qgraphicssystemex_symbian_p.h>
 #include "qgl_egl_p.h"
+#include "qpixmapdata_gl_p.h"
+#include "qgltexturepool_p.h"
 #include "qcolormap.h"
-#include <QDebug>
+
 
 QT_BEGIN_NAMESPACE
 
@@ -68,6 +71,8 @@ QT_BEGIN_NAMESPACE
 #define QGL_NO_PRESERVED_SWAP 1
 #endif
 #endif
+
+Q_OPENGL_EXPORT extern QGLWidget* qt_gl_share_widget();
 
 /*
     QGLTemporaryContext implementation
@@ -176,6 +181,13 @@ bool QGLContext::chooseContext(const QGLContext* shareContext) // almost same as
         d->ownsEglContext = true;
         d->eglContext->setApi(QEgl::OpenGL);
 
+        if (!QSymbianGraphicsSystemEx::hasBCM2727()) {
+            // Most likely we have hw support for multisampling
+            // so let's enable it.
+            d->glFormat.setSampleBuffers(1);
+            d->glFormat.setSamples(4);
+        }
+
 	    // If the device is a widget with WA_TranslucentBackground set, make sure the glFormat
         // has the alpha channel option set:
         if (devType == QInternal::Widget) {
@@ -225,13 +237,20 @@ bool QGLContext::chooseContext(const QGLContext* shareContext) // almost same as
 
         d->eglSurface = QEgl::createSurface(device(), d->eglContext->config());
 
-#if !defined(QGL_NO_PRESERVED_SWAP)
         eglGetError();  // Clear error state first.
+
+#ifdef QGL_NO_PRESERVED_SWAP
+        eglSurfaceAttrib(QEgl::display(), d->eglSurface,
+                EGL_SWAP_BEHAVIOR, EGL_BUFFER_DESTROYED);
+
+        if (eglGetError() != EGL_SUCCESS)
+            qWarning("QGLContext: could not enable destroyed swap behaviour");
+#else
         eglSurfaceAttrib(QEgl::display(), d->eglSurface,
                 EGL_SWAP_BEHAVIOR, EGL_BUFFER_PRESERVED);
-        if (eglGetError() != EGL_SUCCESS) {
-            qWarning("QGLContext: could not enable preserved swap");
-        }
+
+        if (eglGetError() != EGL_SUCCESS)
+            qWarning("QGLContext: could not enable preserved swap behaviour");
 #endif
 
         setWindowCreated(true);
@@ -244,6 +263,11 @@ void QGLWidget::resizeEvent(QResizeEvent *)
 {
     Q_D(QGLWidget);
     if (!isValid())
+        return;
+
+    // Shared widget can ignore resize events which
+    // may happen due to orientation change
+    if (this == qt_gl_share_widget())
         return;
 
     if (QGLContext::currentContext())
@@ -359,4 +383,3 @@ void QGLWidgetPrivate::recreateEglSurface()
 }
 
 QT_END_NAMESPACE
-

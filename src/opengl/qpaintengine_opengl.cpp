@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -79,7 +79,7 @@
 
 QT_BEGIN_NAMESPACE
 
-extern QImage qt_imageForBrush(int brushStyle, bool invert); //in qbrush.cpp
+Q_GUI_EXPORT QImage qt_imageForBrush(int brushStyle, bool invert); //in qbrush.cpp
 #ifdef QT_MAC_USE_COCOA
 extern void *qt_current_nsopengl_context(); // qgl_mac.mm
 #endif
@@ -506,12 +506,12 @@ struct QDrawQueueItem
 
 ////////// GL program cache: start
 
-typedef struct {
+struct GLProgram {
     int brush; // brush index or mask index
     int mode;  // composition mode index
     bool mask;
     GLuint program;
-} GLProgram;
+};
 
 typedef QMultiHash<const QGLContext *, GLProgram> QGLProgramHash;
 
@@ -921,6 +921,7 @@ static inline QPainterPath strokeForPath(const QPainterPath &path, const QPen &c
     stroker.setCapStyle(cpen.capStyle());
     stroker.setJoinStyle(cpen.joinStyle());
     stroker.setMiterLimit(cpen.miterLimit());
+    stroker.setDashOffset(cpen.dashOffset());
 
     qreal width = cpen.widthF();
     if (width == 0)
@@ -4734,9 +4735,11 @@ void QGLGlyphCache::cacheGlyphs(QGLContext *context, QFontEngine *fontEngine,
         font_cache = new QGLFontGlyphHash;
 //         qDebug() << "new context" << context << font_cache;
         qt_context_cache.insert(context, font_cache);
-        if (context->isValid() && context->device()->devType() == QInternal::Widget) {
-            QWidget *widget = static_cast<QWidget *>(context->device());
-            connect(widget, SIGNAL(destroyed(QObject*)), SLOT(widgetDestroyed(QObject*)));
+        if (context->isValid()) {
+            if (context->device()->devType() == QInternal::Widget) {
+                QWidget *widget = static_cast<QWidget *>(context->device());
+                connect(widget, SIGNAL(destroyed(QObject*)), SLOT(widgetDestroyed(QObject*)));
+            }
             connect(QGLSignalProxy::instance(),
                     SIGNAL(aboutToDestroyContext(const QGLContext*)),
                     SLOT(cleanupContext(const QGLContext*)));
@@ -4915,7 +4918,7 @@ void QOpenGLPaintEngine::drawStaticTextItem(QStaticTextItem *textItem)
     d->flushDrawQueue();
 
     // make sure the glyphs we want to draw are in the cache
-    qt_glyph_cache()->cacheGlyphs(d->device->context(), textItem->fontEngine, textItem->glyphs,
+    qt_glyph_cache()->cacheGlyphs(d->device->context(), textItem->fontEngine(), textItem->glyphs,
                                   textItem->numGlyphs);
 
     d->setGradientOps(Qt::SolidPattern, QRectF()); // turns off gradient ops
@@ -4938,13 +4941,13 @@ void QOpenGLPaintEngine::drawStaticTextItem(QStaticTextItem *textItem)
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    bool antialias = !(textItem->fontEngine->fontDef.styleStrategy & QFont::NoAntialias)
+    bool antialias = !(textItem->fontEngine()->fontDef.styleStrategy & QFont::NoAntialias)
 				   && (d->matrix.type() > QTransform::TxTranslate);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, antialias ? GL_LINEAR : GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, antialias ? GL_LINEAR : GL_NEAREST);
 
     for (int i=0; i< textItem->numGlyphs; ++i) {
-        QGLGlyphCoord *g = qt_glyph_cache()->lookup(textItem->fontEngine, textItem->glyphs[i]);
+        QGLGlyphCoord *g = qt_glyph_cache()->lookup(textItem->fontEngine(), textItem->glyphs[i]);
 
         // we don't cache glyphs with no width/height
         if (!g)
@@ -5000,7 +5003,7 @@ void QOpenGLPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textIte
     {
         QStaticTextItem staticTextItem;
         staticTextItem.chars = const_cast<QChar *>(ti.chars);
-        staticTextItem.fontEngine = ti.fontEngine;
+        staticTextItem.setFontEngine(ti.fontEngine);
         staticTextItem.glyphs = glyphs.data();
         staticTextItem.numChars = ti.num_chars;
         staticTextItem.numGlyphs = glyphs.size();

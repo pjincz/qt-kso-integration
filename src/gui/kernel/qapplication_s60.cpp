@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -74,6 +74,7 @@
 # include <centralrepository.h>
 # include "qs60mainappui.h"
 # include "qinputcontext.h"
+# include <private/qgraphicssystemex_symbian_p.h>
 #endif
 
 #if defined(Q_WS_S60)
@@ -87,7 +88,7 @@
 #include <hal.h>
 #include <hal_data.h>
 
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
+#ifdef Q_SYMBIAN_TRANSITION_EFFECTS
 #include <graphics/wstfxconst.h>
 #endif
 
@@ -96,6 +97,9 @@ QT_BEGIN_NAMESPACE
 // Goom Events through Window Server
 static const int KGoomMemoryLowEvent = 0x10282DBF;
 static const int KGoomMemoryGoodEvent = 0x20026790;
+// Split view open/close events from AVKON
+static const int KSplitViewOpenEvent = 0x2001E2C0;
+static const int KSplitViewCloseEvent = 0x2001E2C1;
 
 #if defined(QT_DEBUG)
 static bool        appNoGrab        = false;        // Grabbing enabled
@@ -130,7 +134,7 @@ void QS60Data::setStatusPaneAndButtonGroupVisibility(bool statusPaneVisible, boo
         s->MakeVisible(statusPaneVisible);
     }
     if (buttonGroupVisibilityChanged  || statusPaneVisibilityChanged) {
-        const QSize size = qt_TRect2QRect(static_cast<CEikAppUi*>(S60->appUi())->ClientRect()).size();
+        const QSize size = qt_TRect2QRect(S60->clientRect()).size();
         const QSize oldSize; // note that QDesktopWidget::resizeEvent ignores the QResizeEvent contents
         QResizeEvent event(size, oldSize);
         QApplication::instance()->sendEvent(QApplication::desktop(), &event);
@@ -138,6 +142,60 @@ void QS60Data::setStatusPaneAndButtonGroupVisibility(bool statusPaneVisible, boo
     if (buttonGroupVisibilityChanged  && !statusPaneVisibilityChanged && QApplication::activeWindow())
         // Ensure that control rectangle is updated
         static_cast<QSymbianControl *>(QApplication::activeWindow()->winId())->handleClientAreaChange();
+}
+
+bool QS60Data::setRecursiveDecorationsVisibility(QWidget *window, Qt::WindowStates newState)
+{
+    // Show statusbar:
+    //   Topmost parent: Show unless fullscreen/minimized.
+    //   Child windows: Follow topmost parent, unless fullscreen, in which case do not show statusbar
+    // Show CBA:
+    //   Topmost parent: Show unless fullscreen/minimized.
+    //     Exception: Show if fullscreen with Qt::WindowSoftkeysVisibleHint.
+    //   Child windows:
+    //     Minimized: Unclear if there is an use case for having focused minimized window at all.
+    //       Always follow topmost parent just to be safe.
+    //     Maximized and normal: follow topmost parent.
+    //       Exception: If topmost parent is not showing CBA, show CBA if any softkey actions are
+    //                  defined.
+    //     Fullscreen: Show only if Qt::WindowSoftkeysVisibleHint set.
+
+    Qt::WindowStates comparisonState = newState;
+    QWidget *parentWindow = window->parentWidget();
+    if (parentWindow) {
+        while (parentWindow->parentWidget())
+            parentWindow = parentWindow->parentWidget();
+        comparisonState = parentWindow->windowState();
+    } else {
+        parentWindow = window;
+    }
+
+    bool decorationsVisible = !(comparisonState & (Qt::WindowFullScreen | Qt::WindowMinimized));
+    const bool parentIsFullscreen = comparisonState & Qt::WindowFullScreen;
+    const bool parentCbaVisibilityHint = parentWindow->windowFlags() & Qt::WindowSoftkeysVisibleHint;
+    bool buttonGroupVisibility = (decorationsVisible || (parentIsFullscreen && parentCbaVisibilityHint));
+
+    // Do extra checking for child windows
+    if (window->parentWidget()) {
+        if (newState & Qt::WindowFullScreen) {
+            decorationsVisible = false;
+            if (window->windowFlags() & Qt::WindowSoftkeysVisibleHint)
+                buttonGroupVisibility = true;
+            else
+                buttonGroupVisibility = false;
+        } else if (!(newState & Qt::WindowMinimized) && !buttonGroupVisibility) {
+            for (int i = 0; i < window->actions().size(); ++i) {
+                if (window->actions().at(i)->softKeyRole() != QAction::NoSoftKey) {
+                    buttonGroupVisibility = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    S60->setStatusPaneAndButtonGroupVisibility(decorationsVisible, buttonGroupVisibility);
+
+    return decorationsVisible;
 }
 #endif
 
@@ -152,18 +210,18 @@ void QS60Data::controlVisibilityChanged(CCoeControl *control, bool visible)
                 if (backingStore.data()) {
                     backingStore.registerWidget(widget);
                 } else {
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
-                    S60->wsSession().SendEffectCommand(ETfxCmdRestoreLayer);
-#endif
                     backingStore.create(window);
                     backingStore.registerWidget(widget);
                     qt_widget_private(widget)->invalidateBuffer(widget->rect());
                     widget->repaint();
                 }
             } else {
-#ifdef  SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
-                S60->wsSession().SendEffectCommand(ETfxCmdDeallocateLayer);
-#endif
+                // In certain special scenarios we may get an ENotVisible event
+                // without a previous EPartiallyVisible. The backingstore must
+                // still be destroyed, hence the registerWidget() call below.
+                if (backingStore.data() && widget->internalWinId()
+                    && qt_widget_private(widget)->maybeBackingStore() == backingStore.data())
+                    backingStore.registerWidget(widget);
                 backingStore.unregisterWidget(widget);
                 // In order to ensure that any resources used by the window surface
                 // are immediately freed, we flush the WSERV command buffer.
@@ -171,6 +229,28 @@ void QS60Data::controlVisibilityChanged(CCoeControl *control, bool visible)
             }
         }
     }
+}
+
+TRect QS60Data::clientRect()
+{
+    TRect r = static_cast<CEikAppUi*>(S60->appUi())->ClientRect();
+    if (S60->partialKeyboardOpen) {
+        // Adjust client rect when splitview is open, since for some curious reason
+        // native side insists that clientRect starts from (0,0) even though status
+        // pane might be visible.
+        TRect statusPaneRect;
+        TRect mainRect;
+        AknLayoutUtils::LayoutMetricsRect(AknLayoutUtils::EStatusPane, statusPaneRect);
+        AknLayoutUtils::LayoutMetricsRect(AknLayoutUtils::EMainPane, mainRect);
+        int clientAreaHeight = mainRect.Height();
+        CEikStatusPane *const s = S60->statusPane();
+        if (s && s->IsVisible())
+            r.Move(0, statusPaneRect.Height());
+        else
+            clientAreaHeight += statusPaneRect.Height();
+        r.SetHeight(clientAreaHeight);
+    }
+    return r;
 }
 
 bool qt_nograb()                                // application no-grab option
@@ -407,6 +487,8 @@ QSymbianControl::QSymbianControl(QWidget *w)
     , m_longTapDetector(0)
     , m_ignoreFocusChanged(0)
     , m_symbianPopupIsOpen(0)
+    , m_inExternalScreenOverride(false)
+    , m_lastStatusPaneVisibility(0)
 {
 }
 
@@ -414,9 +496,11 @@ void QSymbianControl::ConstructL(bool isWindowOwning, bool desktop)
 {
     if (!desktop)
     {
-        if (isWindowOwning || !qwidget->parentWidget())
-            CreateWindowL(S60->windowGroup());
-        else
+        if (isWindowOwning || !qwidget->parentWidget()
+            || qwidget->parentWidget()->windowType() == Qt::Desktop) {
+            RWindowGroup &wg(S60->windowGroup(qwidget));
+            CreateWindowL(wg);
+        } else {
             /**
              * TODO: in order to avoid creating windows for all ancestors of
              * this widget up to the root window, the parameter passed to
@@ -426,6 +510,7 @@ void QSymbianControl::ConstructL(bool isWindowOwning, bool desktop)
              * is created for a widget between this one and the root window.
              */
             CreateWindowL(qwidget->parentWidget()->winId());
+        }
 
         // Necessary in order to be able to track the activation status of
         // the control's window
@@ -438,7 +523,7 @@ void QSymbianControl::ConstructL(bool isWindowOwning, bool desktop)
         DrawableWindow()->SetPointerGrab(ETrue);
     }
 
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
+#ifdef Q_SYMBIAN_TRANSITION_EFFECTS
     if (OwnsWindow()) {
         TTfxWindowPurpose windowPurpose(ETfxPurposeNone);
         switch (qwidget->windowType()) {
@@ -458,7 +543,7 @@ void QSymbianControl::ConstructL(bool isWindowOwning, bool desktop)
             windowPurpose = ETfxPurposeSplashScreenWindow;
             break;
         default:
-            windowPurpose = (isWindowOwning || !qwidget->parentWidget())
+            windowPurpose = (isWindowOwning || !qwidget->parentWidget() || qwidget->parentWidget()->windowType() == Qt::Desktop)
                             ? ETfxPurposeWindow : ETfxPurposeChildWindow;
             break;
         }
@@ -490,11 +575,52 @@ void QSymbianControl::setWidget(QWidget *w)
 {
     qwidget = w;
 }
+
+QPoint QSymbianControl::translatePointForFixedNativeOrientation(const TPoint &pointerEventPos) const
+{
+    QPoint pos(pointerEventPos.iX, pointerEventPos.iY);
+    if (qwidget->d_func()->fixNativeOrientationCalled) {
+        QSize wsize = qwidget->size();
+        TSize size = Size();
+        if (size.iWidth == wsize.height() && size.iHeight == wsize.width()) {
+            qreal x = pos.x();
+            qreal y = pos.y();
+            pos.setX(size.iHeight - y);
+            pos.setY(x);
+        }
+    }
+    return pos;
+}
+
+TRect QSymbianControl::translateRectForFixedNativeOrientation(const TRect &controlRect) const
+{
+    TRect rect = controlRect;
+    if (qwidget->d_func()->fixNativeOrientationCalled) {
+        QPoint a = translatePointForFixedNativeOrientation(rect.iTl);
+        QPoint b = translatePointForFixedNativeOrientation(rect.iBr);
+        if (a.x() < b.x()) {
+            rect.iTl.iX = a.x();
+            rect.iBr.iX = b.x();
+        } else {
+            rect.iTl.iX = b.x();
+            rect.iBr.iX = a.x();
+        }
+        if (a.y() < b.y()) {
+            rect.iTl.iY = a.y();
+            rect.iBr.iY = b.y();
+        } else {
+            rect.iTl.iY = b.y();
+            rect.iBr.iY = a.y();
+        }
+    }
+    return rect;
+}
+
 void QSymbianControl::HandleLongTapEventL( const TPoint& aPenEventLocation, const TPoint& aPenEventScreenLocation )
 {
     QWidget *alienWidget;
-    QPoint widgetPos = QPoint(aPenEventLocation.iX, aPenEventLocation.iY);
-    QPoint globalPos = QPoint(aPenEventScreenLocation.iX,aPenEventScreenLocation.iY);
+    QPoint widgetPos = translatePointForFixedNativeOrientation(aPenEventLocation);
+    QPoint globalPos = translatePointForFixedNativeOrientation(aPenEventScreenLocation);
     alienWidget = qwidget->childAt(widgetPos);
     if (!alienWidget)
         alienWidget = qwidget;
@@ -509,7 +635,7 @@ void QSymbianControl::HandleLongTapEventL( const TPoint& aPenEventLocation, cons
 void QSymbianControl::translateAdvancedPointerEvent(const TAdvancedPointerEvent *event)
 {
     QApplicationPrivate *d = QApplicationPrivate::instance();
-    QPointF screenPos = qwidget->mapToGlobal(QPoint(event->iPosition.iX, event->iPosition.iY));
+    QPointF screenPos = qwidget->mapToGlobal(translatePointForFixedNativeOrientation(event->iPosition));
     qreal pressure;
     if(d->pressureSupported
         && event->Pressure() > 0) //workaround for misconfigured HAL
@@ -610,7 +736,7 @@ void QSymbianControl::HandlePointerEvent(const TPointerEvent& pEvent)
     mapS60MouseEventTypeToQt(&type, &button, &pEvent);
     Qt::KeyboardModifiers modifiers = mapToQtModifiers(pEvent.iModifiers);
 
-    QPoint widgetPos = QPoint(pEvent.iPosition.iX, pEvent.iPosition.iY);
+    QPoint widgetPos = translatePointForFixedNativeOrientation(pEvent.iPosition);
     TPoint controlScreenPos = PositionRelativeToScreen();
     QPoint globalPos = QPoint(controlScreenPos.iX, controlScreenPos.iY) + widgetPos;
     S60->lastCursorPos = globalPos;
@@ -673,9 +799,6 @@ void QSymbianControl::HandleStatusPaneSizeChange()
 {
     QS60MainAppUi *s60AppUi = static_cast<QS60MainAppUi *>(S60->appUi());
     s60AppUi->HandleStatusPaneSizeChange();
-    // Send resize event to trigger desktopwidget workAreaResized signal
-    QResizeEvent e(qt_desktopWidget->size(), qt_desktopWidget->size());
-    QApplication::sendEvent(qt_desktopWidget, &e);
 }
 #endif
 
@@ -807,6 +930,15 @@ TKeyResponse QSymbianControl::sendSymbianKeyEvent(const TKeyEvent &keyEvent, QEv
     }
 
     Qt::KeyboardModifiers mods = mapToQtModifiers(keyEvent.iModifiers);
+
+    TInt code = keyEvent.iCode;
+
+    if (mods == Qt::ControlModifier) {
+        //only support ctrl+a .. ctrl+z, 0x40 is the key value before Qt::Key_A
+        if (code > 0 && code < 27)
+            keyCode = 0x40 + code;
+    }	
+           
     QKeyEventEx qKeyEvent(type, keyCode, mods, qt_keymapper_private()->translateKeyEvent(keyCode, mods),
             (keyEvent.iRepeats != 0), 1, keyEvent.iScanCode, s60Keysym, keyEvent.iModifiers);
     QWidget *widget;
@@ -992,14 +1124,15 @@ TKeyResponse QSymbianControl::handleVirtualMouse(const TKeyEvent& keyEvent,TEven
                 }
             }
             //clip to screen size (window server allows a sprite hotspot to be outside the screen)
+            int screenNumber = S60->screenNumberForWidget(qwidget);
             if (x < 0)
                 x = 0;
-            else if (x >= S60->screenWidthInPixels)
-                x = S60->screenWidthInPixels - 1;
+            else if (x >= S60->screenWidthInPixelsForScreen[screenNumber])
+                x = S60->screenWidthInPixelsForScreen[screenNumber] - 1;
             if (y < 0)
                 y = 0;
-            else if (y >= S60->screenHeightInPixels)
-                y = S60->screenHeightInPixels - 1;
+            else if (y >= S60->screenHeightInPixelsForScreen[screenNumber])
+                y = S60->screenHeightInPixelsForScreen[screenNumber] - 1;
             TPoint epos(x, y);
             TPoint cpos = epos - PositionRelativeToScreen();
             fakeEvent.iPosition = cpos;
@@ -1078,9 +1211,20 @@ void QSymbianControl::Draw(const TRect& controlRect) const
     Q_ASSERT(window);
     QTLWExtra *topExtra = window->d_func()->maybeTopData();
     Q_ASSERT(topExtra);
+
+    TRect wcontrolRect = translateRectForFixedNativeOrientation(controlRect);
+
     if (!topExtra->inExpose) {
         topExtra->inExpose = true;
-        QRect exposeRect = qt_TRect2QRect(controlRect);
+        if (!qwidget->isWindow()) {
+            // If we get here, then it means we have a native child window
+            // Since no content should ever be painted to these windows, we
+            // erase them with a transparent brush when they get an expose.
+            CWindowGc &gc = SystemGc();
+            gc.SetBrushColor(TRgb(0, 0, 0, 0));
+            gc.Clear(controlRect);
+        }
+        QRect exposeRect = qt_TRect2QRect(wcontrolRect);
         qwidget->d_func()->syncBackingStore(exposeRect);
         topExtra->inExpose = false;
     }
@@ -1093,7 +1237,7 @@ void QSymbianControl::Draw(const TRect& controlRect) const
 
     const bool sendNativePaintEvents = qwidget->d_func()->extraData()->receiveNativePaintEvents;
     if (sendNativePaintEvents) {
-        const QRect r = qt_TRect2QRect(controlRect);
+        const QRect r = qt_TRect2QRect(wcontrolRect);
         QMetaObject::invokeMethod(qwidget, "beginNativePaintEvent", Qt::DirectConnection, Q_ARG(QRect, r));
     }
 
@@ -1125,7 +1269,8 @@ void QSymbianControl::Draw(const TRect& controlRect) const
             // Do nothing
             break;
         case QWExtra::Blit:
-            if (qwidget->d_func()->isOpaque)
+        case QWExtra::BlitWriteAlpha:
+            if (qwidget->d_func()->isOpaque || nativePaintMode == QWExtra::BlitWriteAlpha)
                 gc.SetDrawMode(CGraphicsContext::EDrawModeWriteAlpha);
             gc.BitBlt(controlRect.iTl, bitmap, backingStoreRect);
             break;
@@ -1147,7 +1292,7 @@ void QSymbianControl::Draw(const TRect& controlRect) const
     }
 
     if (sendNativePaintEvents) {
-        const QRect r = qt_TRect2QRect(controlRect);
+        const QRect r = qt_TRect2QRect(wcontrolRect);
         // The draw ops aren't actually sent to WSERV until the graphics
         // context is deactivated, which happens in the function calling
         // this one.  We therefore delay the delivery of endNativePaintEvent,
@@ -1160,33 +1305,62 @@ void QSymbianControl::Draw(const TRect& controlRect) const
     }
 }
 
+void QSymbianControl::qwidgetResize_helper(const QSize &newSize)
+{
+    QRect cr = qwidget->geometry();
+    QSize oldSize(cr.size());
+    cr.setSize(newSize);
+    qwidget->data->crect = cr;
+    if (qwidget->isVisible()) {
+        QTLWExtra *tlwExtra = qwidget->d_func()->maybeTopData();
+        bool slowResize = qgetenv("QT_SLOW_TOPLEVEL_RESIZE").toInt();
+        if (!slowResize && tlwExtra)
+            tlwExtra->inTopLevelResize = true;
+        QResizeEvent e(newSize, oldSize);
+        qt_sendSpontaneousEvent(qwidget, &e);
+        if (!qwidget->testAttribute(Qt::WA_StaticContents))
+            qwidget->d_func()->syncBackingStore();
+        if (!slowResize && tlwExtra)
+            tlwExtra->inTopLevelResize = false;
+    } else {
+        if (!qwidget->testAttribute(Qt::WA_PendingResizeEvent)) {
+            QResizeEvent *e = new QResizeEvent(newSize, oldSize);
+            QApplication::postEvent(qwidget, e);
+        }
+    }
+}
+
 void QSymbianControl::SizeChanged()
 {
     CCoeControl::SizeChanged();
+
+    // When FixNativeOrientation had been called, the RWindow/CCoeControl size
+    // and the surface/QWidget size have nothing to do with each other.
+    if (qwidget->d_func()->fixNativeOrientationCalled)
+        return;
 
     QSize oldSize = qwidget->size();
     QSize newSize(Size().iWidth, Size().iHeight);
 
     if (oldSize != newSize) {
-        QRect cr = qwidget->geometry();
-        cr.setSize(newSize);
-        qwidget->data->crect = cr;
-        if (qwidget->isVisible()) {
-            QTLWExtra *tlwExtra = qwidget->d_func()->maybeTopData();
-            bool slowResize = qgetenv("QT_SLOW_TOPLEVEL_RESIZE").toInt();
-            if (!slowResize && tlwExtra)
-                tlwExtra->inTopLevelResize = true;
-            QResizeEvent e(newSize, oldSize);
-            qt_sendSpontaneousEvent(qwidget, &e);
-            if (!qwidget->testAttribute(Qt::WA_StaticContents))
-                qwidget->d_func()->syncBackingStore();
-            if (!slowResize && tlwExtra)
-                tlwExtra->inTopLevelResize = false;
-        } else {
-            QResizeEvent *e = new QResizeEvent(newSize, oldSize);
-            QApplication::postEvent(qwidget, e);
+        // Enforce the proper size for fullscreen widgets on the secondary screen.
+        const bool isFullscreen = qwidget->windowState() & Qt::WindowFullScreen;
+        const int screenNumber = S60->screenNumberForWidget(qwidget);
+        if (!m_inExternalScreenOverride && isFullscreen && screenNumber > 0) {
+            int screenWidth = S60->screenWidthInPixelsForScreen[screenNumber];
+            int screenHeight = S60->screenHeightInPixelsForScreen[screenNumber];
+            TSize screenSize(screenWidth, screenHeight);
+            if (screenWidth > 0 && screenHeight > 0 && screenSize != Size()) {
+                m_inExternalScreenOverride = true;
+                SetExtent(TPoint(0, 0), screenSize);
+                return;
+            }
         }
+
+        qwidgetResize_helper(newSize);
     }
+
+    m_inExternalScreenOverride = false;
 
     // CCoeControl::SetExtent calls SizeChanged, but does not call
     // PositionChanged, so we call it here to ensure that the widget's
@@ -1223,6 +1397,11 @@ void QSymbianControl::FocusChanged(TDrawNow /* aDrawNow */)
     if (m_ignoreFocusChanged || (qwidget->windowType() & Qt::WindowType_Mask) == Qt::Desktop)
         return;
 
+#ifdef Q_WS_S60
+    if (S60->splitViewLastWidget)
+        return;
+#endif
+
     // Popups never get focused, but still receive the FocusChanged when they are hidden.
     if (QApplicationPrivate::popupWidgets != 0
             || (qwidget->windowType() & Qt::Popup) == Qt::Popup)
@@ -1242,13 +1421,8 @@ void QSymbianControl::FocusChanged(TDrawNow /* aDrawNow */)
         qwidget->d_func()->setWindowIcon_sys(true);
         qwidget->d_func()->setWindowTitle_sys(qwidget->windowTitle());
 #ifdef Q_WS_S60
-        // If widget is fullscreen/minimized, hide status pane and button container otherwise show them.
-        const bool visible = !(qwidget->windowState() & (Qt::WindowFullScreen | Qt::WindowMinimized));
-        const bool statusPaneVisibility = visible;
-        const bool isFullscreen = qwidget->windowState() & Qt::WindowFullScreen;
-        const bool cbaVisibilityHint = qwidget->windowFlags() & Qt::WindowSoftkeysVisibleHint;
-        const bool buttonGroupVisibility = (visible || (isFullscreen && cbaVisibilityHint));
-        S60->setStatusPaneAndButtonGroupVisibility(statusPaneVisibility, buttonGroupVisibility);
+        if (qwidget->isWindow())
+            S60->setRecursiveDecorationsVisibility(qwidget, qwidget->windowState());
 #endif
     } else if (QApplication::activeWindow() == qwidget->window()) {
         bool focusedControlFound = false;
@@ -1283,7 +1457,9 @@ void QSymbianControl::handleClientAreaChange()
     if (qwidget->isFullScreen() && !cbaVisibilityHint) {
         SetExtentToWholeScreen();
     } else if (qwidget->isMaximized() || (qwidget->isFullScreen() && cbaVisibilityHint)) {
-        TRect r = static_cast<CEikAppUi*>(S60->appUi())->ClientRect();
+        // Note that if there is S60->splitViewLastWidget, it means the resizing is done
+        // by input context handling and we can use just default ClientRect.
+        TRect r = (!S60->splitViewLastWidget) ? S60->clientRect() : static_cast<CEikAppUi*>(S60->appUi())->ClientRect();
         SetExtent(r.iTl, r.Size());
     } else if (!qwidget->isMinimized()) { // Normal geometry
         if (!qwidget->testAttribute(Qt::WA_Resized)) {
@@ -1291,18 +1467,75 @@ void QSymbianControl::handleClientAreaChange()
             qwidget->setAttribute(Qt::WA_Resized, false); //not a user resize
         }
         if (!qwidget->testAttribute(Qt::WA_Moved) && qwidget->windowType() != Qt::Dialog) {
-            TRect r = static_cast<CEikAppUi*>(S60->appUi())->ClientRect();
+            TRect r = S60->clientRect();
             SetPosition(r.iTl);
             qwidget->setAttribute(Qt::WA_Moved, false); // not really an explicit position
         }
     }
 }
 
+bool QSymbianControl::isSplitViewWidget(QWidget *widget) {
+    bool returnValue = true;
+    //Ignore events sent to non-active windows, not visible widgets and not parents of input widget.
+    if (!qwidget->isActiveWindow()
+        || !qwidget->isVisible()
+        || !qwidget->isAncestorOf(widget)) {
+
+        returnValue = false;
+    }
+    return returnValue;
+}
+
 void QSymbianControl::HandleResourceChange(int resourceType)
 {
     switch (resourceType) {
+    case KSplitViewCloseEvent: //intentional fall-through
+    case KSplitViewOpenEvent: {
+#if !defined(QT_NO_IM) && defined(Q_WS_S60)
+
+        //Fetch widget getting the text input
+        QWidget *widget = QWidget::keyboardGrabber();
+        if (!widget) {
+            if (QApplicationPrivate::popupWidgets) {
+                widget = QApplication::activePopupWidget()->focusWidget();
+                if (!widget) {
+                    widget = QApplication::activePopupWidget();
+                }
+            } else {
+                widget = QApplicationPrivate::focus_widget;
+                if (!widget) {
+                    widget = qwidget;
+                }
+            }
+        }
+        if (widget) {
+            QCoeFepInputContext *ic = qobject_cast<QCoeFepInputContext *>(widget->inputContext());
+            if (!ic) {
+                ic = qobject_cast<QCoeFepInputContext *>(qApp->inputContext());
+            }
+            if (ic) {
+                if (resourceType == KSplitViewCloseEvent) {
+                    S60->partialKeyboardOpen = false;
+                    ic->resetSplitViewWidget();
+                } else {
+                    S60->partialKeyboardOpen = true;
+                    if (isSplitViewWidget(widget))
+                        ic->ensureFocusWidgetVisible(widget);
+                }
+            }
+        }
+#endif // !defined(QT_NO_IM) && defined(Q_WS_S60)
+    }
+    break;
     case KInternalStatusPaneChange:
-        handleClientAreaChange();
+        // When status pane is not visible, only handle client area change if status pane was
+        // previously visible, as size changes to hidden status pane should not affect
+        // client area.
+        if (S60->statusPane() && (S60->statusPane()->IsVisible() || m_lastStatusPaneVisibility)) {
+            m_lastStatusPaneVisibility = S60->statusPane()->IsVisible();
+            if (S60->handleStatusPaneResizeNotifications)
+                handleClientAreaChange();
+        }
         if (IsFocused() && IsVisible()) {
             qwidget->d_func()->setWindowIcon_sys(true);
             qwidget->d_func()->setWindowTitle_sys(qwidget->windowTitle());
@@ -1315,6 +1548,16 @@ void QSymbianControl::HandleResourceChange(int resourceType)
     case KEikDynamicLayoutVariantSwitch:
     {
         handleClientAreaChange();
+        // Send resize event to trigger desktopwidget workAreaResized signal
+        if (qt_desktopWidget) {
+            QResizeEvent e(qt_desktopWidget->size(), qt_desktopWidget->size());
+            QApplication::sendEvent(qt_desktopWidget, &e);
+        }
+        // Send resize event to dialogs so they can adjust their position if necessary.
+        if (qwidget->windowType() & Qt::Dialog) {
+            QResizeEvent e(qwidget->size(), qwidget->size());
+            QApplication::sendEvent(qwidget, &e);
+        }
         break;
     }
 #endif
@@ -1344,6 +1587,10 @@ void QSymbianControl::setFocusSafely(bool focus)
     // focus in Symbian. If this is not executed, the control which happens to be on
     // the top of the stack may randomly be assigned focus by Symbian, for example
     // when creating new windows (specifically in CCoeAppUi::HandleStackChanged()).
+
+    // Close any popups.
+    CEikonEnv::Static()->EikAppUi()->StopDisplayingMenuBar();
+
     if (focus) {
         S60->appUi()->RemoveFromStack(this);
         // Symbian doesn't automatically remove focus from the last focused control, so we need to
@@ -1367,6 +1614,55 @@ void QSymbianControl::setFocusSafely(bool focus)
 bool QSymbianControl::isControlActive()
 {
     return IsActivated() ? true : false;
+}
+
+void QSymbianControl::ensureFixNativeOrientation()
+{
+#if defined(Q_SYMBIAN_SUPPORTS_FIXNATIVEORIENTATION)
+    if (!qwidget->isWindow() || qwidget->windowType() == Qt::Desktop)
+        return;
+    if (S60->screenNumberForWidget(qwidget) > 0)
+        return;
+    const bool isFixed = qwidget->d_func()->fixNativeOrientationCalled;
+    const bool isFixEnabled = qwidget->testAttribute(Qt::WA_SymbianNoSystemRotation);
+    const bool isFullScreen = qwidget->windowState().testFlag(Qt::WindowFullScreen);
+    if (isFullScreen && isFixEnabled) {
+        const bool surfaceBasedGs =
+            QApplicationPrivate::graphics_system_name == QLatin1String("openvg")
+            || QApplicationPrivate::graphics_system_name == QLatin1String("opengl");
+        if (!surfaceBasedGs)
+            qwidget->setAttribute(Qt::WA_SymbianNoSystemRotation, false);
+        if (!isFixed && surfaceBasedGs) {
+            if (Window().FixNativeOrientation() == KErrNone) {
+                qwidget->d_func()->fixNativeOrientationCalled = true;
+                // The EGL window surface is now fixed to the native orientation
+                // of the device, no matter what size we pass when creating it.
+                // Enforce the same size for the QWidget too. For the underlying
+                // CCoeControl and RWindow it is up to the system to resize them
+                // when the standard auto-rotation mechanism is in use, we must not
+                // change that behavior by forcing any size for those. In practice
+                // this means that the QWidget and the underlying native control
+                // dimensions will be out of sync when FixNativeOrientation was
+                // called and the device is turned to the non-native (typically
+                // landscape) orientation. The pointer event handling and certain
+                // functions like Draw() will need to compensate for this.
+                QSize newSize(S60->nativeScreenWidthInPixels, S60->nativeScreenHeightInPixels);
+                if (qwidget->size() != newSize)
+                    qwidgetResize_helper(newSize);
+            } else {
+                qwidget->setAttribute(Qt::WA_SymbianNoSystemRotation, false);
+            }
+        }
+    } else if (isFixed) {
+        qwidget->setAttribute(Qt::WA_SymbianNoSystemRotation, false);
+        qwidget->d_func()->fixNativeOrientationCalled = false;
+        qwidget->hide();
+        qwidget->d_func()->create_sys(0, false, true);
+        qwidget->show();
+    }
+#else
+    qwidget->setAttribute(Qt::WA_SymbianNoSystemRotation, false);
+#endif
 }
 
 /*!
@@ -1422,21 +1718,20 @@ void qt_init(QApplicationPrivate * /* priv */, int)
         // The S60 framework has not been initialized. We need to do it.
         TApaApplicationFactory factory(S60->s60ApplicationFactory ?
                 S60->s60ApplicationFactory : newS60Application);
-        CApaCommandLine* commandLine = 0;
-        TInt err = CApaCommandLine::GetCommandLineFromProcessEnvironment(commandLine);
-        // After this construction, CEikonEnv will be available from CEikonEnv::Static().
-        // (much like our qApp).
-        CEikonEnv* coe = new CEikonEnv;
-        //not using QT_TRAP_THROWING, because coe owns the cleanupstack so it can't be pushed there.
-        if(err == KErrNone)
-            TRAP(err, coe->ConstructAppFromCommandLineL(factory,*commandLine));
-        delete commandLine;
-        if(err != KErrNone) {
-            qWarning() << "qt_init: Eikon application construct failed ("
-                       << err
-                       << "), maybe missing resource file on S60 3.1?";
-            delete coe;
-            qt_symbian_throwIfError(err);
+        CApaCommandLine* commandLine = q_check_ptr(QCoreApplicationPrivate::symbianCommandLine());
+        if (commandLine) {
+            // After this construction, CEikonEnv will be available from CEikonEnv::Static().
+            // (much like our qApp).
+            QtEikonEnv* coe = new QtEikonEnv;
+            //not using QT_TRAP_THROWING, because coe owns the cleanupstack so it can't be pushed there.
+            TRAPD(err, coe->ConstructAppFromCommandLineL(factory, *commandLine));
+            if(err != KErrNone) {
+                qWarning() << "qt_init: Eikon application construct failed ("
+                           << err
+                           << "), maybe missing resource file on S60 3.1?";
+                delete coe;
+                qt_symbian_throwIfError(err);
+            }
         }
 
         S60->s60InstalledTrapHandler = User::SetTrapHandler(origTrapHandler);
@@ -1576,10 +1871,22 @@ void qt_init(QApplicationPrivate * /* priv */, int)
     systemFont.setFamily(systemFont.defaultFamily());
     QApplicationPrivate::setSystemFont(systemFont);
 
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
     QObject::connect(qApp, SIGNAL(aboutToQuit()), qApp, SLOT(_q_aboutToQuit()));
-#endif
 
+#ifdef Q_SYMBIAN_SEMITRANSPARENT_BG_SURFACE
+    QApplicationPrivate::instance()->useTranslucentEGLSurfaces = true;
+
+    if (QSymbianGraphicsSystemEx::hasBCM2727()) {
+        // We have only 32MB GPU memory. Use raster surfaces
+        // for transparent TLWs.
+        QApplicationPrivate::instance()->useTranslucentEGLSurfaces = false;
+    }
+
+    if (QApplicationPrivate::graphics_system_name == QLatin1String("raster"))
+        QApplicationPrivate::instance()->useTranslucentEGLSurfaces = false;
+#else
+    QApplicationPrivate::instance()->useTranslucentEGLSurfaces = false;
+#endif
 /*
  ### Commented out for now as parameter handling not needed in SOS(yet). Code below will break testlib with -o flag
     int argc = priv->argc;
@@ -1608,7 +1915,7 @@ void qt_init(QApplicationPrivate * /* priv */, int)
     qRegisterMetaType<WId>("WId");
 }
 
-extern void qt_cleanup_symbianFontDatabaseExtras(); // qfontdatabase_s60.cpp
+extern void qt_cleanup_symbianFontDatabase(); // qfontdatabase_s60.cpp
 
 /*****************************************************************************
   qt_cleanup() - cleans up when the application is finished
@@ -1620,9 +1927,9 @@ void qt_cleanup()
         qt_S60Beep = 0;
     }
     QFontCache::cleanup(); // Has to happen now, since QFontEngineS60 has FBS handles
-    QPixmapCache::clear(); // Has to happen now, since QS60PixmapData has FBS handles
+    QPixmapCache::clear(); // Has to happen now, since QSymbianRasterPixmapData has FBS handles
 
-    qt_cleanup_symbianFontDatabaseExtras();
+    qt_cleanup_symbianFontDatabase();
 // S60 structure and window server session are freed in eventdispatcher destructor as they are needed there
 
     // It's important that this happens here, before the event dispatcher gets
@@ -1633,6 +1940,16 @@ void qt_cleanup()
 
     //Change mouse pointer back
     S60->wsSession().SetPointerCursorMode(EPointerCursorNone);
+
+#ifdef Q_WS_S60
+    // Clear CBA
+    CEikonEnv::Static()->AppUiFactory()->SwapButtonGroup(0);
+    delete S60->buttonGroupContainer();
+    S60->setButtonGroupContainer(0);
+#endif
+
+    // Call EndFullScreen() to prevent confusing the system effect state machine.
+    qt_endFullScreenEffect();
 
     if (S60->qtOwnsS60Environment) {
         // Restore the S60 framework trap handler. See qt_init().
@@ -1669,7 +1986,7 @@ bool QApplicationPrivate::modalState()
 
 void QApplicationPrivate::enterModal_sys(QWidget *widget)
 {
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
+#ifdef Q_SYMBIAN_TRANSITION_EFFECTS
     S60->wsSession().SendEffectCommand(ETfxCmdAppModalModeEnter);
 #endif
     if (widget) {
@@ -1687,7 +2004,7 @@ void QApplicationPrivate::enterModal_sys(QWidget *widget)
 
 void QApplicationPrivate::leaveModal_sys(QWidget *widget)
 {
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
+#ifdef Q_SYMBIAN_TRANSITION_EFFECTS
     S60->wsSession().SendEffectCommand(ETfxCmdAppModalModeExit);
 #endif
     if (widget) {
@@ -1715,7 +2032,7 @@ void QApplicationPrivate::openPopup(QWidget *popup)
     QApplicationPrivate::popupWidgets->append(popup);
 
     // Cancel focus widget pointer capture and long tap timer
-    if (QApplication::focusWidget()) {
+    if (QApplication::focusWidget() && QApplication::focusWidget()->effectiveWinId()) {
         static_cast<QSymbianControl*>(QApplication::focusWidget()->effectiveWinId())->CancelLongTapTimer();
         QApplication::focusWidget()->effectiveWinId()->SetPointerCapture(false);
         }
@@ -1962,7 +2279,11 @@ int QApplicationPrivate::symbianProcessWsEvent(const QSymbianEvent *symbianEvent
             return 1;
         }
         break;
-    case EEventScreenDeviceChanged:
+    case EEventScreenDeviceChanged: // fallthrough
+#if defined(Q_SYMBIAN_SUPPORTS_MULTIPLE_SCREENS)
+    case EEventDisplayChanged:
+#endif
+        {
         if (callSymbianEventFilters(symbianEvent))
             return 1;
         if (S60)
@@ -1973,6 +2294,12 @@ int QApplicationPrivate::symbianProcessWsEvent(const QSymbianEvent *symbianEvent
             qt_desktopWidget->data->crect.setHeight(S60->screenHeightInPixels);
             QResizeEvent e(qt_desktopWidget->size(), oldSize);
             QApplication::sendEvent(qt_desktopWidget, &e);
+        }
+        // Close non-native QMenus (that should act like context menus, i.e. close
+        // automatically when the orientation changes).
+        QMenu *activeMenu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+        if (activeMenu)
+            activeMenu->close();
         }
         return 0; // Propagate to CONE
     case EEventWindowVisibilityChanged:
@@ -2000,6 +2327,10 @@ int QApplicationPrivate::symbianProcessWsEvent(const QSymbianEvent *symbianEvent
 #endif
                 S60->wsSession().SetPointerCursorMode(EPointerCursorNormal);
         }
+#endif
+#ifdef QT_SOFTKEYS_ENABLED
+        if (!CEikonEnv::Static()->EikAppUi()->IsDisplayingMenuOrDialog())
+            QSoftKeyManager::updateSoftKeys();
 #endif
         break;
     case EEventFocusLost:
@@ -2056,6 +2387,17 @@ int QApplicationPrivate::symbianProcessWsEvent(const QSymbianEvent *symbianEvent
         }
 #endif
         break;
+#ifdef Q_SYMBIAN_SUPPORTS_SURFACES
+    case EEventUser:
+        {
+            // GOOM is looking for candidates to kill so indicate that we are
+            // capable of cleaning up by handling this event
+            TInt32 *data = reinterpret_cast<TInt32 *>(event->EventData());
+            if (data[0] == EApaSystemEventShutdown && data[1] == KGoomMemoryLowEvent)
+                return 1;
+        }
+        break;
+#endif
     default:
         break;
     }
@@ -2354,7 +2696,9 @@ void QApplication::restoreOverrideCursor()
 
 void QApplicationPrivate::_q_aboutToQuit()
 {
-#ifdef SYMBIAN_GRAPHICS_WSERV_QT_EFFECTS
+    qt_beginFullScreenEffect();
+
+#ifdef Q_SYMBIAN_TRANSITION_EFFECTS
     // Send the shutdown tfx command
     S60->wsSession().SendEffectCommand(ETfxCmdAppShutDown);
 #endif
@@ -2379,6 +2723,9 @@ QS60ThreadLocalData::QS60ThreadLocalData()
 
 QS60ThreadLocalData::~QS60ThreadLocalData()
 {
+    for (int i = 0; i < releaseFuncs.count(); ++i)
+        releaseFuncs[i]();
+    releaseFuncs.clear();
     if (!usingCONEinstances) {
         delete screenDevice;
         wsSession.Close();

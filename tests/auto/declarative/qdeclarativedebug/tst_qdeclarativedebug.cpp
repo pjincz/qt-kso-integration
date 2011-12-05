@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -66,13 +66,12 @@
 
 Q_DECLARE_METATYPE(QDeclarativeDebugWatch::State)
 
-
 class tst_QDeclarativeDebug : public QObject
 {
     Q_OBJECT
 
 private:
-    QDeclarativeDebugObjectReference findRootObject(int context = 0);
+    QDeclarativeDebugObjectReference findRootObject(int context = 0, bool recursive = false);
     QDeclarativeDebugPropertyReference findProperty(const QList<QDeclarativeDebugPropertyReference> &props, const QString &name) const;
     void waitForQuery(QDeclarativeDebugQuery *query);
 
@@ -114,9 +113,23 @@ private slots:
     void tst_QDeclarativeDebugPropertyReference();
 
     void setMethodBody();
+    void queryObjectTree();
+    void setBindingInStates();
 };
 
-QDeclarativeDebugObjectReference tst_QDeclarativeDebug::findRootObject(int context)
+class NonScriptProperty : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(int nonScriptProp READ nonScriptProp WRITE setNonScriptProp NOTIFY nonScriptPropChanged SCRIPTABLE false)
+public:
+    int nonScriptProp() const { return 0; }
+    void setNonScriptProp(int) {}
+signals:
+    void nonScriptPropChanged();
+};
+QML_DECLARE_TYPE(NonScriptProperty)
+
+
+QDeclarativeDebugObjectReference tst_QDeclarativeDebug::findRootObject(int context, bool recursive)
 {
     QDeclarativeDebugEnginesQuery *q_engines = m_dbg->queryAvailableEngines(this);
     waitForQuery(q_engines);
@@ -128,7 +141,9 @@ QDeclarativeDebugObjectReference tst_QDeclarativeDebug::findRootObject(int conte
 
     if (q_context->rootContext().objects().count() == 0)
         return QDeclarativeDebugObjectReference();
-    QDeclarativeDebugObjectQuery *q_obj = m_dbg->queryObject(q_context->rootContext().objects()[context], this);
+    QDeclarativeDebugObjectQuery *q_obj = recursive ?
+                m_dbg->queryObjectRecursive(q_context->rootContext().objects()[context], this) :
+                m_dbg->queryObject(q_context->rootContext().objects()[context], this);
     waitForQuery(q_obj);
 
     QDeclarativeDebugObjectReference result = q_obj->object();
@@ -162,8 +177,8 @@ void tst_QDeclarativeDebug::recursiveObjectTest(QObject *o, const QDeclarativeDe
 {
     const QMetaObject *meta = o->metaObject();
 
-    QDeclarativeType *type = QDeclarativeMetaType::qmlType(o->metaObject());
-    QString className = type ? type->qmlTypeName() : QString();
+    QDeclarativeType *type = QDeclarativeMetaType::qmlType(meta);
+    QString className = type ? QString(type->qmlTypeName()) : QString(meta->className());
     className = className.mid(className.lastIndexOf(QLatin1Char('/'))+1);
 
     QCOMPARE(oref.debugId(), QDeclarativeDebugService::idForObject(o));
@@ -278,6 +293,7 @@ void tst_QDeclarativeDebug::compareProperties(const QDeclarativeDebugPropertyRef
 void tst_QDeclarativeDebug::initTestCase()
 {
     qRegisterMetaType<QDeclarativeDebugWatch::State>();
+    qmlRegisterType<NonScriptProperty>("Test", 1, 0, "NonScriptPropertyElement");
 
     QTest::ignoreMessage(QtWarningMsg, "Qml debugging is enabled. Only use this in a safe environment!");
     QDeclarativeDebugHelper::enableDebugging();
@@ -287,13 +303,25 @@ void tst_QDeclarativeDebug::initTestCase()
 
     QList<QByteArray> qml;
     qml << "import QtQuick 1.0\n"
-            "Item {"
+           "import Test 1.0\n"
+           "Item {"
+                "id: root\n"
                 "width: 10; height: 20; scale: blueRect.scale;"
                 "Rectangle { id: blueRect; width: 500; height: 600; color: \"blue\"; }"
                 "Text { color: blueRect.color; }"
                 "MouseArea {"
                     "onEntered: { console.log('hello') }"
                 "}"
+                "property variant varObj\n"
+                "property variant varObjList: []\n"
+                "Component.onCompleted: {\n"
+                    "varObj = blueRect;\n"
+                    "var list = varObjList;\n"
+                    "list[0] = blueRect;\n"
+                    "varObjList = list;\n"
+                "}\n"
+                "NonScriptPropertyElement {\n"
+                "}\n"
             "}";
 
     // add second component to test multiple root contexts
@@ -307,6 +335,34 @@ void tst_QDeclarativeDebug::initTestCase()
                 "function myMethod(a) { return a + 9; }\n"
                 "function myMethodIndirect() { myMethod(3); }\n"
             "}";
+
+    // and a fourth to test states
+    qml << "import QtQuick 1.0\n"
+           "Rectangle {\n"
+                "id:rootRect\n"
+                "width:100\n"
+                "states: [\n"
+                    "State {\n"
+                        "name:\"state1\"\n"
+                        "PropertyChanges {\n"
+                            "target:rootRect\n"
+                            "width:200\n"
+                        "}\n"
+                    "}\n"
+                "]\n"
+                "transitions: [\n"
+                    "Transition {\n"
+                        "from:\"*\"\n"
+                        "to:\"state1\"\n"
+                        "PropertyAnimation {\n"
+                            "target:rootRect\n"
+                            "property:\"width\"\n"
+                            "duration:100\n"
+                        "}\n"
+                    "}\n"
+                "]\n"
+           "}\n"
+           ;
 
     for (int i=0; i<qml.count(); i++) {
         QDeclarativeComponent component(m_engine);
@@ -635,14 +691,14 @@ void tst_QDeclarativeDebug::queryRootContexts()
     QCOMPARE(context.debugId(), QDeclarativeDebugService::idForObject(actualContext));
     QCOMPARE(context.name(), actualContext->objectName());
 
-    QCOMPARE(context.objects().count(), 3); // 3 qml component objects created for context in main()
+    QCOMPARE(context.objects().count(), 4); // 4 qml component objects created for context in main()
 
     // root context query sends only root object data - it doesn't fill in
     // the children or property info
     QCOMPARE(context.objects()[0].properties().count(), 0);
     QCOMPARE(context.objects()[0].children().count(), 0);
 
-    QCOMPARE(context.contexts().count(), 4);
+    QCOMPARE(context.contexts().count(), 5);
     QVERIFY(context.contexts()[0].debugId() >= 0);
     QCOMPARE(context.contexts()[0].name(), QString("tst_QDeclarativeDebug_childContext"));
 
@@ -684,7 +740,7 @@ void tst_QDeclarativeDebug::queryObject()
     // check source as defined in main()
     QDeclarativeDebugFileReference source = obj.source();
     QCOMPARE(source.url(), QUrl::fromLocalFile(""));
-    QCOMPARE(source.lineNumber(), 2);
+    QCOMPARE(source.lineNumber(), 3);
     QCOMPARE(source.columnNumber(), 1);
 
     // generically test all properties, children and childrens' properties
@@ -709,7 +765,6 @@ void tst_QDeclarativeDebug::queryObject()
         QCOMPARE(findProperty(rect.properties(), "color").value(), qVariantFromValue(QColor("blue")));
 
         QCOMPARE(findProperty(text.properties(), "color").value(), qVariantFromValue(QColor("blue")));
-
     } else {
         foreach(const QDeclarativeDebugObjectReference &child, obj.children())
             QCOMPARE(child.properties().count(), 0);
@@ -766,6 +821,8 @@ void tst_QDeclarativeDebug::queryExpressionResult_data()
     QTest::newRow("width + 50") << "width + 50" << qVariantFromValue(60);
     QTest::newRow("blueRect.width") << "blueRect.width" << qVariantFromValue(500);
     QTest::newRow("bad expr") << "aeaef" << qVariantFromValue(QString("<undefined>"));
+    QTest::newRow("QObject*") << "varObj" << qVariantFromValue(QString("<unnamed object>"));
+    QTest::newRow("list of QObject*") << "varObjList" << qVariantFromValue(QString("<unknown value>"));
 }
 
 void tst_QDeclarativeDebug::tst_QDeclarativeDebugFileReference()
@@ -895,6 +952,162 @@ void tst_QDeclarativeDebug::tst_QDeclarativeDebugPropertyReference()
     copyAssign = ref;
     foreach (const QDeclarativeDebugPropertyReference &r, (QList<QDeclarativeDebugPropertyReference>() << copy << copyAssign))
         compareProperties(r, ref);
+}
+
+void tst_QDeclarativeDebug::setBindingInStates()
+{
+    // Check if changing bindings of propertychanges works
+
+    const int sourceIndex = 3;
+
+    QDeclarativeDebugObjectReference obj = findRootObject(sourceIndex);
+
+    QVERIFY(obj.debugId() != -1);
+    QVERIFY(obj.children().count() >= 2);
+
+    // We are going to switch state a couple of times, we need to get rid of the transition before
+    QDeclarativeDebugExpressionQuery *q_deleteTransition = m_dbg->queryExpressionResult(obj.debugId(),QString("transitions = []"),this);
+    waitForQuery(q_deleteTransition);
+    delete q_deleteTransition;
+
+
+    // check initial value of the property that is changing
+    QDeclarativeDebugExpressionQuery *q_setState;
+    q_setState = m_dbg->queryExpressionResult(obj.debugId(),QString("state=\"state1\""),this);
+    waitForQuery(q_setState);
+    delete q_setState;
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(),200);
+
+
+    q_setState = m_dbg->queryExpressionResult(obj.debugId(),QString("state=\"\""),this);
+    waitForQuery(q_setState);
+    delete q_setState;
+
+
+    obj = findRootObject(sourceIndex, true);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(),100);
+
+
+    // change the binding
+    QDeclarativeDebugObjectReference state = obj.children()[0];
+    QCOMPARE(state.className(), QString("State"));
+    QVERIFY(state.children().count() > 0);
+
+    QDeclarativeDebugObjectReference propertyChange = state.children()[0];
+    QVERIFY(propertyChange.debugId() != -1);
+
+    QVERIFY( m_dbg->setBindingForObject(propertyChange.debugId(), "width",QVariant(300),true) );
+
+    // check properties changed in state
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(),100);
+
+
+    q_setState = m_dbg->queryExpressionResult(obj.debugId(),QString("state=\"state1\""),this);
+    waitForQuery(q_setState);
+    delete q_setState;
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(),300);
+
+    // check changing properties of base state from within a state
+    QVERIFY(m_dbg->setBindingForObject(obj.debugId(),"width","height*2",false));
+    QVERIFY(m_dbg->setBindingForObject(obj.debugId(),"height","200",true));
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(),300);
+
+    q_setState = m_dbg->queryExpressionResult(obj.debugId(),QString("state=\"\""),this);
+    waitForQuery(q_setState);
+    delete q_setState;
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(), 400);
+
+    //  reset binding while in a state
+    q_setState = m_dbg->queryExpressionResult(obj.debugId(),QString("state=\"state1\""),this);
+    waitForQuery(q_setState);
+    delete q_setState;
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(), 300);
+
+    m_dbg->resetBindingForObject(propertyChange.debugId(), "width");
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(), 400);
+
+    // re-add binding
+    m_dbg->setBindingForObject(propertyChange.debugId(), "width", "300", true);
+
+    obj = findRootObject(sourceIndex);
+    QCOMPARE(findProperty(obj.properties(),"width").value().toInt(), 300);
+}
+
+void tst_QDeclarativeDebug::queryObjectTree()
+{
+    const int sourceIndex = 3;
+
+    // Check if states/transitions are initialized when fetching root item
+    QDeclarativeDebugEnginesQuery *q_engines = m_dbg->queryAvailableEngines(this);
+    waitForQuery(q_engines);
+
+    QDeclarativeDebugRootContextQuery *q_context = m_dbg->queryRootContexts(q_engines->engines()[0].debugId(), this);
+    waitForQuery(q_context);
+
+    QVERIFY(q_context->rootContext().objects().count() > sourceIndex);
+    QDeclarativeDebugObjectReference rootObject = q_context->rootContext().objects()[sourceIndex];
+
+    QDeclarativeDebugObjectQuery *q_obj = m_dbg->queryObjectRecursive(rootObject, this);
+    waitForQuery(q_obj);
+
+    QDeclarativeDebugObjectReference obj = q_obj->object();
+
+    delete q_engines;
+    delete q_context;
+    delete q_obj;
+
+    QVERIFY(obj.debugId() != -1);
+    QVERIFY(obj.children().count() >= 2);
+
+
+
+    // check state
+    QDeclarativeDebugObjectReference state = obj.children()[0];
+    QCOMPARE(state.className(), QString("State"));
+    QVERIFY(state.children().count() > 0);
+
+    QDeclarativeDebugObjectReference propertyChange = state.children()[0];
+    QVERIFY(propertyChange.debugId() != -1);
+
+    QDeclarativeDebugPropertyReference propertyChangeTarget = findProperty(propertyChange.properties(),"target");
+    QCOMPARE(propertyChangeTarget.objectDebugId(), propertyChange.debugId());
+
+    QDeclarativeDebugObjectReference targetReference = qvariant_cast<QDeclarativeDebugObjectReference>(propertyChangeTarget.value());
+    QVERIFY(targetReference.debugId() != -1);
+
+
+
+    // check transition
+    QDeclarativeDebugObjectReference transition = obj.children()[1];
+    QCOMPARE(transition.className(), QString("Transition"));
+    QCOMPARE(findProperty(transition.properties(),"from").value().toString(), QString("*"));
+    QCOMPARE(findProperty(transition.properties(),"to").value(), findProperty(state.properties(),"name").value());
+    QVERIFY(transition.children().count() > 0);
+
+    QDeclarativeDebugObjectReference animation = transition.children()[0];
+    QVERIFY(animation.debugId() != -1);
+
+    QDeclarativeDebugPropertyReference animationTarget = findProperty(animation.properties(),"target");
+    QCOMPARE(animationTarget.objectDebugId(), animation.debugId());
+
+    targetReference = qvariant_cast<QDeclarativeDebugObjectReference>(animationTarget.value());
+    QVERIFY(targetReference.debugId() != -1);
+
+    QCOMPARE(findProperty(animation.properties(),"property").value().toString(), QString("width"));
+    QCOMPARE(findProperty(animation.properties(),"duration").value().toInt(), 100);
 }
 
 int main(int argc, char *argv[])

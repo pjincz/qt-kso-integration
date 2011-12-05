@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenGL module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -63,6 +63,12 @@
 #include "private/qwidget_p.h"
 #include "qcache.h"
 #include "qglpaintdevice_p.h"
+
+#ifdef Q_OS_SYMBIAN
+#include "qgltexturepool_p.h"
+
+class QGLPixmapData;
+#endif
 
 #ifndef QT_NO_EGL
 #include <QtGui/private/qegl_p.h>
@@ -284,7 +290,9 @@ public:
         DDSTextureCompression   = 0x00008000,
         ETC1TextureCompression  = 0x00010000,
         PVRTCTextureCompression = 0x00020000,
-        FragmentShader          = 0x00040000
+        FragmentShader          = 0x00040000,
+        ElementIndexUint        = 0x00080000,
+        Depth24                 = 0x00100000
     };
     Q_DECLARE_FLAGS(Extensions, Extension)
 
@@ -315,6 +323,7 @@ private:
 };
 
 class QGLTexture;
+class QGLTextureDestroyer;
 
 // This probably needs to grow to GL_MAX_VERTEX_ATTRIBS, but 3 is ok for now as that's
 // all the GL2 engine uses:
@@ -324,7 +333,7 @@ class QGLContextPrivate
 {
     Q_DECLARE_PUBLIC(QGLContext)
 public:
-    explicit QGLContextPrivate(QGLContext *context) : internal_context(false), q_ptr(context) {group = new QGLContextGroup(context);}
+    explicit QGLContextPrivate(QGLContext *context);
     ~QGLContextPrivate();
     QGLTexture *bindTexture(const QImage &image, GLenum target, GLint format,
                             QGLContext::BindOptions options);
@@ -341,7 +350,7 @@ public:
 
     void setVertexAttribArrayEnabled(int arrayIndex, bool enabled = true);
     void syncGlState(); // Makes sure the GL context's state is what we think it is
-    void swapRegion(const QRegion *region);
+    void swapRegion(const QRegion &region);
 
 #if defined(Q_WS_WIN)
     void updateFormatVersion();
@@ -398,6 +407,7 @@ public:
     // workarounds for driver/hw bugs on different platforms
     uint workaround_needsFullClearOnEveryFrame : 1;
     uint workaround_brokenFBOReadBack : 1;
+    uint workaround_brokenTexSubImage : 1;
     uint workaroundsCached : 1;
 
     uint workaround_brokenTextureFromPixmap : 1;
@@ -415,6 +425,7 @@ public:
     GLuint current_fbo;
     GLuint default_fbo;
     QPaintEngine *active_engine;
+    QGLTextureDestroyer *texture_destroyer;
 
     bool vertexAttributeArraysEnabledState[QT_GL_VERTEX_ARRAY_TRACKED_COUNT];
 
@@ -430,20 +441,6 @@ public:
 #endif
 
     static void setCurrentContext(QGLContext *context);
-};
-
-// ### make QGLContext a QObject in 5.0 and remove the proxy stuff
-class Q_OPENGL_EXPORT QGLSignalProxy : public QObject
-{
-    Q_OBJECT
-public:
-    QGLSignalProxy() : QObject() {}
-    void emitAboutToDestroyContext(const QGLContext *context) {
-        emit aboutToDestroyContext(context);
-    }
-    static QGLSignalProxy *instance();
-Q_SIGNALS:
-    void aboutToDestroyContext(const QGLContext *context);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QGLExtensions::Extensions)
@@ -488,6 +485,57 @@ private:
     QGLContext *m_ctx;
 };
 
+class QGLTextureDestroyer : public QObject
+{
+    Q_OBJECT
+public:
+    QGLTextureDestroyer() : QObject() {
+        qRegisterMetaType<GLuint>("GLuint");
+        connect(this, SIGNAL(freeTexture(QGLContext *, QPixmapData *, GLuint)),
+                this, SLOT(freeTexture_slot(QGLContext *, QPixmapData *, GLuint)));
+    }
+    void emitFreeTexture(QGLContext *context, QPixmapData *boundPixmap, GLuint id) {
+        emit freeTexture(context, boundPixmap, id);
+    }
+
+Q_SIGNALS:
+    void freeTexture(QGLContext *context, QPixmapData *boundPixmap, GLuint id);
+
+private slots:
+    void freeTexture_slot(QGLContext *context, QPixmapData *boundPixmap, GLuint id) {
+#if defined(Q_WS_X11)
+        if (boundPixmap) {
+            QGLContext *oldContext = const_cast<QGLContext *>(QGLContext::currentContext());
+            context->makeCurrent();
+            // Although glXReleaseTexImage is a glX call, it must be called while there
+            // is a current context - the context the pixmap was bound to a texture in.
+            // Otherwise the release doesn't do anything and you get BadDrawable errors
+            // when you come to delete the context.
+            QGLContextPrivate::unbindPixmapFromTexture(boundPixmap);
+            glDeleteTextures(1, &id);
+            if (oldContext)
+                oldContext->makeCurrent();
+            return;
+        }
+#endif
+        QGLShareContextScope scope(context);
+        glDeleteTextures(1, &id);
+    }
+};
+
+// ### make QGLContext a QObject in 5.0 and remove the proxy stuff
+class Q_OPENGL_EXPORT QGLSignalProxy : public QObject
+{
+    Q_OBJECT
+public:
+    void emitAboutToDestroyContext(const QGLContext *context) {
+        emit aboutToDestroyContext(context);
+    }
+    static QGLSignalProxy *instance();
+Q_SIGNALS:
+    void aboutToDestroyContext(const QGLContext *context);
+};
+
 class QGLTexture {
 public:
     QGLTexture(QGLContext *ctx = 0, GLuint tx_id = 0, GLenum tx_target = GL_TEXTURE_2D,
@@ -498,24 +546,30 @@ public:
           options(opt)
 #if defined(Q_WS_X11)
         , boundPixmap(0)
+#elif defined(Q_OS_SYMBIAN)
+        , boundPixmap(0)
+        , boundKey(0)
+        , nextLRU(0)
+        , prevLRU(0)
+        , inLRU(false)
+        , failedToAlloc(false)
+        , inTexturePool(false)
 #endif
     {}
 
     ~QGLTexture() {
+#ifdef Q_OS_SYMBIAN
+        freeTexture();
+#else
         if (options & QGLContext::MemoryManagedBindOption) {
             Q_ASSERT(context);
-            QGLShareContextScope scope(context);
-#if defined(Q_WS_X11)
-            // Although glXReleaseTexImage is a glX call, it must be called while there
-            // is a current context - the context the pixmap was bound to a texture in.
-            // Otherwise the release doesn't do anything and you get BadDrawable errors
-            // when you come to delete the context.
-            if (boundPixmap)
-                QGLContextPrivate::unbindPixmapFromTexture(boundPixmap);
+#if !defined(Q_WS_X11)
+            QPixmapData *boundPixmap = 0;
 #endif
-            glDeleteTextures(1, &id);
+            context->d_ptr->texture_destroyer->emitFreeTexture(context, boundPixmap, id);
         }
-     }
+#endif
+    }
 
     QGLContext *context;
     GLuint id;
@@ -535,6 +589,19 @@ public:
         (const char *buf, int len, const char *format = 0);
     QSize bindCompressedTextureDDS(const char *buf, int len);
     QSize bindCompressedTexturePVR(const char *buf, int len);
+
+#ifdef Q_OS_SYMBIAN
+    void freeTexture();
+
+    QGLPixmapData* boundPixmap;
+    qint64 boundKey;
+
+    QGLTexture *nextLRU;
+    QGLTexture *prevLRU;
+    mutable bool inLRU;
+    mutable bool failedToAlloc;
+    mutable bool inTexturePool;
+#endif
 };
 
 struct QGLTextureCacheKey {

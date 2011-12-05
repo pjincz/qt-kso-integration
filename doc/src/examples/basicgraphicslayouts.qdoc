@@ -1,26 +1,26 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the documentation of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:FDL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in a
-** written agreement between you and Nokia.
-**
 ** GNU Free Documentation License
 ** Alternatively, this file may be used under the terms of the GNU Free
 ** Documentation License version 1.3 as published by the Free Software
-** Foundation and appearing in the file included in the packaging of this
-** file.
+** Foundation and appearing in the file included in the packaging of
+** this file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms
+** and conditions contained in a signed written agreement between you
+** and Nokia.
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -133,19 +133,19 @@
 
     \snippet examples/graphicsview/basicgraphicslayouts/layoutitem.cpp 2
 
-    The reimplementation of {QGraphicsItem::boundingRect()}{boundingRect()}
+    The reimplementation of \l{QGraphicsItem::}{boundingRect()}
     will set the top left corner at (0,0), and the size of it will be
     the size of the layout items
-    {QGraphicsLayoutItem::geometry()}{geometry()}. This is the area that
+    \l{QGraphicsLayoutItem::}{geometry()}. This is the area that
     we paint within.
 
     \snippet examples/graphicsview/basicgraphicslayouts/layoutitem.cpp 3
 
 
-    The reimplementation of {QGraphicsLayoutItem::setGeometry()}{setGeometry()}
+    The reimplementation of \l{QGraphicsLayoutItem::setGeometry()}{setGeometry()}
     simply calls its baseclass implementation. However, since this will change
     the boundingRect we must also call
-    {QGraphicsItem::prepareGeometryChange()}{prepareGeometryChange()}.
+    \l{QGraphicsItem::prepareGeometryChange()}{prepareGeometryChange()}.
     Finally, we move the item according to \c geom.topLeft().
 
     \snippet examples/graphicsview/basicgraphicslayouts/layoutitem.cpp 4

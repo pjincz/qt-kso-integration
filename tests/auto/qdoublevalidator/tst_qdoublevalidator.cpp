@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -214,6 +214,13 @@ void tst_QDoubleValidator::validate_data()
     arabicNum += QChar(1643);
     arabicNum += QChar(1636);
     QTest::newRow("arabic") << "ar" << 0.0 << 20.0 << 2 << arabicNum << ACC << ACC;
+
+    QTest::newRow("data_QTBUG_14935-1") << "de" << 0.0 << 1.0 << 5 << QString("0.31") << ACC << ACC;
+    QTest::newRow("data_QTBUG_14935-2") << "de" << 0.0 << 1000000.0 << 5 << QString("3.123") << ACC << ACC;
+    QTest::newRow("data_QTBUG_14935-3") << "de" << 0.0 << 1000000.0 << 5 << QString("123,345.678") << ACC << ACC;
+
+    QTest::newRow("data_de_problem-1") << "de" << 0.0 << 10.0 << 0 << QString("1.0") << ITM << ITM;
+    QTest::newRow("data_de_problem-2") << "de" << 0.0 << 10.0 << 0 << QString("0.1") << INV << INV;
 }
 
 void tst_QDoubleValidator::validate()
@@ -225,6 +232,9 @@ void tst_QDoubleValidator::validate()
     QFETCH(QString, value);
     QFETCH(QValidator::State, scientific_state);
     QFETCH(QValidator::State, standard_state);
+
+    QEXPECT_FAIL("data_de_problem-1", "To be fixed. See QTBUG-15210.", Abort);
+    QEXPECT_FAIL("data_de_problem-2", "To be fixed. See QTBUG-15210.", Abort);
 
     QLocale::setDefault(QLocale(localeName));
 
@@ -307,6 +317,8 @@ void tst_QDoubleValidator::validateIntEquiv()
     QFETCH(double, maximum);
     QFETCH(QString, input);
     QFETCH(QValidator::State, state);
+
+    QLocale::setDefault(QLocale("C"));
 
     QDoubleValidator dv(minimum, maximum, 0, 0);
     dv.setNotation(QDoubleValidator::StandardNotation);

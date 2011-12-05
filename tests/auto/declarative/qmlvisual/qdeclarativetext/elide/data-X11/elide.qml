@@ -6,274 +6,274 @@ VisualTest {
     }
     Frame {
         msec: 16
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 32
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 48
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 64
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 80
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 96
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 112
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 128
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 144
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 160
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 176
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 192
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 208
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 224
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 240
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 256
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 272
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 288
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 304
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 320
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 336
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 352
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 368
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 384
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 400
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 416
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 432
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 448
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 464
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 480
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 496
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 512
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 528
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 544
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 560
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 576
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 592
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 608
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 624
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 640
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 656
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 672
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 688
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 704
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 720
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 736
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 752
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 768
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 784
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 800
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 816
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 832
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 848
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 864
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 880
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 896
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 912
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 928
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 944
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
-    }
-    Frame {
-        msec: 960
         image: "elide.0.png"
     }
     Frame {
+        msec: 32
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 48
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 64
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 80
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 96
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 112
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 128
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 144
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 160
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 176
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 192
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 208
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 224
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 240
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 256
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 272
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 288
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 304
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 320
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 336
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 352
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 368
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 384
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 400
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 416
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 432
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 448
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 464
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 480
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 496
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 512
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 528
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 544
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 560
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 576
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 592
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 608
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 624
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 640
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 656
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 672
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 688
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 704
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 720
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 736
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 752
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 768
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 784
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 800
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 816
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 832
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 848
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 864
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 880
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 896
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 912
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 928
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 944
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
+        msec: 960
+        hash: "a2003f5b238564e9b68b38db156431d2"
+    }
+    Frame {
         msec: 976
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
+        image: "elide.1.png"
     }
     Key {
         type: 6
         key: 16777249
-        modifiers: 67108864
+        modifiers: 0
         text: ""
         autorep: false
         count: 1
     }
     Frame {
         msec: 992
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
+        hash: "a2003f5b238564e9b68b38db156431d2"
     }
     Frame {
         msec: 1008
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
+        hash: "a2003f5b238564e9b68b38db156431d2"
     }
     Frame {
         msec: 1024
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
+        hash: "a2003f5b238564e9b68b38db156431d2"
     }
     Frame {
         msec: 1040
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
+        hash: "a2003f5b238564e9b68b38db156431d2"
     }
     Frame {
         msec: 1056
-        hash: "48e2da07fd229d9db6afc0eda494cd11"
+        hash: "a2003f5b238564e9b68b38db156431d2"
     }
 }

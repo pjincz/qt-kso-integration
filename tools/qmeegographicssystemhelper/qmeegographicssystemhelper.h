@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -89,12 +89,30 @@ public:
      switching is 'meego'.
     */
     static bool isRunningMeeGo();
+    
+    //! Returns true if running with a 'runtime' graphicssystem.
+    /*!
+     This function can be used in combination with ::runningGraphicsSystemName to figure out
+     the existing situation. 
+    */
+    static bool isRunningRuntime();
+
+    //! Enables the sending of QMeeGoSwitchEvent's when the graphicssystem switches.
+    /*!
+      An application that wishes to start receive QMeegoSwitchEvents must call this function.
+    */
+    static void enableSwitchEvents();
 
     //! Switches to meego graphics system. 
     /*!
      When running with the 'runtime' graphics system, sets the currently active 
      system to 'meego'. The window surface and all the resources are automatically
      migrated to OpenGL. Will fail if the active graphics system is not 'runtime'.
+     Calling this function will emit QMeeGoSwitchEvent to the top level widgets.
+     If switch events are enabled, two events will be emitted for each switch --
+     one before the switch (QMeeGoSwitchEvent::WillSwitch) and one after the
+     switch (QMeeGoSwitchEvent::DidSwitch).
+     If the switch policy is set to NoSwitch, this function has no effect.
     */
     static void switchToMeeGo();
 
@@ -104,8 +122,29 @@ public:
      system to 'raster'. The window surface and the graphics resources (including the 
      EGL shared image resources) are automatically migrated back to the CPU. All OpenGL 
      resources (surface, context, cache, font cache) are automaticall anihilated.
+     Calling this function will emit QMeeGoSwitchEvent to the top level widgets. If switch
+     events are enabled, two events will be emitted for each switch -- one before the
+     switch (QMeeGoSwitchEvent::WillSwitch) and one after the switch (QMeeGoSwitchEvent::DidSwitch).
+     If the switch policy is set to NoSwitch, this function has no effect.
     */
     static void switchToRaster();
+
+    //! Used to specify the policy for graphics system switching.
+    enum SwitchPolicy {
+        AutomaticSwitch,    /**< Automatic switching */
+        ManualSwitch,       /**< Switching is controleld by the application */
+        NoSwitch            /**< Switching is disabled completely */
+    };
+
+    //! Sets the policy of graphicssystem switching
+    /*!
+     By default, the switch to raster happens automatically when all windows are either
+     minimized or when the last window is destroyed. This function lets the application
+     change the graphicssystem switching policy to prevent the switching from happening
+     automatically (that is if the application doesn't want switching at all or wishes
+     to control the switching manually).
+    */
+    static void setSwitchPolicy(SwitchPolicy policy);
 
     //! Returns the name of the active graphics system
     /*!
@@ -140,7 +179,7 @@ public:
     //! Destroys an EGL shared image. 
     /*!
      Destroys an EGLSharedImage previously created with an ::imageToEGLSharedImage call.
-     Returns true if the image was found and the destruction was successfull. Notice that
+     Returns true if the image was found and the destruction was successful. Notice that
      this destroys the image for all processes using it. 
     */
     static bool destroyEGLSharedImage(Qt::HANDLE handle);
@@ -168,8 +207,29 @@ public:
      This function needs to be called *before* any widget/content is created. 
      When called with true, the base window surface will be translucent and initialized
      with QGLFormat.alpha == true.
+
+     This function is *deprecated*. Set Qt::WA_TranslucentBackground attribute
+     on the top-level widget *before* you show it instead.
     */
     static void setTranslucent(bool translucent);
+
+    //! Used to specify the mode for swapping buffers in double-buffered GL rendering.
+    enum SwapMode {
+        AutomaticSwap,      /**< Automatically choose netween full and partial updates (25% threshold) */
+        AlwaysFullSwap,     /**< Always do a full swap even if partial updates support present */
+        AlwaysPartialSwap,  /**< Always do a partial swap (if support present) no matter what threshold */
+        KillSwap            /**< Do not perform buffer swapping at all (no picture) */
+    };
+
+    //! Sets the buffer swapping mode.
+    /*!
+     This can be only called when running with the meego graphics system.
+     The KillSwap mode can be specififed to effectively block painting.
+
+     This functionality should be used only by applications counting on a specific behavior.
+     Most applications should use the default automatic behavior.
+    */
+    static void setSwapBehavior(SwapMode mode);
 };
 
 #endif

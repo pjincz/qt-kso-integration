@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -359,7 +359,7 @@ void QNetworkCookie::setValue(const QByteArray &value)
 }
 
 // ### move this to qnetworkcookie_p.h and share with qnetworkaccesshttpbackend
-static QPair<QByteArray, QByteArray> nextField(const QByteArray &text, int &position)
+static QPair<QByteArray, QByteArray> nextField(const QByteArray &text, int &position, bool isNameValue)
 {
     // format is one of:
     //    (1)  token
@@ -394,13 +394,22 @@ static QPair<QByteArray, QByteArray> nextField(const QByteArray &text, int &posi
         // quoted-string  = ( <"> *(qdtext | quoted-pair ) <"> )
         // qdtext         = <any TEXT except <">>
         // quoted-pair    = "\" CHAR
+
+        // If its NAME=VALUE, retain the value as is
+        // refer to ttp://bugreports.qt.nokia.com/browse/QTBUG-17746
+        if (isNameValue)
+            second += '"';
         ++i;
         while (i < length) {
             register char c = text.at(i);
             if (c == '"') {
                 // end of quoted text
+                if (isNameValue)
+                    second += '"';
                 break;
             } else if (c == '\\') {
+                if (isNameValue)
+                    second += '\\';
                 ++i;
                 if (i >= length)
                     // broken line
@@ -476,10 +485,12 @@ QByteArray QNetworkCookie::toRawForm(RawForm form) const
 
     result = d->name;
     result += '=';
-    if (d->value.contains(';') ||
+    if ((d->value.contains(';') ||
         d->value.contains(',') ||
         d->value.contains(' ') ||
-        d->value.contains('"')) {
+        d->value.contains('"')) &&
+        (!d->value.startsWith('"') &&
+        !d->value.endsWith('"'))) {
         result += '"';
 
         QByteArray value = d->value;
@@ -947,7 +958,7 @@ QList<QNetworkCookie> QNetworkCookiePrivate::parseSetCookieHeaderLine(const QByt
         QNetworkCookie cookie;
 
         // The first part is always the "NAME=VALUE" part
-        QPair<QByteArray,QByteArray> field = nextField(cookieString, position);
+        QPair<QByteArray,QByteArray> field = nextField(cookieString, position, true);
         if (field.first.isEmpty() || field.second.isNull())
             // parsing error
             break;
@@ -965,7 +976,7 @@ QList<QNetworkCookie> QNetworkCookiePrivate::parseSetCookieHeaderLine(const QByt
 
             case ';':
                 // new field in the cookie
-                field = nextField(cookieString, position);
+                field = nextField(cookieString, position, false);
                 field.first = field.first.toLower(); // everything but the NAME=VALUE is case-insensitive
 
                 if (field.first == "expires") {

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -66,7 +66,7 @@ static void replaceMultipleNewlines(QString &s)
 }
 
 // This is equivalent to  line.split( QRegExp("\n(?!\n|$)") ) but much faster
-static QStringList splitLines(const QString &line)
+QStringList Quoter::splitLines(const QString &line)
 {
     QStringList result;
     int i = line.size();
@@ -123,9 +123,9 @@ Quoter::Quoter()
     /* We're going to hard code these delimiters:
         * C++, Qt, Qt Script, Java:
           //! [<id>]
-        * .pro files:
+        * .pro, .py files:
           #! [<id>]
-        * .xq, .xml, .html files:
+        * .html, .qrc, .ui, .xq, .xml files:
           <!-- [<id>] -->
     */
     commentHash["pro"] = "#!";
@@ -222,10 +222,13 @@ QString Quoter::quoteSnippet(const Location &docLocation, const QString &identif
     QString comment = commentForCode();
     QString delimiter = comment + QString(" [%1]").arg(identifier);
     QString t;
+    int indent = 0;
 
     while (!plainLines.isEmpty()) {
         if (match(docLocation, delimiter, plainLines.first())) {
-            getLine();
+            QString startLine = getLine();
+            while (indent < startLine.length() && startLine[indent] == QLatin1Char(' '))
+                indent++;
             break;
         }
         getLine();
@@ -233,33 +236,24 @@ QString Quoter::quoteSnippet(const Location &docLocation, const QString &identif
     while (!plainLines.isEmpty()) {
         QString line = plainLines.first();
         if (match(docLocation, delimiter, line)) {
-            QString lastLine = getLine();
+            QString lastLine = getLine(indent);
             int dIndex = lastLine.indexOf(delimiter);
             if (dIndex > 0) {
+                // The delimiter might be preceded on the line by other
+                // delimeters, so look for the first comment on the line.
                 QString leading = lastLine.left(dIndex);
                 dIndex = leading.indexOf(comment);
                 if (dIndex != -1)
                     leading = leading.left(dIndex);
+                if (leading.endsWith(QLatin1String("<@comment>")))
+                    leading.chop(10);
                 if (!leading.trimmed().isEmpty())
                     t += leading;
             }
             return t;
         }
-        // Remove special macros to support Qt namespacing.
-	if (line.startsWith("QT_BEGIN_NAMESPACE")) {
-            getLine();
-        } else if (line.startsWith("QT_END_NAMESPACE")) {
-            getLine();
-            t += QLatin1Char('\n');
-        } else if (!line.startsWith(comment)) {
-            // Ordinary code
-            t += getLine();
-        } else {
-            // Normal comments
-            if (line.contains(QLatin1Char('\n')))
-                t += QLatin1Char('\n');
-            getLine();
-        }
+
+        t += removeSpecialLines(line, comment, indent);
     }
     failedAtEnd(docLocation, QString("snippet (%1)").arg(delimiter));
     return t;
@@ -274,21 +268,7 @@ QString Quoter::quoteTo( const Location& docLocation, const QString& command,
     if ( pattern.isEmpty() ) {
         while ( !plainLines.isEmpty() ) {
             QString line = plainLines.first();
-            // Remove special macros to support Qt namespacing.
-	    if (line.startsWith("QT_BEGIN_NAMESPACE")) {
-                getLine();
-            } else if (line.startsWith("QT_END_NAMESPACE")) {
-                getLine();
-                t += QLatin1Char('\n');
-            } else if (!line.startsWith(comment))
-                // Ordinary code
-                t += getLine();
-            else {
-                // Normal comments
-                if (line.contains(QLatin1Char('\n')))
-                    t += QLatin1Char('\n');
-                getLine();
-            }
+            t += removeSpecialLines(line, comment);
         }
     } else {
         while ( !plainLines.isEmpty() ) {
@@ -310,7 +290,7 @@ QString Quoter::quoteUntil( const Location& docLocation, const QString& command,
     return t;
 }
 
-QString Quoter::getLine()
+QString Quoter::getLine(int unindent)
 {
     if ( plainLines.isEmpty() )
         return QString();
@@ -318,6 +298,11 @@ QString Quoter::getLine()
     plainLines.removeFirst();
 
     QString t = markedLines.takeFirst();
+    int i = 0;
+    while (i < unindent && i < t.length() && t[i] == QLatin1Char(' '))
+        i++;
+
+    t = t.mid(i);
     t += QLatin1Char('\n');
     codeLocation.advanceLines( t.count( QLatin1Char('\n') ) );
     return t;
@@ -364,6 +349,29 @@ QString Quoter::commentForCode() const
 {
     QString suffix = QFileInfo(codeLocation.fileName()).suffix();
     return commentHash.value(suffix, "//!");
+}
+
+QString Quoter::removeSpecialLines(const QString &line, const QString &comment, int unindent)
+{
+    QString t;
+
+    // Remove special macros to support Qt namespacing.
+    QString trimmed = line.trimmed();
+    if (trimmed.startsWith("QT_BEGIN_NAMESPACE")) {
+        getLine();
+    } else if (trimmed.startsWith("QT_END_NAMESPACE")) {
+        getLine();
+        t += QLatin1Char('\n');
+    } else if (!trimmed.startsWith(comment)) {
+        // Ordinary code
+        t += getLine(unindent);
+    } else {
+        // Comments
+        if (line.contains(QLatin1Char('\n')))
+            t += QLatin1Char('\n');
+        getLine();
+    }
+    return t;
 }
 
 QT_END_NAMESPACE

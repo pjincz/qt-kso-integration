@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -95,10 +95,10 @@ static void drawTextItemDecoration(QPainter *painter, const QPointF &pos, const 
                                    const QTextItem::RenderFlags flags, qreal width,
                                    const QTextCharFormat &charFormat);
 // Helper function to calculate left most position, width and flags for decoration drawing
-static void drawDecorationForGlyphs(QPainter *painter, const glyph_t *glyphArray,
-                                    const QFixedPoint *positions, int glyphCount,
-                                    QFontEngine *fontEngine, const QFont &font,
-                                    const QTextCharFormat &charFormat);
+Q_GUI_EXPORT void qt_draw_decoration_for_glyphs(QPainter *painter, const glyph_t *glyphArray,
+                                                const QFixedPoint *positions, int glyphCount,
+                                                QFontEngine *fontEngine, const QFont &font,
+                                                const QTextCharFormat &charFormat);
 
 static inline QGradient::CoordinateMode coordinateMode(const QBrush &brush)
 {
@@ -1122,14 +1122,14 @@ void QPainterPrivate::updateState(QPainterState *newState)
     the range of available patterns.
 
     \table
-    \row
-    \o \inlineimage qpainter-vectordeformation.png
-    \o \inlineimage qpainter-gradients.png
-    \o \inlineimage qpainter-pathstroking.png
     \header
     \o \l {demos/deform}{Vector Deformation}
     \o \l {demos/gradients}{Gradients}
     \o \l {demos/pathstroke}{Path Stroking}
+    \row
+    \o \inlineimage qpainter-vectordeformation.png
+    \o \inlineimage qpainter-gradients.png
+    \o \inlineimage qpainter-pathstroking.png
     \endtable
 
 
@@ -1202,13 +1202,13 @@ void QPainterPrivate::updateState(QPainterState *newState)
     coordinate transformations.
 
     \table
+    \header
+    \o  nop \o rotate() \o scale() \o translate()
     \row
     \o \inlineimage qpainter-clock.png
     \o \inlineimage qpainter-rotation.png
     \o \inlineimage qpainter-scale.png
     \o \inlineimage qpainter-translation.png
-    \header
-    \o  nop \o rotate() \o scale() \o translate()
     \endtable
 
     The most commonly used transformations are scaling, rotation,
@@ -2726,7 +2726,7 @@ void QPainter::setClipRect(const QRectF &rect, Qt::ClipOperation op)
     Q_D(QPainter);
 
     if (d->extended) {
-        if (!hasClipping() && (op == Qt::IntersectClip || op == Qt::UniteClip))
+        if ((!d->state->clipEnabled && op != Qt::NoClip) || (d->state->clipOperation == Qt::NoClip && op == Qt::UniteClip))
             op = Qt::ReplaceClip;
 
         if (!d->engine) {
@@ -2784,7 +2784,7 @@ void QPainter::setClipRect(const QRect &rect, Qt::ClipOperation op)
         return;
     }
 
-    if (!hasClipping() && (op == Qt::IntersectClip || op == Qt::UniteClip))
+    if ((!d->state->clipEnabled && op != Qt::NoClip) || (d->state->clipOperation == Qt::NoClip && op == Qt::UniteClip))
         op = Qt::ReplaceClip;
 
     if (d->extended) {
@@ -2796,6 +2796,9 @@ void QPainter::setClipRect(const QRect &rect, Qt::ClipOperation op)
         d->state->clipOperation = op;
         return;
     }
+
+    if (d->state->clipOperation == Qt::NoClip && op == Qt::IntersectClip)
+        op = Qt::ReplaceClip;
 
     d->state->clipRegion = rect;
     d->state->clipOperation = op;
@@ -2839,7 +2842,7 @@ void QPainter::setClipRegion(const QRegion &r, Qt::ClipOperation op)
         return;
     }
 
-    if (!hasClipping() && (op == Qt::IntersectClip || op == Qt::UniteClip))
+    if ((!d->state->clipEnabled && op != Qt::NoClip) || (d->state->clipOperation == Qt::NoClip && op == Qt::UniteClip))
         op = Qt::ReplaceClip;
 
     if (d->extended) {
@@ -2851,6 +2854,9 @@ void QPainter::setClipRegion(const QRegion &r, Qt::ClipOperation op)
         d->state->clipOperation = op;
         return;
     }
+
+    if (d->state->clipOperation == Qt::NoClip && op == Qt::IntersectClip)
+        op = Qt::ReplaceClip;
 
     d->state->clipRegion = r;
     d->state->clipOperation = op;
@@ -3244,7 +3250,7 @@ void QPainter::setClipPath(const QPainterPath &path, Qt::ClipOperation op)
         return;
     }
 
-    if (!hasClipping() && (op == Qt::IntersectClip || op == Qt::UniteClip))
+    if ((!d->state->clipEnabled && op != Qt::NoClip) || (d->state->clipOperation == Qt::NoClip && op == Qt::UniteClip))
         op = Qt::ReplaceClip;
 
     if (d->extended) {
@@ -3256,6 +3262,9 @@ void QPainter::setClipPath(const QPainterPath &path, Qt::ClipOperation op)
         d->state->clipOperation = op;
         return;
     }
+
+    if (d->state->clipOperation == Qt::NoClip && op == Qt::IntersectClip)
+        op = Qt::ReplaceClip;
 
     d->state->clipPath = path;
     d->state->clipOperation = op;
@@ -5827,7 +5836,7 @@ void QPainterPrivate::drawGlyphs(const quint32 *glyphArray, const QPointF *posit
         QStaticTextItem staticTextItem;
         staticTextItem.color = state->pen.color();
         staticTextItem.font = state->font;
-        staticTextItem.fontEngine = fontEngine;
+        staticTextItem.setFontEngine(fontEngine);
         staticTextItem.numGlyphs = glyphCount;
         staticTextItem.glyphs = reinterpret_cast<glyph_t *>(const_cast<glyph_t *>(glyphArray));
         staticTextItem.glyphPositions = positions.data();
@@ -6018,9 +6027,9 @@ void QPainter::drawStaticText(const QPointF &topLeftPosition, const QStaticText 
         }
         d->extended->drawStaticTextItem(item);
 
-        drawDecorationForGlyphs(this, item->glyphs, item->glyphPositions,
-                                item->numGlyphs, item->fontEngine, staticText_d->font,
-                                QTextCharFormat());
+        qt_draw_decoration_for_glyphs(this, item->glyphs, item->glyphPositions,
+                                      item->numGlyphs, item->fontEngine(), staticText_d->font,
+                                      QTextCharFormat());
     }
     if (currentColor != oldPen.color())
         setPen(oldPen);
@@ -6349,7 +6358,7 @@ void QPainter::drawText(const QRectF &r, int flags, const QString &str, QRectF *
 
     By default, QPainter draws text anti-aliased.
 
-    \note The y-position is used as the baseline of the font.
+    \note The y-position is used as the top of the font.
 
     \sa Qt::AlignmentFlag, Qt::TextFlag
 */
@@ -6490,10 +6499,16 @@ static void drawTextItemDecoration(QPainter *painter, const QPointF &pos, const 
 
     QLineF line(pos.x(), pos.y(), pos.x() + width, pos.y());
 
-    const qreal underlineOffset = fe->underlinePosition().toReal();
+    qreal underlineOffset = fe->underlinePosition().toReal();
+    qreal y = pos.y();
+    // compensate for different rounding rule in Core Graphics paint engine,
+    // ideally code like this should be moved to respective engines.
+    if (painter->paintEngine()->type() == QPaintEngine::CoreGraphics) {
+        y = qCeil(y);
+    }
     // deliberately ceil the offset to avoid the underline coming too close to
     // the text above it.
-    const qreal underlinePos = pos.y() + qCeil(underlineOffset);
+    const qreal underlinePos = y + qCeil(underlineOffset);
 
     if (underlineStyle == QTextCharFormat::SpellCheckUnderline) {
         underlineStyle = QTextCharFormat::UnderlineStyle(QApplication::style()->styleHint(QStyle::SH_SpellCheckUnderlineStyle));
@@ -6547,10 +6562,10 @@ static void drawTextItemDecoration(QPainter *painter, const QPointF &pos, const 
     painter->setBrush(oldBrush);
 }
 
-static void drawDecorationForGlyphs(QPainter *painter, const glyph_t *glyphArray,
-                                    const QFixedPoint *positions, int glyphCount,
-                                    QFontEngine *fontEngine, const QFont &font,
-                                    const QTextCharFormat &charFormat)
+Q_GUI_EXPORT void qt_draw_decoration_for_glyphs(QPainter *painter, const glyph_t *glyphArray,
+                                                const QFixedPoint *positions, int glyphCount,
+                                                QFontEngine *fontEngine, const QFont &font,
+                                                const QTextCharFormat &charFormat)
 {
     if (!(font.underline() || font.strikeOut() || font.overline()))
         return;
@@ -6667,6 +6682,10 @@ void QPainter::drawTextItem(const QPointF &p, const QTextItem &_ti)
         qreal x = p.x();
         qreal y = p.y();
 
+        bool rtl = ti.flags & QTextItem::RightToLeft;
+        if (rtl)
+            x += ti.width.toReal();
+
         int start = 0;
         int end, i;
         for (end = 0; end < ti.glyphs.numGlyphs; ++end) {
@@ -6683,14 +6702,19 @@ void QPainter::drawTextItem(const QPointF &p, const QTextItem &_ti)
                 ti2.width += ti.glyphs.effectiveAdvance(i);
             }
 
+            if (rtl)
+                x -= ti2.width.toReal();
+
             d->engine->drawTextItem(QPointF(x, y), ti2);
+
+            if (!rtl)
+                x += ti2.width.toReal();
 
             // reset the high byte for all glyphs and advance to the next sub-string
             const int hi = which << 24;
             for (i = start; i < end; ++i) {
                 glyphs.glyphs[i] = hi | glyphs.glyphs[i];
             }
-            x += ti2.width.toReal();
 
             // change engine
             start = end;
@@ -6704,6 +6728,9 @@ void QPainter::drawTextItem(const QPointF &p, const QTextItem &_ti)
             glyphs.glyphs[i] = glyphs.glyphs[i] & 0xffffff;
             ti2.width += ti.glyphs.effectiveAdvance(i);
         }
+
+        if (rtl)
+            x -= ti2.width.toReal();
 
         if (d->extended)
             d->extended->drawTextItem(QPointF(x, y), ti2);
@@ -8281,12 +8308,16 @@ start_lengthVariant:
             QTextLine line = textLayout.lineAt(i);
 
             qreal advance = line.horizontalAdvance();
-            if (tf & Qt::AlignRight)
-                xoff = r.width() - advance;
+            xoff = 0;
+            if (tf & Qt::AlignRight) {
+                QTextEngine *eng = textLayout.engine();
+                xoff = r.width() - advance -
+                    eng->leadingSpaceWidth(eng->lines[line.lineNumber()]).toReal();
+            }
             else if (tf & Qt::AlignHCenter)
-                xoff = (r.width() - advance)/2;
+                xoff = (r.width() - advance) / 2;
 
-            line.draw(painter, QPointF(r.x() + xoff + line.x(), r.y() + yoff));
+            line.draw(painter, QPointF(r.x() + xoff, r.y() + yoff));
         }
 
         if (restore) {
@@ -9269,7 +9300,7 @@ void QPainter::drawPixmapFragments(const PixmapFragment *fragments, int fragment
     QPainter::drawPixmapFragments() function. The variables \a x, \a y, \a
     width and \a height are used to calculate the target rectangle that is
     drawn. \a x and \a y denotes the center of the target rectangle. The \a
-    width and \a heigth in the target rectangle is scaled by the \a scaleX and
+    width and \a height in the target rectangle is scaled by the \a scaleX and
     \a scaleY values. The resulting target rectangle is then rotated \a
     rotation degrees around the \a x, \a y center point.
 

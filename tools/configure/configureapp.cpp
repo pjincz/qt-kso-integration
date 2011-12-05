@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the tools applications of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -741,6 +741,23 @@ void Configure::parseCmdLine()
         } else if (configCmdLine.at(i) == "-opengl-es-2") {
             dictionary[ "OPENGL" ]          = "yes";
             dictionary[ "OPENGL_ES_2" ]     = "yes";
+        } else if (configCmdLine.at(i) == "-opengl") {
+            dictionary[ "OPENGL" ]          = "yes";
+            i++;
+            if (i == argCount)
+                break;
+
+            if (configCmdLine.at(i) == "es1") {
+                dictionary[ "OPENGL_ES_CM" ]    = "yes";
+            } else if ( configCmdLine.at(i) == "es2" ) {
+                dictionary[ "OPENGL_ES_2" ]     = "yes";
+            } else if ( configCmdLine.at(i) == "desktop" ) {
+                // OPENGL=yes suffices
+            } else {
+                cout << "Argument passed to -opengl option is not valid." << endl;
+                dictionary[ "DONE" ] = "error";
+                break;
+            }
         }
 
         // OpenVG Support -------------------------------------------
@@ -958,6 +975,8 @@ void Configure::parseCmdLine()
             dictionary[ "WEBKIT" ] = "no";
         } else if (configCmdLine.at(i) == "-webkit") {
             dictionary[ "WEBKIT" ] = "yes";
+        } else if (configCmdLine.at(i) == "-webkit-debug") {
+            dictionary[ "WEBKIT" ] = "debug";
         } else if (configCmdLine.at(i) == "-no-declarative") {
             dictionary[ "DECLARATIVE" ] = "no";
         } else if (configCmdLine.at(i) == "-declarative") {
@@ -1010,6 +1029,10 @@ void Configure::parseCmdLine()
             if (dictionary.contains("XQMAKESPEC") && dictionary["XQMAKESPEC"].startsWith("symbian")) {
                 dictionary[ "QT_INSTALL_PLUGINS" ] =
                     QString("\\resource\\qt%1\\plugins").arg(dictionary[ "QT_LIBINFIX" ]);
+                dictionary[ "QT_INSTALL_IMPORTS" ] =
+                    QString("\\resource\\qt%1\\imports").arg(dictionary[ "QT_LIBINFIX" ]);
+                dictionary[ "QT_INSTALL_TRANSLATIONS" ] =
+                    QString("\\resource\\qt%1\\translations").arg(dictionary[ "QT_LIBINFIX" ]);
             }
         } else if (configCmdLine.at(i) == "-D") {
             ++i;
@@ -1651,7 +1674,7 @@ bool Configure::displayHelp()
                     "[-phonon] [-no-phonon-backend] [-phonon-backend]\n"
                     "[-no-multimedia] [-multimedia] [-no-audio-backend] [-audio-backend]\n"
                     "[-no-script] [-script] [-no-scripttools] [-scripttools]\n"
-                    "[-no-webkit] [-webkit] [-graphicssystem raster|opengl|openvg]\n\n", 0, 7);
+                    "[-no-webkit] [-webkit] [-webkit-debug] [-graphicssystem raster|opengl|openvg]\n\n", 0, 7);
 
         desc("Installation options:\n\n");
 
@@ -1733,6 +1756,11 @@ bool Configure::displayHelp()
 
         desc("QT3SUPPORT", "no","-no-qt3support",       "Disables the Qt 3 support functionality.\n");
         desc("OPENGL", "no","-no-opengl",               "Disables OpenGL functionality\n");
+        desc("OPENGL", "no","-opengl <api>",            "Enable OpenGL support with specified API version.\n"
+                                                        "Available values for <api>:");
+        desc("", "", "",                                "  desktop - Enable support for Desktop OpenGL", ' ');
+        desc("OPENGL_ES_CM", "no", "",                  "  es1 - Enable support for OpenGL ES Common Profile", ' ');
+        desc("OPENGL_ES_2",  "no", "",                  "  es2 - Enable support for OpenGL ES 2.0", ' ');
 
         desc("OPENVG", "no","-no-openvg",               "Disables OpenVG functionality\n");
         desc("OPENVG", "yes","-openvg",                 "Enables OpenVG functionality");
@@ -1835,6 +1863,7 @@ bool Configure::displayHelp()
         desc("AUDIO_BACKEND", "yes","-audio-backend",   "Compile in the platform audio backend into QtMultimedia");
         desc("WEBKIT", "no",    "-no-webkit",           "Do not compile in the WebKit module");
         desc("WEBKIT", "yes",   "-webkit",              "Compile in the WebKit module (WebKit is built if a decent C++ compiler is used.)");
+        desc("WEBKIT", "debug", "-webkit-debug",        "Compile in the WebKit module with debug symbols.");
         desc("SCRIPT", "no",    "-no-script",           "Do not build the QtScript module.");
         desc("SCRIPT", "yes",   "-script",              "Build the QtScript module.");
         desc("SCRIPTTOOLS", "no", "-no-scripttools",    "Do not build the QtScriptTools module.");
@@ -1892,8 +1921,7 @@ bool Configure::displayHelp()
         desc("CETEST", "no",       "-no-cetest",           "Do not compile Windows CE remote test application");
         desc("CETEST", "yes",      "-cetest",              "Compile Windows CE remote test application");
         desc(                      "-signature <file>",    "Use file for signing the target project");
-        desc("OPENGL_ES_CM", "no", "-opengl-es-cm",        "Enable support for OpenGL ES Common");
-        desc("OPENGL_ES_2",  "no", "-opengl-es-2",         "Enable support for OpenGL ES 2.0");
+
         desc("DIRECTSHOW", "no",   "-phonon-wince-ds9",    "Enable Phonon Direct Show 9 backend for Windows CE");
 
         // Qt\Symbian only options go below here -----------------------------------------------------------------------------
@@ -2418,7 +2446,7 @@ void Configure::generateBuildKey()
                        + buildSymbianKey + "\"\n"
                        "#else\n"
                        // Debug builds
-                       "# if (!QT_NO_DEBUG)\n"
+                       "# if !defined(QT_NO_DEBUG)\n"
                        "#  if (defined(WIN64) || defined(_WIN64) || defined(__WIN64__))\n"
                        + build64Key.arg("debug") + "\"\n"
                        "#  else\n"
@@ -2468,15 +2496,11 @@ void Configure::generateOutputVars()
         qtConfig += "no-gif";
     else if (dictionary[ "GIF" ] == "yes")
         qtConfig += "gif";
-    else if (dictionary[ "GIF" ] == "plugin")
-        qmakeFormatPlugins += "gif";
 
     if (dictionary[ "TIFF" ] == "no")
         qtConfig += "no-tiff";
     else if (dictionary[ "TIFF" ] == "yes")
         qtConfig += "tiff";
-    else if (dictionary[ "TIFF" ] == "plugin")
-        qmakeFormatPlugins += "tiff";
     if (dictionary[ "LIBTIFF" ] == "system")
         qtConfig += "system-tiff";
 
@@ -2484,8 +2508,6 @@ void Configure::generateOutputVars()
         qtConfig += "no-jpeg";
     else if (dictionary[ "JPEG" ] == "yes")
         qtConfig += "jpeg";
-    else if (dictionary[ "JPEG" ] == "plugin")
-        qmakeFormatPlugins += "jpeg";
     if (dictionary[ "LIBJPEG" ] == "system")
         qtConfig += "system-jpeg";
 
@@ -2692,10 +2714,12 @@ void Configure::generateOutputVars()
 
     QString dst = buildPath + "/mkspecs/modules/qt_webkit_version.pri";
     QFile::remove(dst);
-    if (dictionary["WEBKIT"] == "yes") {
+    if (dictionary["WEBKIT"] != "no") {
         // This include takes care of adding "webkit" to QT_CONFIG.
         QString src = sourcePath + "/src/3rdparty/webkit/WebKit/qt/qt_webkit_version.pri";
         QFile::copy(src, dst);
+        if (dictionary["WEBKIT"] == "debug")
+            qtConfig += "webkit-debug";
     }
 
     if (dictionary["DECLARATIVE"] == "yes") {
@@ -2802,8 +2826,6 @@ void Configure::generateOutputVars()
         qmakeVars += QString("styles         += ") + qmakeStyles.join(" ");
     if (!qmakeStylePlugins.isEmpty())
         qmakeVars += QString("style-plugins  += ") + qmakeStylePlugins.join(" ");
-    if (!qmakeFormatPlugins.isEmpty())
-        qmakeVars += QString("imageformat-plugins += ") + qmakeFormatPlugins.join(" ");
 
     if (dictionary["QMAKESPEC"].endsWith("-g++")) {
         QString includepath = qgetenv("INCLUDE");
@@ -3234,21 +3256,11 @@ void Configure::generateConfigfiles()
 
     QString spec = dictionary.contains("XQMAKESPEC") ? dictionary["XQMAKESPEC"] : dictionary["QMAKESPEC"];
     QString pltSpec = sourcePath + "/mkspecs/" + spec;
-    if (!Environment::cpdir(pltSpec, defSpec)) {
+    QString includeSpec = buildPath + "/mkspecs/" + spec;
+    if (!Environment::cpdir(pltSpec, defSpec, includeSpec)) {
         cout << "Couldn't update default mkspec! Does " << qPrintable(pltSpec) << " exist?" << endl;
         dictionary["DONE"] = "error";
         return;
-    }
-
-    outName = defSpec + "/qmake.conf";
-    ::SetFileAttributes((wchar_t*)outName.utf16(), FILE_ATTRIBUTE_NORMAL);
-    QFile qmakeConfFile(outName);
-    if (qmakeConfFile.open(QFile::Append | QFile::WriteOnly | QFile::Text)) {
-        QTextStream qmakeConfStream;
-        qmakeConfStream.setDevice(&qmakeConfFile);
-        qmakeConfStream << endl << "QMAKESPEC_ORIGINAL=" << pltSpec << endl;
-        qmakeConfStream.flush();
-        qmakeConfFile.close();
     }
 
     // Generate the new qconfig.cpp file
@@ -3326,7 +3338,7 @@ void Configure::generateConfigfiles()
     if (tmpFile3.open()) {
         tmpStream.setDevice(&tmpFile3);
         tmpStream << "/* Evaluation license key */" << endl
-                  << "static const char qt_eval_key_data              [512 + 12] = \"qt_qevalkey=" << licenseInfo["LICENSEKEYEXT"] << "\";" << endl;
+                  << "static const volatile char qt_eval_key_data              [512 + 12] = \"qt_qevalkey=" << licenseInfo["LICENSEKEYEXT"] << "\";" << endl;
 
         tmpStream.flush();
         tmpFile3.flush();
@@ -3406,9 +3418,18 @@ void Configure::displayConfig()
     cout << "QtXmlPatterns support......." << dictionary[ "XMLPATTERNS" ] << endl;
     cout << "Phonon support.............." << dictionary[ "PHONON" ] << endl;
     cout << "QtMultimedia support........" << dictionary[ "MULTIMEDIA" ] << endl;
-    cout << "WebKit support.............." << dictionary[ "WEBKIT" ] << endl;
-    cout << "Declarative support........." << dictionary[ "DECLARATIVE" ] << endl;
-    cout << "Declarative debugging......." << dictionary[ "DECLARATIVE_DEBUG" ] << endl;
+    {
+        QString webkit = dictionary[ "WEBKIT" ];
+        if (webkit == "debug")
+            webkit = "yes (debug)";
+        cout << "WebKit support.............." << webkit << endl;
+    }
+    {
+        QString declarative = dictionary[ "DECLARATIVE" ];
+        cout << "Declarative support........." << declarative << endl;
+        if (declarative == "yes")
+            cout << "Declarative debugging......." << dictionary[ "DECLARATIVE_DEBUG" ] << endl;
+    }
     cout << "QtScript support............" << dictionary[ "SCRIPT" ] << endl;
     cout << "QtScriptTools support......." << dictionary[ "SCRIPTTOOLS" ] << endl;
     cout << "Graphics System............." << dictionary[ "GRAPHICS_SYSTEM" ] << endl;
@@ -3539,7 +3560,11 @@ void Configure::generateHeaders()
         QStringList env;
         env += QString("QTDIR=" + sourcePath);
         env += QString("PATH=" + buildPath + "/bin/;" + qgetenv("PATH"));
-        Environment::execute(args, env, QStringList());
+        int retc = Environment::execute(args, env, QStringList());
+        if (retc) {
+            cout << "syncqt failed, return code " << retc << endl << endl;
+            dictionary["DONE"] = "error";
+        }
     }
 }
 

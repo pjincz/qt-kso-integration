@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -52,6 +52,7 @@
 #include "private/qdeclarativevaluetype_p.h"
 #include "private/qdeclarativevmemetaobject_p.h"
 #include "private/qdeclarativeexpression_p.h"
+#include "private/qdeclarativepropertychanges_p.h"
 
 #include <QtCore/qdebug.h>
 #include <QtCore/qmetaobject.h>
@@ -146,7 +147,10 @@ QDeclarativeEngineDebugServer::propertyData(QObject *obj, int propIdx)
     if (binding)
         rv.binding = binding->expression();
 
-    QVariant value = prop.read(obj);
+    QVariant value;
+    if (prop.userType() != 0) {
+        value = prop.read(obj);
+    }
     rv.value = valueContents(value);
 
     if (QDeclarativeValueTypeFactory::isValueType(prop.userType())) {
@@ -163,17 +167,19 @@ QDeclarativeEngineDebugServer::propertyData(QObject *obj, int propIdx)
 QVariant QDeclarativeEngineDebugServer::valueContents(const QVariant &value) const
 {
     int userType = value.userType();
+
+    if (value.type() == QVariant::List) {
+        QVariantList contents;
+        QVariantList list = value.toList();
+        int count = list.size();
+        for (int i = 0; i < count; i++)
+            contents << valueContents(list.at(i));
+        return contents;
+    }
+
     if (QDeclarativeValueTypeFactory::isValueType(userType))
         return value;
 
-    /*
-    if (QDeclarativeMetaType::isList(userType)) {
-        int count = QDeclarativeMetaType::listCount(value);
-        QVariantList contents;
-        for (int i=0; i<count; i++)
-            contents << valueContents(QDeclarativeMetaType::listAt(value, i));
-        return contents;
-    } else */
     if (QDeclarativeMetaType::isQObject(userType)) {
         QObject *o = QDeclarativeMetaType::toQObject(value);
         if (o) {
@@ -191,11 +197,6 @@ void QDeclarativeEngineDebugServer::buildObjectDump(QDataStream &message,
                                            QObject *object, bool recur, bool dumpProperties)
 {
     message << objectData(object);
-
-    // Some children aren't added to an object until particular properties are read
-    // - e.g. child state objects aren't added until the 'states' property is read -
-    // but this should only affect internal objects that aren't shown by the
-    // debugger anyway.
 
     QObjectList children = object->children();
     
@@ -248,13 +249,31 @@ void QDeclarativeEngineDebugServer::buildObjectDump(QDataStream &message,
         return;
     }
 
-    message << (object->metaObject()->propertyCount() + fakeProperties.count());
+    QList<int> propertyIndexes;
+    for (int ii = 0; ii < object->metaObject()->propertyCount(); ++ii) {
+        if (object->metaObject()->property(ii).isScriptable())
+            propertyIndexes << ii;
+    }
 
-    for (int ii = 0; ii < object->metaObject()->propertyCount(); ++ii) 
-        message << propertyData(object, ii);
+    message << propertyIndexes.size() + fakeProperties.count();
+
+    for (int ii = 0; ii < propertyIndexes.size(); ++ii)
+        message << propertyData(object, propertyIndexes.at(ii));
 
     for (int ii = 0; ii < fakeProperties.count(); ++ii)
         message << fakeProperties[ii];
+}
+
+void QDeclarativeEngineDebugServer::prepareDeferredObjects(QObject *obj)
+{
+    qmlExecuteDeferred(obj);
+
+    QObjectList children = obj->children();
+    for (int ii = 0; ii < children.count(); ++ii) {
+        QObject *child = children.at(ii);
+        prepareDeferredObjects(child);
+    }
+
 }
 
 void QDeclarativeEngineDebugServer::buildObjectList(QDataStream &message, QDeclarativeContext *ctxt)
@@ -294,6 +313,35 @@ void QDeclarativeEngineDebugServer::buildObjectList(QDataStream &message, QDecla
     message << ctxtPriv->instances.count();
     for (int ii = 0; ii < ctxtPriv->instances.count(); ++ii) {
         message << objectData(ctxtPriv->instances.at(ii));
+    }
+}
+
+void QDeclarativeEngineDebugServer::buildStatesList(QDeclarativeContext *ctxt, bool cleanList=false)
+{
+    if (cleanList)
+        m_allStates.clear();
+
+    QDeclarativeContextPrivate *ctxtPriv = QDeclarativeContextPrivate::get(ctxt);
+    for (int ii = 0; ii < ctxtPriv->instances.count(); ++ii) {
+        buildStatesList(ctxtPriv->instances.at(ii));
+    }
+
+    QDeclarativeContextData *child = QDeclarativeContextData::get(ctxt)->childContexts;
+    while (child) {
+        buildStatesList(child->asQDeclarativeContext());
+        child = child->nextChild;
+    }
+}
+
+void QDeclarativeEngineDebugServer::buildStatesList(QObject *obj)
+{
+    if (QDeclarativeState *state = qobject_cast<QDeclarativeState *>(obj)) {
+            m_allStates.append(state);
+    }
+
+    QObjectList children = obj->children();
+    for (int ii = 0; ii < children.count(); ++ii) {
+        buildStatesList(children.at(ii));
     }
 }
 
@@ -375,8 +423,10 @@ void QDeclarativeEngineDebugServer::messageReceived(const QByteArray &message)
         QDataStream rs(&reply, QIODevice::WriteOnly);
         rs << QByteArray("LIST_OBJECTS_R") << queryId;
 
-        if (engine)
+        if (engine) {
             buildObjectList(rs, engine->rootContext());
+            buildStatesList(engine->rootContext(), true);
+        }
 
         sendMessage(reply);
     } else if (type == "FETCH_OBJECT") {
@@ -393,8 +443,11 @@ void QDeclarativeEngineDebugServer::messageReceived(const QByteArray &message)
         QDataStream rs(&reply, QIODevice::WriteOnly);
         rs << QByteArray("FETCH_OBJECT_R") << queryId;
 
-        if (object) 
+        if (object) {
+            if (recurse)
+                prepareDeferredObjects(object);
             buildObjectDump(rs, object, recurse, dumpProperties);
+        }
 
         sendMessage(reply);
     } else if (type == "WATCH_OBJECT") {
@@ -496,23 +549,63 @@ void QDeclarativeEngineDebugServer::setBinding(int objectId,
     QDeclarativeContext *context = qmlContext(object);
 
     if (object && context) {
-
         QDeclarativeProperty property(object, propertyName, context);
-        if (isLiteralValue) {
-            property.write(expression);
-        } else if (hasValidSignal(object, propertyName)) {
-            QDeclarativeExpression *declarativeExpression = new QDeclarativeExpression(context, object, expression.toString());
-            QDeclarativePropertyPrivate::setSignalExpression(property, declarativeExpression);
-        } else if (property.isProperty()) {
-            QDeclarativeBinding *binding = new QDeclarativeBinding(expression.toString(), object, context);
-            binding->setTarget(property);
-            binding->setNotifyOnValueChanged(true);
-            QDeclarativeAbstractBinding *oldBinding = QDeclarativePropertyPrivate::setBinding(property, binding);
-            if (oldBinding)
-                oldBinding->destroy();
-            binding->update();
+        if (property.isValid()) {
+
+            bool inBaseState = true;
+
+            foreach(QWeakPointer<QDeclarativeState> statePointer, m_allStates) {
+                if (QDeclarativeState *state = statePointer.data()) {
+                    // here we assume that the revert list on itself defines the base state
+                    if (state->isStateActive() && state->containsPropertyInRevertList(object, propertyName)) {
+                        inBaseState = false;
+
+                        QDeclarativeBinding *newBinding = 0;
+                        if (!isLiteralValue) {
+                            newBinding = new QDeclarativeBinding(expression.toString(), object, context);
+                            newBinding->setTarget(property);
+                            newBinding->setNotifyOnValueChanged(true);
+                        }
+
+                        state->changeBindingInRevertList(object, propertyName, newBinding);
+
+                        if (isLiteralValue)
+                            state->changeValueInRevertList(object, propertyName, expression);
+                    }
+                }
+            }
+
+            if (inBaseState) {
+                if (isLiteralValue) {
+                    property.write(expression);
+                } else if (hasValidSignal(object, propertyName)) {
+                    QDeclarativeExpression *declarativeExpression = new QDeclarativeExpression(context, object, expression.toString());
+                    QDeclarativeExpression *oldExpression = QDeclarativePropertyPrivate::setSignalExpression(property, declarativeExpression);
+                    declarativeExpression->setSourceLocation(oldExpression->sourceFile(), oldExpression->lineNumber());
+                } else if (property.isProperty()) {
+                    QDeclarativeBinding *binding = new QDeclarativeBinding(expression.toString(), object, context);
+                    binding->setTarget(property);
+                    binding->setNotifyOnValueChanged(true);
+                    QDeclarativeAbstractBinding *oldBinding = QDeclarativePropertyPrivate::setBinding(property, binding);
+                    if (oldBinding)
+                        oldBinding->destroy();
+                    binding->update();
+                } else {
+                    qWarning() << "QDeclarativeEngineDebugServer::setBinding: unable to set property" << propertyName << "on object" << object;
+                }
+            }
+
         } else {
-            qWarning() << "QDeclarativeEngineDebugServer::setBinding: unable to set property" << propertyName << "on object" << object;
+            // not a valid property
+            if (QDeclarativePropertyChanges *propertyChanges = qobject_cast<QDeclarativePropertyChanges *>(object)) {
+                if (isLiteralValue) {
+                    propertyChanges->changeValue(propertyName, expression);
+                } else {
+                    propertyChanges->changeExpression(propertyName, expression.toString());
+                }
+            } else {
+                qWarning() << "QDeclarativeEngineDebugServer::setBinding: unable to set property" << propertyName << "on object" << object;
+            }
         }
     }
 }
@@ -530,10 +623,30 @@ void QDeclarativeEngineDebugServer::resetBinding(int objectId, const QString &pr
                 QDeclarativeAbstractBinding *oldBinding = QDeclarativePropertyPrivate::setBinding(property, 0);
                 if (oldBinding)
                     oldBinding->destroy();
+            }
+            if (property.isResettable()) {
+                // Note: this will reset the property in any case, without regard to states
+                // Right now almost no QDeclarativeItem has reset methods for its properties (with the
+                // notable exception of QDeclarativeAnchors), so this is not a big issue
+                // later on, setBinding does take states into account
+                property.reset();
             } else {
-                if (property.isResettable()) {
-                    property.reset();
+                // overwrite with default value
+                if (QDeclarativeType *objType = QDeclarativeMetaType::qmlType(object->metaObject())) {
+                    if (QObject *emptyObject = objType->create()) {
+                        if (emptyObject->property(propertyName.toLatin1()).isValid()) {
+                            QVariant defaultValue = QDeclarativeProperty(emptyObject, propertyName).read();
+                            if (defaultValue.isValid()) {
+                                setBinding(objectId, propertyName, defaultValue, true);
+                            }
+                        }
+                        delete emptyObject;
+                    }
                 }
+            }
+        } else {
+            if (QDeclarativePropertyChanges *propertyChanges = qobject_cast<QDeclarativePropertyChanges *>(object)) {
+                propertyChanges->removeProperty(propertyName);
             }
         }
     }

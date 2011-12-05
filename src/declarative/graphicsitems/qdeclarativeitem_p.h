@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -77,6 +77,7 @@ QT_BEGIN_NAMESPACE
 
 class QNetworkReply;
 class QDeclarativeItemKeyFilter;
+class QDeclarativeLayoutMirroringAttached;
 
 //### merge into private?
 class QDeclarativeContents : public QObject, public QDeclarativeItemChangeListener
@@ -125,8 +126,10 @@ public:
       _stateGroup(0), origin(QDeclarativeItem::Center),
       widthValid(false), heightValid(false),
       componentComplete(true), keepMouse(false),
-      smooth(false), transformOriginDirty(true), doneEventPreHandler(false), keyHandler(0),
-      mWidth(0), mHeight(0), implicitWidth(0), implicitHeight(0)
+      smooth(false), transformOriginDirty(true), doneEventPreHandler(false),
+      inheritedLayoutMirror(false), effectiveLayoutMirror(false), isMirrorImplicit(true),
+      inheritMirrorFromParent(false), inheritMirrorFromItem(false), keyHandler(0),
+      mWidth(0), mHeight(0), mImplicitWidth(0), mImplicitHeight(0), attachedLayoutDirection(0), hadSubFocusItem(false)
     {
         QGraphicsItemPrivate::acceptedMouseButtons = 0;
         isDeclarativeItem = 1;
@@ -134,7 +137,6 @@ public:
                                       QGraphicsItem::ItemHasNoContents
                                       | QGraphicsItem::ItemIsFocusable
                                       | QGraphicsItem::ItemNegativeZStacksBehindParent);
-
     }
 
     void init(QDeclarativeItem *parent)
@@ -143,9 +145,15 @@ public:
         if (parent) {
             QDeclarative_setParent_noEvent(q, parent);
             q->setParentItem(parent);
+            QDeclarativeItemPrivate *parentPrivate = QDeclarativeItemPrivate::get(parent);
+            setImplicitLayoutMirror(parentPrivate->inheritedLayoutMirror, parentPrivate->inheritMirrorFromParent);
         }
         baselineOffset.invalidate();
         mouseSetsFocus = false;
+    }
+
+    bool isMirrored() const {
+        return effectiveLayoutMirror;
     }
 
     // Private Properties
@@ -156,6 +164,15 @@ public:
     qreal height() const;
     void setHeight(qreal);
     void resetHeight();
+
+    virtual qreal implicitWidth() const;
+    virtual qreal implicitHeight() const;
+    virtual void implicitWidthChanged();
+    virtual void implicitHeightChanged();
+
+    void resolveLayoutMirror();
+    void setImplicitLayoutMirror(bool mirror, bool inherit);
+    void setLayoutMirror(bool mirror);
 
     QDeclarativeListProperty<QObject> data();
     QDeclarativeListProperty<QObject> resources();
@@ -259,7 +276,7 @@ public:
     QDeclarativeStateGroup *_states();
     QDeclarativeStateGroup *_stateGroup;
 
-    QDeclarativeItem::TransformOrigin origin:4;
+    QDeclarativeItem::TransformOrigin origin:5;
     bool widthValid:1;
     bool heightValid:1;
     bool componentComplete:1;
@@ -267,13 +284,22 @@ public:
     bool smooth:1;
     bool transformOriginDirty : 1;
     bool doneEventPreHandler : 1;
+    bool inheritedLayoutMirror:1;
+    bool effectiveLayoutMirror:1;
+    bool isMirrorImplicit:1;
+    bool inheritMirrorFromParent:1;
+    bool inheritMirrorFromItem:1;
 
     QDeclarativeItemKeyFilter *keyHandler;
 
     qreal mWidth;
     qreal mHeight;
-    qreal implicitWidth;
-    qreal implicitHeight;
+    qreal mImplicitWidth;
+    qreal mImplicitHeight;
+
+    QDeclarativeLayoutMirroringAttached* attachedLayoutDirection;
+
+    bool hadSubFocusItem;
 
     QPointF computeTransformOrigin() const;
 
@@ -288,9 +314,11 @@ public:
     // Reimplemented from QGraphicsItemPrivate
     virtual void subFocusItemChange()
     {
-        if (flags & QGraphicsItem::ItemIsFocusScope || !parent)
-            emit q_func()->activeFocusChanged(subFocusItem != 0);
+        bool hasSubFocusItem = subFocusItem != 0;
+        if (((flags & QGraphicsItem::ItemIsFocusScope) || !parent) && hasSubFocusItem != hadSubFocusItem)
+            emit q_func()->activeFocusChanged(hasSubFocusItem);
         //see also QDeclarativeItemPrivate::focusChanged
+        hadSubFocusItem = hasSubFocusItem;
     }
 
     // Reimplemented from QGraphicsItemPrivate
@@ -316,6 +344,8 @@ public:
     virtual void transformChanged();
 
     virtual void focusChanged(bool);
+
+    virtual void mirrorChange() {};
 
     static qint64 consistentTime;
     static void setConsistentTime(qint64 t);
@@ -411,6 +441,32 @@ Q_SIGNALS:
 private:
     virtual void keyPressed(QKeyEvent *event, bool post);
     virtual void keyReleased(QKeyEvent *event, bool post);
+    void setFocusNavigation(QDeclarativeItem *currentItem, const char *dir);
+};
+
+class QDeclarativeLayoutMirroringAttached : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled RESET resetEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(bool childrenInherit READ childrenInherit WRITE setChildrenInherit NOTIFY childrenInheritChanged)
+
+public:
+    explicit QDeclarativeLayoutMirroringAttached(QObject *parent = 0);
+
+    bool enabled() const;
+    void setEnabled(bool);
+    void resetEnabled();
+
+    bool childrenInherit() const;
+    void setChildrenInherit(bool);
+
+    static QDeclarativeLayoutMirroringAttached *qmlAttachedProperties(QObject *);
+Q_SIGNALS:
+    void enabledChanged();
+    void childrenInheritChanged();
+private:
+    friend class QDeclarativeItemPrivate;
+    QDeclarativeItemPrivate *itemPrivate;
 };
 
 class QDeclarativeKeysAttachedPrivate : public QObjectPrivate
@@ -562,5 +618,7 @@ QML_DECLARE_TYPE(QDeclarativeKeysAttached)
 QML_DECLARE_TYPEINFO(QDeclarativeKeysAttached, QML_HAS_ATTACHED_PROPERTIES)
 QML_DECLARE_TYPE(QDeclarativeKeyNavigationAttached)
 QML_DECLARE_TYPEINFO(QDeclarativeKeyNavigationAttached, QML_HAS_ATTACHED_PROPERTIES)
+QML_DECLARE_TYPE(QDeclarativeLayoutMirroringAttached)
+QML_DECLARE_TYPEINFO(QDeclarativeLayoutMirroringAttached, QML_HAS_ATTACHED_PROPERTIES)
 
 #endif // QDECLARATIVEITEM_P_H

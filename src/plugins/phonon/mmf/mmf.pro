@@ -18,7 +18,7 @@ symbian {
 	# This is necessary because both epoc32/include and Phonon contain videoplayer.h.
 	# By making /epoc32/include the first SYSTEMINCLUDE, we ensure that
 	# '#include <videoplayer.h>' picks up the Symbian header, as intended.
-	PREPEND_INCLUDEPATH = /epoc32/include
+	PREPEND_INCLUDEPATH = $${EPOCROOT}epoc32/include
 
 	PREPEND_INCLUDEPATH += $$QT_SOURCE_TREE/src/3rdparty
 
@@ -75,25 +75,41 @@ symbian {
 			   $$PHONON_MMF_DIR/utils.cpp                \
 			   $$PHONON_MMF_DIR/videowidget.cpp
 
-	# Test for whether the build environment supports video rendering to graphics
-	# surfaces.
-	symbian:exists($${EPOCROOT}epoc32/include/platform/videoplayer2.h) {
-		HEADERS +=                                       \
-			   $$PHONON_MMF_DIR/videooutput_surface.h    \
-			   $$PHONON_MMF_DIR/videoplayer_surface.h
-		SOURCES +=                                       \
-			   $$PHONON_MMF_DIR/videooutput_surface.cpp  \
-			   $$PHONON_MMF_DIR/videoplayer_surface.cpp
-		DEFINES += PHONON_MMF_VIDEO_SURFACES
-	} else {
-		HEADERS +=                                       \
-			   $$PHONON_MMF_DIR/ancestormovemonitor.h    \
-			   $$PHONON_MMF_DIR/videooutput_dsa.h        \
-			   $$PHONON_MMF_DIR/videoplayer_dsa.h
-		SOURCES +=                                       \
-			   $$PHONON_MMF_DIR/ancestormovemonitor.cpp  \
-			   $$PHONON_MMF_DIR/videooutput_dsa.cpp      \
-			   $$PHONON_MMF_DIR/videoplayer_dsa.cpp      \
+	symbian {
+		# Test for whether the build environment supports video rendering to graphics
+		# surfaces.
+		exists($${EPOCROOT}epoc32/include/platform/videoplayer2.h) {
+			HEADERS +=                                       \
+				   $$PHONON_MMF_DIR/videooutput_surface.h    \
+				   $$PHONON_MMF_DIR/videoplayer_surface.h
+			SOURCES +=                                       \
+				   $$PHONON_MMF_DIR/videooutput_surface.cpp  \
+				   $$PHONON_MMF_DIR/videoplayer_surface.cpp
+			DEFINES += PHONON_MMF_VIDEO_SURFACES
+		} else {
+			HEADERS +=                                       \
+				   $$PHONON_MMF_DIR/ancestormovemonitor.h    \
+				   $$PHONON_MMF_DIR/videooutput_dsa.h        \
+				   $$PHONON_MMF_DIR/videoplayer_dsa.h
+			SOURCES +=                                       \
+				   $$PHONON_MMF_DIR/ancestormovemonitor.cpp  \
+				   $$PHONON_MMF_DIR/videooutput_dsa.cpp      \
+				   $$PHONON_MMF_DIR/videoplayer_dsa.cpp      \
+		}
+
+		# Test whether the build environment includes support for the Download Manager
+		# API, required for Progressive Download
+		exists($${EPOCROOT}epoc32/include/downloadmgrclient.h) | \
+		exists($${EPOCROOT}epoc32/include/mw/downloadmgrclient.h) {
+			HEADERS += $$PHONON_MMF_DIR/download.h
+			SOURCES += $$PHONON_MMF_DIR/download.cpp
+                        contains(CONFIG, is_using_gnupoc) {
+                            LIBS += -ldownloadmgr
+                        } else {
+                            LIBS += -lDownloadMgr
+                        }
+			DEFINES += PHONON_MMF_PROGRESSIVE_DOWNLOAD
+		}
 	}
 
 	LIBS += -lcone
@@ -113,7 +129,14 @@ symbian {
 	LIBS += -lmediaclientaudiostream  # For CMdaAudioOutputStream
 
 	# These are for effects.
-	LIBS += -lAudioEqualizerEffect -lBassBoostEffect -lDistanceAttenuationEffect -lDopplerBase -lEffectBase -lEnvironmentalReverbEffect -lListenerDopplerEffect -lListenerLocationEffect -lListenerOrientationEffect -lLocationBase -lLoudnessEffect -lOrientationBase -lSourceDopplerEffect -lSourceLocationEffect -lSourceOrientationEffect -lStereoWideningEffect
+        contains(CONFIG, is_using_gnupoc) {
+            LIBS += -laudioequalizereffect -lbassboosteffect -ldistanceattenuationeffect -ldopplerbase -leffectbase -lenvironmentalreverbeffect -llistenerdopplereffect -llistenerlocationeffect -llistenerorientationeffect -llocationbase -lloudnesseffect -lorientationbase -lsourcedopplereffect -lsourcelocationeffect -lsourceorientationeffect -lstereowideningeffect
+        } else {
+            LIBS += -lAudioEqualizerEffect -lBassBoostEffect -lDistanceAttenuationEffect -lDopplerbase -lEffectBase -lEnvironmentalReverbEffect -lListenerDopplerEffect -lListenerLocationEffect -lListenerOrientationEffect -lLocationBase -lLoudnessEffect -lOrientationBase -lSourceDopplerEffect -lSourceLocationEffect -lSourceOrientationEffect -lStereoWideningEffect
+        }
+
+	# This is to allow IAP to be specified
+	LIBS += -lcommdb
 
 	# This is needed for having the .qtplugin file properly created on Symbian.
 	QTDIR_build:DESTDIR = $$QT_BUILD_TREE/plugins/phonon_backend

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -48,7 +48,7 @@ QT_FORWARD_DECLARE_CLASS(QMouseEvent)
 
 /**
  * Widget which displays a spectrograph showing the frequency spectrum
- * of the window of audio samples most recently analysed by the Engine.
+ * of the window of audio samples most recently analyzed by the Engine.
  */
 class Spectrograph : public QWidget {
     Q_OBJECT

@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -84,8 +84,8 @@ SymbianNetworkConfigurationPrivate::~SymbianNetworkConfigurationPrivate()
 }
 
 SymbianEngine::SymbianEngine(QObject *parent)
-:   QBearerEngine(parent), CActive(CActive::EPriorityHigh), iFirstUpdate(true), iInitOk(true),
-    iUpdatePending(false)
+:   QBearerEngine(parent), CActive(CActive::EPriorityHigh), iFirstUpdate(true), ipCommsDB(0),
+    iInitOk(true), iUpdatePending(false), ipAccessPointsAvailabilityScanner(0)
 {
 }
 
@@ -104,11 +104,11 @@ void SymbianEngine::initialize()
         return;
     }
 
-    TRAP_IGNORE(iConnectionMonitor.ConnectL());
-#ifdef SNAP_FUNCTIONALITY_AVAILABLE
-    TRAP_IGNORE(iConnectionMonitor.SetUintAttribute(EBearerIdAll, 0, KBearerGroupThreshold, 1));
-#endif
-    TRAP_IGNORE(iConnectionMonitor.NotifyEventL(*this));
+    TRAP(error, StartConnectionMonitorNotifyL());
+    if (error != KErrNone) {
+        iInitOk = false;
+        return;
+    }
 
 #ifdef SNAP_FUNCTIONALITY_AVAILABLE
     TRAP(error, iCmManager.OpenL());
@@ -135,30 +135,41 @@ void SymbianEngine::initialize()
 
     updateConfigurations();
     updateStatesToSnaps();
-    updateAvailableAccessPoints(); // On first time updates synchronously (without WLAN scans)
+    updateAvailableAccessPoints(); // On first time updates (without WLAN scans)
     // Start monitoring IAP and/or SNAP changes in Symbian CommsDB
     startCommsDatabaseNotifications();
-    iFirstUpdate = false;
+}
+
+void SymbianEngine::StartConnectionMonitorNotifyL()
+{
+    iConnectionMonitor.ConnectL();
+    CleanupClosePushL(iConnectionMonitor);
+#ifdef SNAP_FUNCTIONALITY_AVAILABLE
+    User::LeaveIfError(iConnectionMonitor.SetUintAttribute(EBearerIdAll, 0, KBearerGroupThreshold, 1));
+#endif
+    iConnectionMonitor.NotifyEventL(*this);
+    CleanupStack::Pop();
 }
 
 SymbianEngine::~SymbianEngine()
 {
     Cancel();
 
-    iConnectionMonitor.CancelNotifications();
-    iConnectionMonitor.Close();
-    
-#ifdef SNAP_FUNCTIONALITY_AVAILABLE    
-    iCmManager.Close();
-#endif
-    
+    //The scanner may be using the connection monitor so it needs to be
+    //deleted first while the handle is still valid.
     delete ipAccessPointsAvailabilityScanner;
 
-    // CCommsDatabase destructor uses cleanup stack. Since QNetworkConfigurationManager
+    iConnectionMonitor.CancelNotifications();
+    iConnectionMonitor.Close();
+
+    // CCommsDatabase destructor and RCmManager.Close() use cleanup stack. Since QNetworkConfigurationManager
     // is a global static, but the time we are here, E32Main() has been exited already and
     // the thread's default cleanup stack has been deleted. Without this line, a
     // 'E32USER-CBase 69' -panic will occur.
     CTrapCleanup* cleanup = CTrapCleanup::New();
+#ifdef SNAP_FUNCTIONALITY_AVAILABLE
+    iCmManager.Close();
+#endif
     delete ipCommsDB;
     delete cleanup;
 }
@@ -790,6 +801,12 @@ void SymbianEngine::accessPointScanningReady(TBool scanSuccessful, TConnMonIapIn
         mutex.unlock();
         emit updateCompleted();
         mutex.lock();
+    } else {
+        iFirstUpdate = false;
+        if (iScanInQueue) {
+            iScanInQueue = EFalse;
+            updateAvailableAccessPoints();
+        }
     }
 }
 
@@ -822,6 +839,7 @@ void SymbianEngine::updateStatesToSnaps()
                 discovered = true;
             }
         }
+        snapConfigLocker.unlock();
         if (active) {
             changeConfigurationStateTo(ptr, QNetworkConfiguration::Active);
         } else if (discovered) {
@@ -976,7 +994,7 @@ void SymbianEngine::RunL()
     QMutexLocker locker(&mutex);
 
     if (iStatus != KErrCancel) {
-        // By default, start relistening notifications. Stop only if interesting event occured.
+        // By default, start relistening notifications. Stop only if interesting event occurred.
         iWaitingCommsDatabaseNotifications = true;
         RDbNotifier::TEvent event = STATIC_CAST(RDbNotifier::TEvent, iStatus.Int());
         switch (event) {
@@ -1356,23 +1374,30 @@ AccessPointsAvailabilityScanner::~AccessPointsAvailabilityScanner()
 void AccessPointsAvailabilityScanner::DoCancel()
 {
     iConnectionMonitor.CancelAsyncRequest(EConnMonGetPckgAttribute);
+    iScanActive = EFalse;
+    iOwner.iScanInQueue = EFalse;
 }
 
 void AccessPointsAvailabilityScanner::StartScanning()
 {
-    if (iOwner.iFirstUpdate) {
-        // On first update (the mgr is being instantiated) update only those bearers who
-        // don't need time-consuming scans (WLAN).
-        // Note: EBearerIdWCDMA covers also GPRS bearer
-        iConnectionMonitor.GetPckgAttribute(EBearerIdWCDMA, 0, KIapAvailability, iIapBuf, iStatus);
-        User::WaitForRequest(iStatus);
-        if (iStatus.Int() == KErrNone) {
-            iOwner.accessPointScanningReady(true,iIapBuf());
+    if (!iScanActive) {
+        iScanActive = ETrue;
+        if (iOwner.iFirstUpdate) {
+            // On first update (the mgr is being instantiated) update only those bearers who
+            // don't need time-consuming scans (WLAN).
+            // Note: EBearerIdWCDMA covers also GPRS bearer
+            iConnectionMonitor.GetPckgAttribute(EBearerIdWCDMA, 0, KIapAvailability, iIapBuf, iStatus);
+        } else {
+            iConnectionMonitor.GetPckgAttribute(EBearerIdAll, 0, KIapAvailability, iIapBuf, iStatus);
         }
-    } else {
-        iConnectionMonitor.GetPckgAttribute(EBearerIdAll, 0, KIapAvailability, iIapBuf, iStatus);
+
         if (!IsActive()) {
             SetActive();
+        }
+    } else {
+        // Queue scan for getting WLAN info after first request returns
+        if (iOwner.iFirstUpdate) {
+            iOwner.iScanInQueue = ETrue;
         }
     }
 }
@@ -1381,6 +1406,7 @@ void AccessPointsAvailabilityScanner::RunL()
 {
     QMutexLocker locker(&iOwner.mutex);
 
+    iScanActive = EFalse;
     if (iStatus.Int() != KErrNone) {
         iIapBuf().iCount = 0;
         QT_TRYCATCH_LEAVING(iOwner.accessPointScanningReady(false,iIapBuf()));

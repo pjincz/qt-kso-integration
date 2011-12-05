@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -227,7 +227,7 @@ public:
     void _q_sourceColumnsRemoved(const QModelIndex &source_parent,
                                  int start, int end);
 
-    void clear_mapping();
+    void _q_clearMapping();
 
     void sort();
     bool update_source_sort_column();
@@ -281,7 +281,7 @@ typedef QHash<QModelIndex, QSortFilterProxyModelPrivate::Mapping *> IndexMap;
 void QSortFilterProxyModelPrivate::_q_sourceModelDestroyed()
 {
     QAbstractProxyModelPrivate::_q_sourceModelDestroyed();
-    clear_mapping();
+    _q_clearMapping();
 }
 
 void QSortFilterProxyModelPrivate::remove_from_mapping(const QModelIndex &source_parent)
@@ -293,7 +293,7 @@ void QSortFilterProxyModelPrivate::remove_from_mapping(const QModelIndex &source
     }
 }
 
-void QSortFilterProxyModelPrivate::clear_mapping()
+void QSortFilterProxyModelPrivate::_q_clearMapping()
 {
     // store the persistent indexes
     QModelIndexPairList source_indexes = store_persistent_indexes();
@@ -782,14 +782,14 @@ void QSortFilterProxyModelPrivate::source_items_inserted(
         if (orthogonal_source_to_proxy.isEmpty()) {
             const int ortho_end = (orient == Qt::Horizontal) ? model->rowCount(source_parent) : model->columnCount(source_parent);
 
+            orthogonal_source_to_proxy.resize(ortho_end);
+
             for (int ortho_item = 0; ortho_item < ortho_end; ++ortho_item) {
                 if ((orient == Qt::Horizontal) ? q->filterAcceptsRow(ortho_item, source_parent)
                         : q->filterAcceptsColumn(ortho_item, source_parent)) {
                     orthogonal_proxy_to_source.append(ortho_item);
                 }
             }
-            orthogonal_source_to_proxy.resize(orthogonal_proxy_to_source.size());
-
             if (orient == Qt::Horizontal) {
                 // We're reacting to columnsInserted, but we've just inserted new rows. Sort them.
                 sort_source_rows(orthogonal_proxy_to_source, source_parent);
@@ -1223,7 +1223,7 @@ void QSortFilterProxyModelPrivate::_q_sourceReset()
 {
     Q_Q(QSortFilterProxyModel);
     invalidatePersistentIndexes();
-    clear_mapping();
+    _q_clearMapping();
     // All internal structures are deleted in clear()
     q->endResetModel();
     update_source_sort_column();
@@ -1519,6 +1519,7 @@ QSortFilterProxyModel::QSortFilterProxyModel(QObject *parent)
     d->filter_column = 0;
     d->filter_role = Qt::DisplayRole;
     d->dynamic_sortfilter = false;
+    connect(this, SIGNAL(modelReset()), this, SLOT(_q_clearMapping()));
 }
 
 /*!
@@ -1620,7 +1621,7 @@ void QSortFilterProxyModel::setSourceModel(QAbstractItemModel *sourceModel)
     connect(d->model, SIGNAL(modelAboutToBeReset()), this, SLOT(_q_sourceAboutToBeReset()));
     connect(d->model, SIGNAL(modelReset()), this, SLOT(_q_sourceReset()));
 
-    d->clear_mapping();
+    d->_q_clearMapping();
     endResetModel();
     if (d->update_source_sort_column() && d->dynamic_sortfilter)
         d->sort();
@@ -2311,7 +2312,7 @@ void QSortFilterProxyModel::clear()
 {
     Q_D(QSortFilterProxyModel);
     emit layoutAboutToBeChanged();
-    d->clear_mapping();
+    d->_q_clearMapping();
     emit layoutChanged();
 }
 
@@ -2326,7 +2327,7 @@ void QSortFilterProxyModel::invalidate()
 {
     Q_D(QSortFilterProxyModel);
     emit layoutAboutToBeChanged();
-    d->clear_mapping();
+    d->_q_clearMapping();
     emit layoutChanged();
 }
 

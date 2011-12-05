@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -66,6 +66,12 @@ public:
 
     enum Status { Null, Ready, Error, Loading };
 
+    enum Option {
+        Asynchronous = 0x00000001,
+        Cache        = 0x00000002
+    };
+    Q_DECLARE_FLAGS(Options, Option)
+
     bool isNull() const;
     bool isReady() const;
     bool isError() const;
@@ -85,9 +91,9 @@ public:
     inline operator const QPixmap &() const;
 
     void load(QDeclarativeEngine *, const QUrl &);
-    void load(QDeclarativeEngine *, const QUrl &, bool);
+    void load(QDeclarativeEngine *, const QUrl &, QDeclarativePixmap::Options options);
     void load(QDeclarativeEngine *, const QUrl &, const QSize &);
-    void load(QDeclarativeEngine *, const QUrl &, const QSize &, bool);
+    void load(QDeclarativeEngine *, const QUrl &, const QSize &, QDeclarativePixmap::Options options);
 
     void clear();
     void clear(QObject *);
@@ -96,6 +102,8 @@ public:
     bool connectFinished(QObject *, int);
     bool connectDownloadProgress(QObject *, const char *);
     bool connectDownloadProgress(QObject *, int);
+
+    static void flushCache();
 
 private:
     Q_DISABLE_COPY(QDeclarativePixmap)
@@ -106,6 +114,8 @@ inline QDeclarativePixmap::operator const QPixmap &() const
 {
     return pixmap();
 }
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(QDeclarativePixmap::Options)
 
 QT_END_NAMESPACE
 

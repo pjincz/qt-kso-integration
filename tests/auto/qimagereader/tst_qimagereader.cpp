@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -54,6 +54,8 @@
 #include <QTcpSocket>
 #include <QTcpServer>
 #include <QTimer>
+
+#include "../platformquirks.h"
 
 #if defined(Q_OS_SYMBIAN)
 # define SRCDIR "."
@@ -178,6 +180,8 @@ private slots:
     void testIgnoresFormatAndExtension_data();
     void testIgnoresFormatAndExtension();
 
+    void saveFormat_data();
+    void saveFormat();
 };
 
 static const QLatin1String prefix(SRCDIR "/images/");
@@ -313,23 +317,27 @@ void tst_QImageReader::jpegRgbCmyk()
     QImage image1(prefix + QLatin1String("YCbCr_cmyk.jpg"));
     QImage image2(prefix + QLatin1String("YCbCr_cmyk.png"));
 
-    // first, do some obvious tests
-    QCOMPARE(image1.height(), image2.height());
-    QCOMPARE(image1.width(), image2.width());
-    QCOMPARE(image1.format(), image2.format());
-    QCOMPARE(image1.format(), QImage::Format_RGB32);
+    if (PlatformQuirks::isImageLoaderImprecise()) {
+        // first, do some obvious tests
+        QCOMPARE(image1.height(), image2.height());
+        QCOMPARE(image1.width(), image2.width());
+        QCOMPARE(image1.format(), image2.format());
+        QCOMPARE(image1.format(), QImage::Format_RGB32);
 
-    // compare all the pixels with a slack of 3. This ignores rounding errors in libjpeg/libpng
-    for (int h = 0; h < image1.height(); ++h) {
-        const uchar *s1 = image1.constScanLine(h);
-        const uchar *s2 = image2.constScanLine(h);
-        for (int w = 0; w < image1.width() * 4; ++w) {
-            if (*s1 != *s2) {
-                QVERIFY2(qAbs(*s1 - *s2) <= 3, qPrintable(QString("images differ in line %1, col %2 (image1: %3, image2: %4)").arg(h).arg(w).arg(*s1, 0, 16).arg(*s2, 0, 16)));
+        // compare all the pixels with a slack of 3. This ignores rounding errors in libjpeg/libpng
+        for (int h = 0; h < image1.height(); ++h) {
+            const uchar *s1 = image1.constScanLine(h);
+            const uchar *s2 = image2.constScanLine(h);
+            for (int w = 0; w < image1.width() * 4; ++w) {
+                if (*s1 != *s2) {
+                    QVERIFY2(qAbs(*s1 - *s2) <= 3, qPrintable(QString("images differ in line %1, col %2 (image1: %3, image2: %4)").arg(h).arg(w).arg(*s1, 0, 16).arg(*s2, 0, 16)));
+                }
+                s1++;
+                s2++;
             }
-            s1++;
-            s2++;
         }
+    } else {
+        QCOMPARE(image1, image2);
     }
 }
 
@@ -1391,6 +1399,9 @@ void tst_QImageReader::readFromResources_data()
     QTest::newRow("corrupt-pixels.xpm") << QString("corrupt-pixels.xpm")
                                                << QByteArray("xpm") << QSize(0, 0)
                                                << QString("QImage: XPM pixels missing on image line 3");
+    QTest::newRow("corrupt-pixel-count.xpm") << QString("corrupt-pixel-count.xpm")
+                                             << QByteArray("xpm") << QSize(0, 0)
+                                             << QString("");
     QTest::newRow("marble.xpm") << QString("marble.xpm")
                                        << QByteArray("xpm") << QSize(240, 240)
                                        << QString("");
@@ -1904,6 +1915,47 @@ void tst_QImageReader::testIgnoresFormatAndExtension()
         QCOMPARE(format, expected);
     }
 }
+
+
+void tst_QImageReader::saveFormat_data()
+{
+    QTest::addColumn<QImage::Format>("format");
+
+    QTest::newRow("Format_Mono") << QImage::Format_Mono;
+    QTest::newRow("Format_MonoLSB") << QImage::Format_MonoLSB;
+    QTest::newRow("Format_Indexed8") << QImage::Format_Indexed8;
+    QTest::newRow("Format_RGB32") << QImage::Format_RGB32;
+    QTest::newRow("Format_ARGB32") << QImage::Format_ARGB32;
+    QTest::newRow("Format_ARGB32_Premultiplied") << QImage::Format_ARGB32_Premultiplied;
+    QTest::newRow("Format_RGB16") << QImage::Format_RGB16;
+    QTest::newRow("Format_ARGB8565_Premultiplied") << QImage::Format_ARGB8565_Premultiplied;
+    QTest::newRow("Format_RGB666") << QImage::Format_RGB666;
+    QTest::newRow("Format_ARGB6666_Premultiplied") << QImage::Format_ARGB6666_Premultiplied;
+    QTest::newRow("Format_RGB555") << QImage::Format_RGB555;
+    QTest::newRow("Format_ARGB8555_Premultiplied") << QImage::Format_ARGB8555_Premultiplied;
+    QTest::newRow("Format_RGB888") << QImage::Format_RGB888;
+    QTest::newRow("Format_RGB444") << QImage::Format_RGB444;
+    QTest::newRow("Format_ARGB4444_Premultiplied") << QImage::Format_ARGB4444_Premultiplied;
+}
+
+void tst_QImageReader::saveFormat()
+{
+    QFETCH(QImage::Format, format);
+
+    QImage orig(":/images/kollada.png");
+
+    QImage converted = orig.convertToFormat(format);
+    QBuffer buf;
+    buf.open(QIODevice::WriteOnly);
+    QVERIFY(converted.save(&buf, "png"));
+    buf.close();
+    QImage stored = QImage::fromData(buf.buffer(), "png");
+
+    stored = stored.convertToFormat(QImage::Format_ARGB32);
+    converted = converted.convertToFormat(QImage::Format_ARGB32);
+    QCOMPARE(stored, converted);
+}
+
 
 QTEST_MAIN(tst_QImageReader)
 #include "tst_qimagereader.moc"

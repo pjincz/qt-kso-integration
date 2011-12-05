@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtGui module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -894,16 +894,16 @@ void QTextEngine::shapeText(int item) const
                 if (letterSpacingIsAbsolute)
                     glyphs.advances_x[i-1] += letterSpacing;
                 else {
-                    const QFixed advance = glyphs.advances_x[i-1];
-                    glyphs.advances_x[i-1] += (letterSpacing - 100) * advance / 100;
+                    QFixed &advance = glyphs.advances_x[i-1];
+                    advance += (letterSpacing - 100) * advance / 100;
                 }
             }
         }
         if (letterSpacingIsAbsolute)
             glyphs.advances_x[si.num_glyphs-1] += letterSpacing;
         else {
-            const QFixed advance = glyphs.advances_x[si.num_glyphs-1];
-            glyphs.advances_x[si.num_glyphs-1] += (letterSpacing - 100) * advance / 100;
+            QFixed &advance = glyphs.advances_x[si.num_glyphs-1];
+            advance += (letterSpacing - 100) * advance / 100;
         }
     }
     if (wordSpacing != 0) {
@@ -1233,6 +1233,8 @@ void QTextEngine::shapeTextWithHarfbuzz(int item) const
             shaper_item.num_glyphs -= itemBoundaries[k + 1];
         }
         shaper_item.initialGlyphCount = shaper_item.num_glyphs;
+        if (shaper_item.num_glyphs < shaper_item.item.length)
+            shaper_item.num_glyphs = shaper_item.item.length;
 
         QFontEngine *actualFontEngine = font;
         uint engineIdx = 0;
@@ -1257,7 +1259,8 @@ void QTextEngine::shapeTextWithHarfbuzz(int item) const
             }
 
             const QGlyphLayout g = availableGlyphs(&si).mid(glyph_pos);
-            moveGlyphData(g.mid(shaper_item.num_glyphs), g.mid(shaper_item.initialGlyphCount), remaining_glyphs);
+            if (shaper_item.num_glyphs > shaper_item.item.length)
+                moveGlyphData(g.mid(shaper_item.num_glyphs), g.mid(shaper_item.initialGlyphCount), remaining_glyphs);
 
             shaper_item.glyphs = g.glyphs;
             shaper_item.attributes = g.attributes;
@@ -1382,6 +1385,15 @@ void QTextEngine::shape(int item) const
     }
 }
 
+static inline void releaseCachedFontEngine(QFontEngine *fontEngine)
+{
+    if (fontEngine) {
+        fontEngine->ref.deref();
+        if (fontEngine->cache_count == 0 && fontEngine->ref == 0)
+            delete fontEngine;
+    }
+}
+
 void QTextEngine::invalidate()
 {
     freeMemory();
@@ -1389,6 +1401,10 @@ void QTextEngine::invalidate()
     maxWidth = 0;
     if (specialData)
         specialData->resolvedFormatIndices.clear();
+
+    releaseCachedFontEngine(feCache.prevFontEngine);
+    releaseCachedFontEngine(feCache.prevScaledFontEngine);
+    feCache.reset();
 }
 
 void QTextEngine::clearLineData()
@@ -1561,19 +1577,13 @@ bool QTextEngine::isRightToLeft() const
 int QTextEngine::findItem(int strPos) const
 {
     itemize();
-    int left = 0;
-    int right = layoutData->items.size()-1;
-    while(left <= right) {
-        int middle = ((right-left)/2)+left;
-        if (strPos > layoutData->items[middle].position)
-            left = middle+1;
-        else if(strPos < layoutData->items[middle].position)
-            right = middle-1;
-        else {
-            return middle;
-        }
+
+    int item;
+    for (item = layoutData->items.size()-1; item > 0; --item) {
+        if (layoutData->items[item].position <= strPos)
+            break;
     }
-    return right;
+    return item;
 }
 
 QFixed QTextEngine::width(int from, int len) const
@@ -1780,6 +1790,13 @@ QFont QTextEngine::font(const QScriptItem &si) const
     return font;
 }
 
+QTextEngine::FontEngineCache::FontEngineCache()
+{
+    reset();
+}
+
+//we cache the previous results of this function, as calling it numerous times with the same effective
+//input is common (and hard to cache at a higher level)
 QFontEngine *QTextEngine::fontEngine(const QScriptItem &si, QFixed *ascent, QFixed *descent, QFixed *leading) const
 {
     QFontEngine *engine = 0;
@@ -1788,28 +1805,53 @@ QFontEngine *QTextEngine::fontEngine(const QScriptItem &si, QFixed *ascent, QFix
 
     QFont font = fnt;
     if (hasFormats()) {
-        QTextCharFormat f = format(&si);
-        font = f.font();
-
-        if (block.docHandle() && block.docHandle()->layout()) {
-            // Make sure we get the right dpi on printers
-            QPaintDevice *pdev = block.docHandle()->layout()->paintDevice();
-            if (pdev)
-                font = QFont(font, pdev);
+        if (feCache.prevFontEngine && feCache.prevPosition == si.position && feCache.prevLength == length(&si) && feCache.prevScript == script) {
+            engine = feCache.prevFontEngine;
+            scaledEngine = feCache.prevScaledFontEngine;
         } else {
-            font = font.resolve(fnt);
-        }
-        engine = font.d->engineForScript(script);
-        QTextCharFormat::VerticalAlignment valign = f.verticalAlignment();
-        if (valign == QTextCharFormat::AlignSuperScript || valign == QTextCharFormat::AlignSubScript) {
-            if (font.pointSize() != -1)
-                font.setPointSize((font.pointSize() * 2) / 3);
-            else
-                font.setPixelSize((font.pixelSize() * 2) / 3);
-            scaledEngine = font.d->engineForScript(script);
+            QTextCharFormat f = format(&si);
+            font = f.font();
+
+            if (block.docHandle() && block.docHandle()->layout()) {
+                // Make sure we get the right dpi on printers
+                QPaintDevice *pdev = block.docHandle()->layout()->paintDevice();
+                if (pdev)
+                    font = QFont(font, pdev);
+            } else {
+                font = font.resolve(fnt);
+            }
+            engine = font.d->engineForScript(script);
+            QTextCharFormat::VerticalAlignment valign = f.verticalAlignment();
+            if (valign == QTextCharFormat::AlignSuperScript || valign == QTextCharFormat::AlignSubScript) {
+                if (font.pointSize() != -1)
+                    font.setPointSize((font.pointSize() * 2) / 3);
+                else
+                    font.setPixelSize((font.pixelSize() * 2) / 3);
+                scaledEngine = font.d->engineForScript(script);
+            }
+            feCache.prevFontEngine = engine;
+            if (engine)
+                engine->ref.ref();
+            feCache.prevScaledFontEngine = scaledEngine;
+            if (scaledEngine)
+                scaledEngine->ref.ref();
+            feCache.prevScript = script;
+            feCache.prevPosition = si.position;
+            feCache.prevLength = length(&si);
         }
     } else {
-        engine = font.d->engineForScript(script);
+        if (feCache.prevFontEngine && feCache.prevScript == script && feCache.prevPosition == -1)
+            engine = feCache.prevFontEngine;
+        else {
+            engine = font.d->engineForScript(script);
+            feCache.prevFontEngine = engine;
+            if (engine)
+                engine->ref.ref();
+            feCache.prevScript = script;
+            feCache.prevPosition = -1;
+            feCache.prevLength = -1;
+            feCache.prevScaledFontEngine = 0;
+        }
     }
 
     if (si.analysis.flags == QScriptAnalysis::SmallCaps) {
@@ -1879,7 +1921,7 @@ void QTextEngine::justify(const QScriptLine &line)
         if (end == layoutData->string.length())
             return; // no justification at end of paragraph
         if (end && layoutData->items[findItem(end-1)].analysis.flags == QScriptAnalysis::LineOrParagraphSeparator)
-            return; // no justification at the end of an explicitely separated line
+            return; // no justification at the end of an explicitly separated line
     }
 
     // justify line
@@ -1949,9 +1991,11 @@ void QTextEngine::justify(const QScriptLine &line)
                 if (kashida_pos >= 0) {
 //                     qDebug("kashida position at %d in word", kashida_pos);
                     set(&justificationPoints[nPoints], kashida_type, g.mid(kashida_pos), fontEngine(si));
-                    minKashida = qMin(minKashida, justificationPoints[nPoints].kashidaWidth);
-                    maxJustify = qMax(maxJustify, justificationPoints[nPoints].type);
-                    ++nPoints;
+                    if (justificationPoints[nPoints].kashidaWidth > 0) {
+                        minKashida = qMin(minKashida, justificationPoints[nPoints].kashidaWidth);
+                        maxJustify = qMax(maxJustify, justificationPoints[nPoints].type);
+                        ++nPoints;
+                    }
                 }
                 kashida_pos = -1;
                 kashida_type = HB_Arabic_Normal;
@@ -1975,9 +2019,11 @@ void QTextEngine::justify(const QScriptLine &line)
         }
         if (kashida_pos >= 0) {
             set(&justificationPoints[nPoints], kashida_type, g.mid(kashida_pos), fontEngine(si));
-            minKashida = qMin(minKashida, justificationPoints[nPoints].kashidaWidth);
-            maxJustify = qMax(maxJustify, justificationPoints[nPoints].type);
-            ++nPoints;
+            if (justificationPoints[nPoints].kashidaWidth > 0) {
+                minKashida = qMin(minKashida, justificationPoints[nPoints].kashidaWidth);
+                maxJustify = qMax(maxJustify, justificationPoints[nPoints].type);
+                ++nPoints;
+            }
         }
     }
 
@@ -2517,14 +2563,14 @@ void QTextEngine::setBoundary(int strPos) const
         return;
 
     int itemToSplit = 0;
-    while (itemToSplit < layoutData->items.size() && layoutData->items[itemToSplit].position <= strPos)
+    while (itemToSplit < layoutData->items.size() && layoutData->items.at(itemToSplit).position <= strPos)
         itemToSplit++;
     itemToSplit--;
-    if (layoutData->items[itemToSplit].position == strPos) {
+    if (layoutData->items.at(itemToSplit).position == strPos) {
         // already a split at the requested position
         return;
     }
-    splitItem(itemToSplit, strPos - layoutData->items[itemToSplit].position);
+    splitItem(itemToSplit, strPos - layoutData->items.at(itemToSplit).position);
 }
 
 void QTextEngine::splitItem(int item, int pos) const
@@ -2674,6 +2720,92 @@ void QTextEngine::resolveAdditionalFormats() const
     specialData->resolvedFormatIndices = indices;
 }
 
+QFixed QTextEngine::leadingSpaceWidth(const QScriptLine &line)
+{
+    if (!line.hasTrailingSpaces
+        || (option.flags() & QTextOption::IncludeTrailingSpaces)
+        || !isRightToLeft())
+        return QFixed();
+
+    int pos = line.length;
+    const HB_CharAttributes *attributes = this->attributes();
+    if (!attributes)
+        return QFixed();
+    while (pos > 0 && attributes[line.from + pos - 1].whiteSpace)
+        --pos;
+    return width(line.from + pos, line.length - pos);
+}
+
+// Scan in logClusters[from..to-1] for glyph_pos
+int QTextEngine::getClusterLength(unsigned short *logClusters,
+                                  const HB_CharAttributes *attributes,
+                                  int from, int to, int glyph_pos, int *start)
+{
+    int clusterLength = 0;
+    for (int i = from; i < to; i++) {
+        if (logClusters[i] == glyph_pos && attributes[i].charStop) {
+            if (*start < 0)
+                *start = i;
+            clusterLength++;
+        }
+        else if (clusterLength)
+            break;
+    }
+    return clusterLength;
+}
+
+int QTextEngine::positionInLigature(const QScriptItem *si, int end,
+                                    QFixed x, QFixed edge, int glyph_pos,
+                                    bool cursorOnCharacter)
+{
+    unsigned short *logClusters = this->logClusters(si);
+    int clusterStart = -1;
+    int clusterLength = 0;
+
+    if (si->analysis.script != QUnicodeTables::Common &&
+        si->analysis.script != QUnicodeTables::Greek) {
+        if (glyph_pos == -1)
+            return si->position + end;
+        else {
+            int i;
+            for (i = 0; i < end; i++)
+                if (logClusters[i] == glyph_pos)
+                    break;
+            return si->position + i;
+        }
+    }
+
+    if (glyph_pos == -1 && end > 0)
+        glyph_pos = logClusters[end - 1];
+    else {
+        if (x <= edge)
+            glyph_pos--;
+    }
+
+    const HB_CharAttributes *attrs = attributes();
+    logClusters = this->logClusters(si);
+    clusterLength = getClusterLength(logClusters, attrs, 0, end, glyph_pos, &clusterStart);
+
+    if (clusterLength) {
+        const QGlyphLayout &glyphs = shapedGlyphs(si);
+        QFixed glyphWidth = glyphs.effectiveAdvance(glyph_pos);
+        // the approximate width of each individual element of the ligature
+        QFixed perItemWidth = glyphWidth / clusterLength;
+        QFixed left = x > edge ? edge : edge - glyphWidth;
+        int n = ((x - left) / perItemWidth).floor().toInt();
+        QFixed dist = x - left - n * perItemWidth;
+        int closestItem = dist > (perItemWidth / 2) ? n + 1 : n;
+        if (cursorOnCharacter && closestItem > 0)
+            closestItem--;
+        int pos = si->position + clusterStart + closestItem;
+        // Jump to the next charStop
+        while (!attrs[pos].charStop && pos < end)
+            pos++;
+        return pos;
+    }
+    return si->position + end;
+}
+
 QStackTextEngine::QStackTextEngine(const QString &string, const QFont &f)
     : QTextEngine(string, f),
       _layoutData(string, _memory, MemSize)
@@ -2686,6 +2818,22 @@ QTextItemInt::QTextItemInt(const QScriptItem &si, QFont *font, const QTextCharFo
     : justified(false), underlineStyle(QTextCharFormat::NoUnderline), charFormat(format),
       num_chars(0), chars(0), logClusters(0), f(0), fontEngine(0)
 {
+    f = font;
+    fontEngine = f->d->engineForScript(si.analysis.script);
+    Q_ASSERT(fontEngine);
+
+    initWithScriptItem(si);
+}
+
+QTextItemInt::QTextItemInt(const QGlyphLayout &g, QFont *font, const QChar *chars_, int numChars, QFontEngine *fe, const QTextCharFormat &format)
+    : flags(0), justified(false), underlineStyle(QTextCharFormat::NoUnderline), charFormat(format),
+      num_chars(numChars), chars(chars_), logClusters(0), f(font),  glyphs(g), fontEngine(fe)
+{
+}
+
+// Fix up flags and underlineStyle with given info
+void QTextItemInt::initWithScriptItem(const QScriptItem &si)
+{
     // explicitly initialize flags so that initFontAttributes can be called
     // multiple times on the same TextItem
     flags = 0;
@@ -2693,13 +2841,10 @@ QTextItemInt::QTextItemInt(const QScriptItem &si, QFont *font, const QTextCharFo
         flags |= QTextItem::RightToLeft;
     ascent = si.ascent;
     descent = si.descent;
-    f = font;
-    fontEngine = f->d->engineForScript(si.analysis.script);
-    Q_ASSERT(fontEngine);
 
-    if (format.hasProperty(QTextFormat::TextUnderlineStyle)) {
-        underlineStyle = format.underlineStyle();
-    } else if (format.boolProperty(QTextFormat::FontUnderline)
+    if (charFormat.hasProperty(QTextFormat::TextUnderlineStyle)) {
+        underlineStyle = charFormat.underlineStyle();
+    } else if (charFormat.boolProperty(QTextFormat::FontUnderline)
                || f->d->underline) {
         underlineStyle = QTextCharFormat::SingleUnderline;
     }
@@ -2708,16 +2853,10 @@ QTextItemInt::QTextItemInt(const QScriptItem &si, QFont *font, const QTextCharFo
     if (underlineStyle == QTextCharFormat::SingleUnderline)
         flags |= QTextItem::Underline;
 
-    if (f->d->overline || format.fontOverline())
+    if (f->d->overline || charFormat.fontOverline())
         flags |= QTextItem::Overline;
-    if (f->d->strikeOut || format.fontStrikeOut())
+    if (f->d->strikeOut || charFormat.fontStrikeOut())
         flags |= QTextItem::StrikeOut;
-}
-
-QTextItemInt::QTextItemInt(const QGlyphLayout &g, QFont *font, const QChar *chars_, int numChars, QFontEngine *fe)
-    : flags(0), justified(false), underlineStyle(QTextCharFormat::NoUnderline),
-      num_chars(numChars), chars(chars_), logClusters(0), f(font),  glyphs(g), fontEngine(fe)
-{
 }
 
 QTextItemInt QTextItemInt::midItem(QFontEngine *fontEngine, int firstGlyphIndex, int numGlyphs) const

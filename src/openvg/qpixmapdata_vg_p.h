@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtOpenVG module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -54,7 +54,8 @@
 //
 
 #include <QtGui/private/qpixmap_raster_p.h>
-#include <private/qvg_p.h>
+#include <QtGui/private/qvolatileimage_p.h>
+#include "qvg_p.h"
 
 #if defined(Q_OS_SYMBIAN)
 class RSGImage;
@@ -74,6 +75,8 @@ void qt_vg_register_pixmap(QVGPixmapData *pd);
 void qt_vg_unregister_pixmap(QVGPixmapData *pd);
 void qt_vg_hibernate_pixmaps(QVGSharedContext *context);
 #endif
+
+class QNativeImageHandleProvider;
 
 class Q_OPENVG_EXPORT QVGPixmapData : public QPixmapData
 {
@@ -99,6 +102,7 @@ public:
     bool hasAlphaChannel() const;
     void setAlphaChannel(const QPixmap &alphaChannel);
     QImage toImage() const;
+    void copy(const QPixmapData *data, const QRect &rect);
     QImage *buffer();
     QPaintEngine* paintEngine() const;
 
@@ -124,11 +128,22 @@ public:
     // VGImage objects to reuse storage.
     virtual void reclaimImages();
 
+    // If vgImage is valid but source is null, copies pixel data from GPU back
+    // into main memory and destroys vgImage. For a normal pixmap this function
+    // does nothing, however if the pixmap was created directly from a VGImage
+    // (e.g. via SgImage on Symbian) then by doing the readback this ensures
+    // that QImage-based functions can operate too.
+    virtual void ensureReadback(bool readOnly) const;
+
     QSize size() const { return QSize(w, h); }
 
 #if defined(Q_OS_SYMBIAN)
+    QVolatileImage toVolatileImage() const;
     void* toNativeType(NativeType type);
     void fromNativeType(void* pixmap, NativeType type);
+    bool initFromNativeImageHandle(void *handle, const QString &type);
+    void createFromNativeImageHandleProvider();
+    void releaseNativeImageHandle();
 #endif
 
 protected:
@@ -143,7 +158,9 @@ private:
     QVGPixmapData *nextLRU;
     QVGPixmapData *prevLRU;
     bool inLRU;
+    bool failedToAlloc;
     friend class QVGImagePool;
+    friend class QVGPaintEngine;
 
 #if !defined(QT_NO_EGL)
     QVGPixmapData *next;
@@ -159,15 +176,23 @@ protected:
     VGImage vgImage;
     VGImage vgImageOpacity;
     qreal cachedOpacity;
-    mutable QImage source;
+    mutable QVolatileImage source;
     mutable bool recreate;
     bool inImagePool;
 #if !defined(QT_NO_EGL)
     mutable QEglContext *context;
 #endif
 
-    void forceToImage();
+#if defined(Q_OS_SYMBIAN)
+    mutable QNativeImageHandleProvider *nativeImageHandleProvider;
+    void *nativeImageHandle;
+    QString nativeImageType;
+#endif
+
+    void forceToImage(bool allowReadback = true);
     QImage::Format sourceFormat() const;
+    QImage::Format idealFormat(QImage *image, Qt::ImageConversionFlags flags) const;
+    void updateSerial();
 
     void destroyImageAndContext();
     void destroyImages();

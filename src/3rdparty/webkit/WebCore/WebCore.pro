@@ -15,7 +15,7 @@ symbian: {
     webkitlibs.path = /sys/bin
     vendorinfo = \
         "; Localised Vendor name" \
-        "%{\"Nokia, Qt\"}" \
+        "%{\"Nokia\"}" \
         " " \
         "; Unique Vendor name" \
         ":\"Nokia, Qt\"" \
@@ -37,15 +37,14 @@ symbian: {
     # Need to guarantee that these come before system includes of /epoc32/include
     MMP_RULES += "USERINCLUDE rendering"
     MMP_RULES += "USERINCLUDE platform/text"
-    symbian-abld|symbian-sbsv2 {
-        # RO text (code) section in qtwebkit.dll exceeds allocated space for gcce udeb target.
-        # Move RW-section base address to start from 0xE00000 instead of the toolchain default 0x400000.
-        QMAKE_LFLAGS.ARMCC += --rw-base 0xE00000
-        MMP_RULES += ALWAYS_BUILD_AS_ARM
-    }  else {
-        QMAKE_CFLAGS -= --thumb
-        QMAKE_CXXFLAGS -= --thumb
-    }
+
+    # RO text (code) section in qtwebkit.dll exceeds allocated space for gcce udeb target.
+    # Move RW-section base address to start from 0xE00000 instead of the toolchain default 0x400000.
+    QMAKE_LFLAGS.ARMCC += --rw-base 0xE00000
+    QMAKE_LFLAGS.GCCE += -Tdata 0x1000000
+
+    CONFIG += do_not_build_as_thumb
+
     CONFIG(release, debug|release): QMAKE_CXXFLAGS.ARMCC += -OTime -O3
 }
 
@@ -104,7 +103,7 @@ freebsd-*: DEFINES += HAVE_PTHREAD_NP_H
 DEFINES += BUILD_WEBKIT
 
 # Remove whole program optimizations due to miscompilations
-win32-msvc2005|win32-msvc2008:{
+win32-msvc2005|win32-msvc2008|wince*:{
     QMAKE_CFLAGS_RELEASE -= -GL
     QMAKE_CXXFLAGS_RELEASE -= -GL
 }
@@ -2952,7 +2951,7 @@ HEADERS += $$WEBKIT_API_HEADERS
     }
 }
 
-CONFIG(QTDIR_build) {
+!CONFIG(webkit-debug):CONFIG(QTDIR_build) {
     # Remove the following 2 lines if you want debug information in WebCore
     CONFIG -= separate_debug_info
     CONFIG += no_debug_info

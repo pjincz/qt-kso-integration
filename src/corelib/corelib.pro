@@ -33,29 +33,10 @@ contains(DEFINES,QT_EVAL):include(eval.pri)
 symbian: {
     TARGET.UID3=0x2001B2DC
 
-    # Workaroud for problems with paging this dll
-    MMP_RULES -= PAGED
-    MMP_RULES *= UNPAGED
-
-    # Partial upgrade SIS file
-    vendorinfo = \
-        "; Localised Vendor name" \
-        "%{\"Nokia, Qt\"}" \
-        " " \
-        "; Unique Vendor name" \
-        ":\"Nokia, Qt\"" \
-        " "
-    pu_header = "; Partial upgrade package for testing QtCore changes without reinstalling everything" \
-                "$${LITERAL_HASH}{\"Qt corelib\"}, (0x2001E61C), $${QT_MAJOR_VERSION},$${QT_MINOR_VERSION},$${QT_PATCH_VERSION}, TYPE=PU"
-    partial_upgrade.pkg_prerules = pu_header vendorinfo
-    partial_upgrade.sources = $$QMAKE_LIBDIR_QT/QtCore$${QT_LIBINFIX}.dll
-    partial_upgrade.path = c:/sys/bin
-    DEPLOYMENT = partial_upgrade $$DEPLOYMENT
+    # Problems using data exports from this DLL mean that we can't page it on releases that don't support
+    # data exports (currently that's any release before Symbian^3)
+    pagingBlock = "$${LITERAL_HASH}ifndef SYMBIAN_DLL_DATA_EXPORTS_SUPPORTED" \
+                  "UNPAGED" \
+                  "$${LITERAL_HASH}endif"
+    MMP_RULES += pagingBlock
 }
-
-neon {
-    DEFINES += QT_HAVE_NEON
-    QMAKE_CXXFLAGS *= -mfpu=neon
-}
-
-

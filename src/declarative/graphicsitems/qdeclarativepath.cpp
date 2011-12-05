@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -46,6 +46,8 @@
 #include <QTime>
 
 #include <private/qbezier_p.h>
+#include <QtCore/qmath.h>
+#include <QtCore/qnumeric.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -367,9 +369,11 @@ void QDeclarativePath::createPointCache() const
 {
     Q_D(const QDeclarativePath);
     qreal pathLength = d->_path.length();
+    if (pathLength <= 0 || qIsNaN(pathLength))
+        return;
     // more points means less jitter between items as they move along the
     // path, but takes longer to generate
-    const int points = int(pathLength*5);
+    const int points = qCeil(pathLength*5);
     const int lastElement = d->_path.elementCount() - 1;
     d->_pointCache.resize(points+1);
 
@@ -418,6 +422,8 @@ QPointF QDeclarativePath::pointAt(qreal p) const
     Q_D(const QDeclarativePath);
     if (d->_pointCache.isEmpty()) {
         createPointCache();
+        if (d->_pointCache.isEmpty())
+            return QPointF();
     }
     int idx = qRound(p*d->_pointCache.size());
     if (idx >= d->_pointCache.size())
@@ -491,17 +497,17 @@ void QDeclarativeCurve::setY(qreal y)
     \since 4.7
     \brief The PathAttribute allows setting an attribute at a given position in a Path.
 
-    The PathAttribute object allows attibutes consisting of a name and
-    a value to be specified for the endpoints of path segments.  The
+    The PathAttribute object allows attributes consisting of a name and
+    a value to be specified for various points along a path.  The
     attributes are exposed to the delegate as
     \l{qdeclarativeintroduction.html#attached-properties} {Attached Properties}.
-    The value of an attribute at any particular point is interpolated
-    from the PathAttributes bounding the point.
+    The value of an attribute at any particular point along the path is interpolated
+    from the PathAttributes bounding that point.
 
     The example below shows a path with the items scaled to 30% with
     opacity 50% at the top of the path and scaled 100% with opacity
-    100% at the bottom.  Note the use of the PathView.scale and
-    PathView.opacity attached properties to set the scale and opacity
+    100% at the bottom.  Note the use of the PathView.iconScale and
+    PathView.iconOpacity attached properties to set the scale and opacity
     of the delegate.
 
     \table
@@ -509,14 +515,17 @@ void QDeclarativeCurve::setY(qreal y)
     \o \image declarative-pathattribute.png
     \o
     \snippet doc/src/snippets/declarative/pathview/pathattributes.qml 0
+    (see the PathView documentation for the specification of ContactModel.qml
+     used for ContactModel above.)
     \endtable
 
-   \sa Path
+
+    \sa Path
 */
 
 /*!
     \qmlproperty string PathAttribute::name
-    the name of the attribute to change.
+    This property holds the name of the attribute to change.
 
     This attribute will be available to the delegate as PathView.<name>
 
@@ -544,8 +553,39 @@ void QDeclarativePathAttribute::setName(const QString &name)
 }
 
 /*!
-   \qmlproperty string PathAttribute::value
-   the new value of the attribute.
+   \qmlproperty real PathAttribute::value
+   This property holds the value for the attribute.
+
+   The value specified can be used to influence the visual appearance
+   of an item along the path. For example, the following Path specifies
+   an attribute named \e itemRotation, which has the value \e 0 at the
+   beginning of the path, and the value 90 at the end of the path.
+
+   \qml
+   Path {
+       startX: 0
+       startY: 0
+       PathAttribute { name: "itemRotation"; value: 0 }
+       PathLine { x: 100; y: 100 }
+       PathAttribute { name: "itemRotation"; value: 90 }
+   }
+   \endqml
+
+   In our delegate, we can then bind the \e rotation property to the
+   \l{qdeclarativeintroduction.html#attached-properties} {Attached Property}
+   \e PathView.itemRotation created for this attribute.
+
+   \qml
+   Rectangle {
+       width: 10; height: 10
+       rotation: PathView.itemRotation
+   }
+   \endqml
+
+   As each item is positioned along the path, it will be rotated accordingly:
+   an item at the beginning of the path with be not be rotated, an item at
+   the end of the path will be rotated 90 degrees, and an item mid-way along
+   the path will be rotated 45 degrees.
 */
 
 /*!
@@ -792,6 +832,10 @@ void QDeclarativePathCubic::addToPath(QPainterPath &path)
     \since 4.7
     \brief The PathPercent manipulates the way a path is interpreted.
 
+    PathPercent allows you to manipulate the spacing between items on a
+    PathView's path. You can use it to bunch together items on part of
+    the path, and spread them out on other parts of the path.
+
     The examples below show the normal distrubution of items along a path
     compared to a distribution which places 50% of the items along the
     PathLine section of the path.
@@ -800,30 +844,66 @@ void QDeclarativePathCubic::addToPath(QPainterPath &path)
     \o \image declarative-nopercent.png
     \o
     \qml
-    Path {
-        startX: 20; startY: 0
-        PathQuad { x: 50; y: 80; controlX: 0; controlY: 80 }
-        PathLine { x: 150; y: 80 }
-        PathQuad { x: 180; y: 0; controlX: 200; controlY: 80 }
+    PathView {
+        // ...
+        Path {
+            startX: 20; startY: 0
+            PathQuad { x: 50; y: 80; controlX: 0; controlY: 80 }
+            PathLine { x: 150; y: 80 }
+            PathQuad { x: 180; y: 0; controlX: 200; controlY: 80 }
+        }
     }
     \endqml
     \row
     \o \image declarative-percent.png
     \o
     \qml
-    Path {
-        startX: 20; startY: 0
-        PathQuad { x: 50; y: 80; controlX: 0; controlY: 80 }
-        PathPercent { value: 0.25 }
-        PathLine { x: 150; y: 80 }
-        PathPercent { value: 0.75 }
-        PathQuad { x: 180; y: 0; controlX: 200; controlY: 80 }
-        PathPercent { value: 1 }
+    PathView {
+        // ...
+        Path {
+            startX: 20; startY: 0
+            PathQuad { x: 50; y: 80; controlX: 0; controlY: 80 }
+            PathPercent { value: 0.25 }
+            PathLine { x: 150; y: 80 }
+            PathPercent { value: 0.75 }
+            PathQuad { x: 180; y: 0; controlX: 200; controlY: 80 }
+            PathPercent { value: 1 }
+        }
     }
     \endqml
     \endtable
 
     \sa Path
+*/
+
+/*!
+    \qmlproperty real PathPercent::value
+    The proporation of items that should be laid out up to this point.
+
+    This value should always be higher than the last value specified
+    by a PathPercent at a previous position in the Path.
+
+    In the following example we have a Path made up of three PathLines.
+    Normally, the items of the PathView would be laid out equally along
+    this path, with an equal number of items per line segment. PathPercent
+    allows us to specify that the first and third lines should each hold
+    10% of the laid out items, while the second line should hold the remaining
+    80%.
+
+    \qml
+    PathView {
+        // ...
+        Path {
+            startX: 0; startY: 0
+            PathLine { x:100; y: 0; }
+            PathPercent { value: 0.1 }
+            PathLine { x: 100; y: 100 }
+            PathPercent { value: 0.9 }
+            PathLine { x: 100; y: 0 }
+            PathPercent { value: 1 }
+        }
+    }
+    \endqml
 */
 
 qreal QDeclarativePathPercent::value() const

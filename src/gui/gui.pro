@@ -55,37 +55,19 @@ DEFINES += Q_INTERNAL_QAPP_SRC
 symbian {
     TARGET.UID3=0x2001B2DD
 
-    symbian-abld|symbian-sbsv2 {
-        # ro-section in gui can exceed default allocated space, so move rw-section a little further
-        QMAKE_LFLAGS.ARMCC += --rw-base 0x800000
-        QMAKE_LFLAGS.GCCE += -Tdata 0xC00000
-    }
-
-    # Partial upgrade SIS file
-    vendorinfo = \
-        "; Localised Vendor name" \
-        "%{\"Nokia, Qt\"}" \
-        " " \
-        "; Unique Vendor name" \
-        ":\"Nokia, Qt\"" \
-        " "
-    pu_header = "; Partial upgrade package for testing QtGui changes without reinstalling everything" \
-                "$${LITERAL_HASH}{\"Qt gui\"}, (0x2001E61C), $${QT_MAJOR_VERSION},$${QT_MINOR_VERSION},$${QT_PATCH_VERSION}, TYPE=PU"
-    partial_upgrade.pkg_prerules = pu_header vendorinfo
-    partial_upgrade.sources = $$QMAKE_LIBDIR_QT/QtGui$${QT_LIBINFIX}.dll
-    partial_upgrade.path = c:/sys/bin
-    DEPLOYMENT = partial_upgrade $$DEPLOYMENT
+    # ro-section in gui can exceed default allocated space, so move rw-section a little further
+    QMAKE_LFLAGS.ARMCC += --rw-base 0x800000
+    QMAKE_LFLAGS.GCCE += -Tdata 0x800000
 }
 
 neon:*-g++* {
     DEFINES += QT_HAVE_NEON
-    QMAKE_CXXFLAGS *= -mfpu=neon
     HEADERS += $$NEON_HEADERS
     SOURCES += $$NEON_SOURCES
 
     DRAWHELPER_NEON_ASM_FILES = $$NEON_ASM
 
-    neon_compiler.commands = $$QMAKE_CXX -c
+    neon_compiler.commands = $$QMAKE_CXX -c -mfpu=neon
     neon_compiler.commands += $(CXXFLAGS) $(INCPATH) ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
     neon_compiler.dependency_type = TYPE_C
     neon_compiler.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_OBJ)}

@@ -1,26 +1,26 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the documentation of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:FDL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in a
-** written agreement between you and Nokia.
-**
 ** GNU Free Documentation License
 ** Alternatively, this file may be used under the terms of the GNU Free
 ** Documentation License version 1.3 as published by the Free Software
-** Foundation and appearing in the file included in the packaging of this
-** file.
+** Foundation and appearing in the file included in the packaging of
+** this file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms
+** and conditions contained in a signed written agreement between you
+** and Nokia.
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -60,7 +60,53 @@
 
     \section1 Recent Additions to Qt 4
 
-    The following features have been added to Qt since the first release of Qt 4:
+    The following features have been added to Qt since the first release of Qt 4.
+
+    In Qt 4.7:
+    \list
+    \o Declarative UI Development with \l{Qt Quick}, technologies for creating
+       fluid, dynamic user interfaces.
+    \o Support for \l{Bearer Management}{network bearer management}, enabling
+       features such as control over network interfaces and support for roaming
+       between networks.
+    \o Feature and performance improvements in QtWebKit, including a new tiled
+       backing store, control over scroll bars used in frames and framesets,
+       accelerated compositing and \l{The QtWebKit Bridge}{support for hybrid
+       development}.
+    \o General performance improvements, including the use of "alien widgets"
+       on Mac OS X, the QStaticText class for optimized text rendering, a new
+       \l{QPainter::drawPixmapFragments()}{API for rendering pixmap fragments}
+       and an updated version of the JavaScriptCore engine for the QtScript
+       module with improved performance.
+    \endlist
+
+    In Qt 4.6:
+    \list
+    \o Support for \l{The Symbian platform - Introduction to Qt}{the Symbian Platform}
+       as a mainstream Qt platform, with integration into the S60 framework.
+    \o The \l{The Animation Framework}{animation framework} allows animations to be
+       created using both widgets and graphics items.
+    \o The \l{The State Machine Framework}{state machine framework} provides a robust
+       state chart implementation based on Harel statecharts and SCXML.
+    \o Support for \l{QTouchEvent}{touch input} and \l{Gestures Programming}{gestures}
+       enable developers to create intuitive user interfaces for touch-based devices.
+    \o A \l{QWebElement}{DOM access API} for QtWebKit provides a cleaner and safer way
+       to access elements and structures of Web pages without the use of JavaScript.
+    \o A collection of performance improvements, covering QGraphicsView, QPixmapCache,
+       QNetworkAccessManager, QContiguousCache class, hardware-accelerated rendering
+       support through \l{OpenVG Rendering in Qt}{OpenVG}, and the removal of Win9x
+       support.
+    \o A collection of \l{QGraphicsEffect}{graphics effects} make it easy to apply
+       and simple effects to graphics items and combine them to produce more complex
+       effects.
+    \o Support for XML schema validation in the QtXmlPatterns module covering
+       large parts of version 1.0 of the specification.
+    \o Qt3D enablers, including math primitives for \l{QMatrix4x4}{matrix multiplication},
+       \l{QVector3D}{vectors}, \l{QQuaternion}{quaternions} (client-side), and an API
+       for \l{QGLShader}{vertex and fragment shaders}, GLSL/ES.
+    \o \l{QtMultimedia Module}{Multimedia services} providing low-level access to the
+       system's audio system.
+    \endlist
 
     In Qt 4.5:
     \list
@@ -86,7 +132,7 @@
 
     In Qt 4.4:
     \list
-    \o \l{Webkit in QT}{Qt WebKit integration}, making it possible for developers
+    \o \l{WebKit in Qt}{Qt WebKit integration}, making it possible for developers
     to use a fully-featured Web browser to display documents and access online
     services.
     \o A multimedia API provided by the \l{Phonon Overview}{Phonon Multimedia Framework}.
@@ -157,7 +203,7 @@
        \l{QtUiTools}{dynamic user interface building}.
     \o New \l{Proxy Models}{proxy models} to enable view-specific sorting and
        filtering of data displayed using item views.
-    \o Support for \l{Installing Qt on Mac OS X}{universal binaries} on Mac OS X.
+    \o Support for \l{Installing Qt for Mac OS X}{universal binaries} on Mac OS X.
     \o Additional features for developers using \l{QtOpenGL}{OpenGL}, such as
     support for pixel and sample buffers.
     \o A flexible \l{QSyntaxHighlighter}{syntax highlighting class} based on the
@@ -195,7 +241,9 @@
     \section1 Build System
 
     Unlike previous Qt releases, Qt 4 is a collection of smaller
-    libraries:
+    libraries. A complete list of libraries in the current release
+    of Qt can be found on the \l{All Modules} page. The following
+    table describes the initial set of libraries released with Qt 4.
 
     \table
     \header \o Library          \o Description
@@ -209,7 +257,7 @@
     \row    \o \l{Qt3Support}   \o Qt 3 support classes
     \row    \o \l{QAxContainer} \o ActiveQt client extension
     \row    \o \l{QAxServer}    \o ActiveQt server extension
-    \row    \o \l{QtHelp}  	\o Classes for integrating online documentation
+    \row    \o \l{QtHelp}       \o Classes for integrating online documentation
     \row    \o \l{QtDesigner}   \o Classes for extending and embedding Qt Designer
     \row    \o \l{QtUiTools}    \o Classes for dynamic GUI generation
     \row    \o \l{QtTest}       \o Tool classes for unit testing
@@ -230,11 +278,11 @@
     link your application against QtCore and QtGui. To remove the
     dependency upon QtGui, add the line
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 0
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 0
 
     to your .pro file. To enable the other libraries, add the line
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 1
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 1
 
     Another change to the build system is that moc now understands
     preprocessor directives. qmake automatically passes the defines set
@@ -244,21 +292,21 @@
     To compile code that uses UI files, you will also need this line in
     the .pro file:
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 2
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 2
 
     \section1 Include Syntax
 
     The syntax for including Qt class definitions has become
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 3
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 3
 
     For example:
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 4
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 4
 
     This is guaranteed to work for any public Qt class. The old syntax,
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 5
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 5
 
     still works, but we encourage you to switch to the new syntax.
 
@@ -272,7 +320,7 @@
     To include the definitions for all the classes in a library, simply
     specify the name of that library. For example:
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 6
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 6
 
     \section1 Namespaces
 
@@ -282,9 +330,9 @@
 
     With Qt 4, the Qt class has become the Qt namespace. If you want
     to access a constant that is part of the Qt namespace, prefix it
-    with \c Qt:: (e.g., \c{Qt::yellow}), or add the directive
+    with \c{Qt::} (e.g., \c{Qt::yellow}), or add the directive
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 7
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 7
 
     at the top of your source files, after your \c #include
     directives. If you use the \c{using namespace} syntax you don't
@@ -295,7 +343,7 @@
     in Qt 3, it was legal to write \c QWidget::yellow instead of \c
     Qt::yellow, because QWidget inherited from Qt. This won't work in
     Qt 4; you must write \c Qt::yellow or add the "using namespace"
-    directive and drop the \c Qt:: prefix.
+    directive and drop the \c{Qt::} prefix.
 
     The \l{qt3to4 - The Qt 3 to 4 Porting Tool}{qt3to4} porting tool
     automates this conversion.
@@ -314,7 +362,7 @@
     \list
     \o  Code that used it looked confusing, for example:
 
-        \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 8
+        \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 8
 
         \c label1 is a QLabel that displays the text "Hello"; \c
         label2 is a QLabel with no text, with the object name
@@ -324,7 +372,7 @@
         they blindly followed Qt's convention and provided a "const
         char *name" in their subclasses's constructors. For example:
 
-        \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 9
+        \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 9
 
     \o  The name parameter was in Qt since version 1, and it always
         was documented as: "It is not very useful in the current
@@ -359,12 +407,12 @@
 
     Here's the Qt 3 idiom to cast a type to a subtype:
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 10
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 10
 
     The Qt 4 idiom is both cleaner and safer, because typos will always
     result in compiler errors:
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 11
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 11
 
     \section1 QPointer<T>
 
@@ -375,7 +423,7 @@
 
     Example:
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 12
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.cpp 12
 
     QPointer<T> is more or less the same as the old QGuardedPtr<T> class,
     except that it is now implemented in a much more lightweight manner
@@ -415,7 +463,7 @@
 
     To enable the Qt 3 support classes and functions, add the line
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 13
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 13
 
     to your \c .pro file.
 
@@ -423,18 +471,18 @@
     in a compiler warning (e.g., "'find' is deprecated"). If you want to turn
     off that warning, add the line
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 14
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 14
 
     to your \c .pro file.
 
     If you want to use compatibility functions but don't want to link
     against the Qt3Support library, add the line
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 15
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 15
 
     or
 
-    \snippet doc/src/snippets/code/doc_src_qt4-intro.qdoc 16
+    \snippet doc/src/snippets/code/doc_src_qt4-intro.pro 16
 
     to your \c .pro file, depending on whether you want compatibility
     function calls to generate compiler warnings or not.
@@ -451,7 +499,7 @@
     A list of other Qt 4 features can be found on the \bold{\l{What's
     New in Qt 4}} page.
 
-    \section1 Declarative UI development with Qt Quick
+    \section1 Declarative UI Development with Qt Quick
 
     \image quick_screens.png
 
@@ -466,7 +514,7 @@
     collaborate tightly and create animated and fluid user experiences,
     using existing knowledge in script language and design.
 
-    \i QtDeclarative is a C++ library that provides the underlying engine,
+    \i Qt Declarative is a C++ library that provides the underlying engine,
     which translates the declarative description of the UI in QML into
     items on a QGraphicsScene. The library also provides APIs to bind
     custom C++ types and elements to QML, and to connect the QML UI with
@@ -508,7 +556,7 @@
 
     For hybrid QtWebKit and C++ projects, Qt 4.7 has added support for
     transporting \l{QPixmap}s between Qt C++ and WebKit. We have also
-    improved the documentation hybrid development. Read more here:
+    improved the documentation for hybrid development. Read more here:
     \l{The QtWebKit Bridge}.
 
     \section1 QtWebKit Performance Benchmarks
@@ -562,7 +610,6 @@
     introduced in Qt 4.7.
 
     \sincelist 4.7
-
 */
 
 /*!
@@ -680,7 +727,7 @@
     See the QTouchEvent class documentation for more information on touch
     input and QGestureEvent for gestures.
 
-    \section1 DOM access API
+    \section1 DOM Access API
 
     Web pages and XML both have very complex document object models.
     The W3C selector API provides a very simple way to access and
@@ -699,7 +746,7 @@
 
     \list
         \o Rewritten the QGraphicsView rendering algorithm.
-        \o Made QPixmapCache support efficient Key datastructure.
+        \o Made QPixmapCache support efficient Key data structure.
         \o Reduced overhead in QNetworkAccessManager.
         \o Added the QContiguousCache class, which provides efficient caching of
            contiguous data.
@@ -740,7 +787,7 @@
     See the \l{XML Processing} and QXmlSchema class documentation for more
     information.
 
-    \section1 Qt3D enablers
+    \section1 Qt3D Enablers
 
     As more of Qt, and more of the applications built on Qt go 3D,
     API's should be provided to simplify this. Mainly, the new API
@@ -750,7 +797,7 @@
 
     The main features of the Qt3D enablers are currently: Math
     primitives for matrix multiplication, vectors, quaternions
-    (client-side), and API for vertex and fragment shaders, GLSL/ES.
+    (client-side), and an API for vertex and fragment shaders, GLSL/ES.
     Future research will, among other things include stencils,
     scissors, vertex buffers and arrays, texture manipulation, and
     geometry shaders.

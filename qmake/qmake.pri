@@ -3,7 +3,7 @@ CONFIG += depend_includepath
 QMAKE_INCREMENTAL =
 SKIP_DEPENDS += qconfig.h qmodules.h
 DEFINES += QT_NO_TEXTCODEC QT_NO_LIBRARY QT_NO_STL QT_NO_COMPRESS QT_NO_UNICODETABLES \
-           QT_NO_GEOM_VARIANT QT_NO_DATASTREAM
+           QT_NO_GEOM_VARIANT QT_NO_DATASTREAM QLIBRARYINFO_EPOCROOT
 
 #qmake code
 SOURCES += project.cpp property.cpp main.cpp generators/makefile.cpp \
@@ -36,8 +36,8 @@ HEADERS += project.h property.h generators/makefile.h \
            generators/symbian/symmake_abld.h \
            generators/symbian/symmake_sbsv2.h \
            generators/symbian/initprojectdeploy_symbian.h \
-           windows/registry.h \
-           symbian/epocroot.h
+           windows/registry_p.h \
+           symbian/epocroot_p.h
 
 contains(QT_EDITION, OpenSource) {
    DEFINES += QMAKE_OPENSOURCE_EDITION
@@ -135,7 +135,7 @@ bootstrap { #Qt code
 	SOURCES += qfsfileengine_win.cpp qfsfileengine_iterator_win.cpp qsettings_win.cpp \
             qsystemlibrary.cpp
         win32-msvc*:LIBS += ole32.lib advapi32.lib
-        win32-g++*:LIBS += -lole32 -luuid
+        win32-g++*:LIBS += -lole32 -luuid -ladvapi32 -lkernel32
     }
 
     qnx {

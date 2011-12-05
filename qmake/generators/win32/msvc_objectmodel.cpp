@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the qmake application of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -281,6 +281,24 @@ inline XmlOutput::xml_output attrX(const char *name, const QStringList &v, const
     if(v.isEmpty())
         return noxml();
     return attr(name, v.join(s));
+}
+
+// VCToolBase -------------------------------------------------
+QStringList VCToolBase::fixCommandLine(const QString &input)
+{
+    // The splitting regexp is a bit bizarre for backwards compat reasons (why else ...).
+    return input.split(QRegExp(QLatin1String("\n\t|\r\\\\h|\r\n")));
+}
+
+static QString vcCommandSeparator()
+{
+    // MSVC transforms the build tree into a single batch file, simply pasting the contents
+    // of the custom commands into it, and putting an "if errorlevel goto" statement behind it.
+    // As we want every sub-command to be error-checked (as is done by makefile-based
+    // backends), we insert the checks ourselves, using the undocumented jump target.
+    static QString cmdSep =
+            QLatin1String("&#x000D;&#x000A;if errorlevel 1 goto VCReportError&#x000D;&#x000A;");
+    return cmdSep;
 }
 
 // VCCLCompilerTool -------------------------------------------------
@@ -1939,36 +1957,11 @@ VCCustomBuildTool::VCCustomBuildTool()
 
 XmlOutput &operator<<(XmlOutput &xml, const VCCustomBuildTool &tool)
 {
-    // The code below offers two ways to split custom build step commands.
-    // Normally the $$escape_expand(\n\t) is used in a project file, which is correctly translated
-    // in all generators. However, if you use $$escape_expand(\n\r) (or \n\h) instead, the VCPROJ
-    // generator will instead of binding the commands with " && " will insert a proper newline into
-    // the VCPROJ file. We sometimes use this method of splitting commands if the custom buildstep
-    // contains a command-line which is too big to run on certain OS.
-    QString cmds;
-    int end = tool.CommandLine.count();
-    for(int i = 0; i < end; ++i) {
-        QString cmdl = tool.CommandLine.at(i);
-        if (cmdl.contains("\r\t")) {
-            if (i == end - 1)
-                cmdl = cmdl.trimmed();
-            cmdl.replace("\r\t", " && ");
-        } else if (cmdl.contains("\r\n")) {
-            ;
-        } else if (cmdl.contains("\r\\h")) {
-            // The above \r\n should work, but doesn't, so we have this hack
-            cmdl.replace("\r\\h", "\r\n");
-        } else {
-            if (i < end - 1)
-                cmdl += " && ";
-        }
-        cmds += cmdl;
-    }
     return xml
         << tag(_Tool)
             << attrS(_Name, tool.ToolName)
             << attrX(_AdditionalDependencies, tool.AdditionalDependencies, ";")
-            << attrS(_CommandLine, cmds)
+            << attrS(_CommandLine, tool.CommandLine.join(vcCommandSeparator()))
             << attrS(_Description, tool.Description)
             << attrX(_Outputs, tool.Outputs, ";")
             << attrS(_Path, tool.ToolPath)
@@ -2028,7 +2021,7 @@ XmlOutput &operator<<(XmlOutput &xml, const VCEventTool &tool)
         << tag(_Tool)
             << attrS(_Name, tool.ToolName)
             << attrS(_Path, tool.ToolPath)
-            << attrS(_CommandLine, tool.CommandLine)
+            << attrS(_CommandLine, tool.CommandLine.join(vcCommandSeparator()))
             << attrS(_Description, tool.Description)
             << attrT(_ExcludedFromBuild, tool.ExcludedFromBuild)
         << closetag(_Tool);
@@ -2252,6 +2245,9 @@ bool VCFilter::addExtraCompiler(const VCFilterFile &info)
 							             Option::fixPathToLocalOS(inFile, true, false),
                                                                      out);
             if(Project->canExecute(dep_cmd)) {
+                dep_cmd.prepend(QLatin1String("cd ")
+                                + Project->escapeFilePath(Option::fixPathToLocalOS(Option::output_dir, false))
+                                + QLatin1String(" && "));
                 if(FILE *proc = QT_POPEN(dep_cmd.toLatin1().constData(), "r")) {
                     QString indeps;
                     while(!feof(proc)) {
@@ -2266,7 +2262,7 @@ bool VCFilter::addExtraCompiler(const VCFilterFile &info)
                         for (int i = 0; i < extradeps.count(); ++i) {
                             QString dd = extradeps.at(i).simplified();
                             if (!dd.isEmpty())
-                                deps += Project->fileFixify(dd);
+                                deps += Project->fileFixify(dd, QString(), Option::output_dir);
                         }
                     }
                 }
@@ -2323,7 +2319,7 @@ bool VCFilter::addExtraCompiler(const VCFilterFile &info)
         if (!CustomBuildTool.Description.isEmpty())
             CustomBuildTool.Description += " & ";
         CustomBuildTool.Description += cmd_name;
-        CustomBuildTool.CommandLine += cmd.trimmed().split("\n", QString::SkipEmptyParts);
+        CustomBuildTool.CommandLine += VCToolBase::fixCommandLine(cmd.trimmed());
         int space = cmd.indexOf(' ');
         QFileInfo finf(cmd.left(space));
         if (CustomBuildTool.ToolPath.isEmpty())

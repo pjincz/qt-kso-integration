@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -62,12 +62,17 @@ bool SharedBindingTester::isSharable(const QString &code)
     if (!parser.statement()) 
         return false;
 
+    return isSharable(parser.statement());
+}
+
+bool SharedBindingTester::isSharable(AST::Node *node)
+{
     _sharable = true;
-    AST::Node::acceptChild(parser.statement(), this);
+    AST::Node::acceptChild(node, this);
     return _sharable;
 }
 
-QString RewriteBinding::operator()(const QString &code, bool *ok)
+QString RewriteBinding::operator()(const QString &code, bool *ok, bool *sharable)
 {
     Engine engine;
     NodePool pool(QString(), &engine);
@@ -80,8 +85,61 @@ QString RewriteBinding::operator()(const QString &code, bool *ok)
         return QString();
     } else {
         if (ok) *ok = true;
+        if (sharable) {
+            SharedBindingTester tester;
+            *sharable = tester.isSharable(parser.statement());
+        }
     }
     return rewrite(code, 0, parser.statement());
+}
+
+QString RewriteBinding::operator()(QDeclarativeJS::AST::Node *node, const QString &code, bool *sharable)
+{
+    if (!node)
+        return code;
+
+    if (sharable) {
+        SharedBindingTester tester;
+        *sharable = tester.isSharable(node);
+    }
+
+    QDeclarativeJS::AST::ExpressionNode *expression = node->expressionCast();
+    QDeclarativeJS::AST::Statement *statement = node->statementCast();
+    if(!expression && !statement)
+        return code;
+
+    TextWriter w;
+    _writer = &w;
+    _position = expression ? expression->firstSourceLocation().begin() : statement->firstSourceLocation().begin();
+    _inLoop = 0;
+
+    accept(node);
+
+    unsigned startOfStatement = 0;
+    unsigned endOfStatement = (expression ? expression->lastSourceLocation().end() : statement->lastSourceLocation().end()) - _position;
+
+    QString startString = QLatin1String("(function ") + QString::fromUtf8(_name) + QLatin1String("() { ");
+    if (expression)
+        startString += QLatin1String("return ");
+    _writer->replace(startOfStatement, 0, startString);
+    _writer->replace(endOfStatement, 0, QLatin1String(" })"));
+
+    if (rewriteDump()) {
+        qWarning() << "=============================================================";
+        qWarning() << "Rewrote:";
+        qWarning() << qPrintable(code);
+    }
+
+    QString codeCopy = code;
+    w.write(&codeCopy);
+
+    if (rewriteDump()) {
+        qWarning() << "To:";
+        qWarning() << qPrintable(code);
+        qWarning() << "=============================================================";
+    }
+
+    return codeCopy;
 }
 
 void RewriteBinding::accept(AST::Node *node)

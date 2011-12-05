@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the examples of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -190,6 +190,12 @@ QVariant QDeclarativeFolderListModel::data(const QModelIndex &index, int role) c
     return rv;
 }
 
+/*!
+    \qmlproperty int FolderListModel::count
+
+    Returns the number of items in the current folder that match the
+    filter criteria.
+*/
 int QDeclarativeFolderListModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent);
@@ -225,6 +231,11 @@ void QDeclarativeFolderListModel::setFolder(const QUrl &folder)
     }
 }
 
+/*!
+    \qmlproperty url FolderListModel::parentFolder
+
+    Returns the URL of the parent of of the current \l folder.
+*/
 QUrl QDeclarativeFolderListModel::parentFolder() const
 {
     QString localFile = d->folder.toLocalFile();
@@ -279,13 +290,28 @@ void QDeclarativeFolderListModel::classBegin()
 
 void QDeclarativeFolderListModel::componentComplete()
 {
-    if (!d->folder.isValid() || !QDir().exists(d->folder.toLocalFile()))
+    if (!d->folder.isValid() || d->folder.toLocalFile().isEmpty() || !QDir().exists(d->folder.toLocalFile()))
         setFolder(QUrl(QLatin1String("file://")+QDir::currentPath()));
 
     if (!d->folderIndex.isValid())
         QMetaObject::invokeMethod(this, "refresh", Qt::QueuedConnection);
 }
 
+/*!
+    \qmlproperty enumeration FolderListModel::sortField
+
+    The \a sortField property contains field to use for sorting.  sortField
+    may be one of:
+    \list
+    \o Unsorted - no sorting is applied.  The order is system default.
+    \o Name - sort by filename
+    \o Time - sort by time modified
+    \o Size - sort by file size
+    \o Type - sort by file type (extension)
+    \endlist
+
+    \sa sortReversed
+*/
 QDeclarativeFolderListModel::SortField QDeclarativeFolderListModel::sortField() const
 {
     return d->sortField;
@@ -299,6 +325,13 @@ void QDeclarativeFolderListModel::setSortField(SortField field)
     }
 }
 
+/*!
+    \qmlproperty bool FolderListModel::sortReversed
+
+    If set to true, reverses the sort order.  The default is false.
+
+    \sa sortField
+*/
 bool QDeclarativeFolderListModel::sortReversed() const
 {
     return d->sortReversed;
@@ -332,7 +365,7 @@ void QDeclarativeFolderListModel::refresh()
 {
     d->folderIndex = QModelIndex();
     if (d->count) {
-        emit beginRemoveRows(QModelIndex(), 0, d->count);
+        emit beginRemoveRows(QModelIndex(), 0, d->count-1);
         d->count = 0;
         emit endRemoveRows();
     }

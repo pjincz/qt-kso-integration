@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -65,6 +65,10 @@ private slots:
     void keys();
     void keysProcessingOrder();
     void keyNavigation();
+    void keyNavigation_RightToLeft();
+    void keyNavigation_skipNotVisible();
+    void layoutMirroring();
+    void layoutMirroringIllegalParent();
     void smooth();
     void clip();
     void mapCoordinates();
@@ -82,12 +86,36 @@ private slots:
     void mouseFocus();
 
     void transformCrash();
-
+    void implicitSize();
+    void testQtQuick11Attributes();
+    void testQtQuick11Attributes_data();
+    void qtbug_16871();
 private:
-    template<typename T>
-    T *findItem(QGraphicsObject *parent, const QString &objectName);
     QDeclarativeEngine engine;
 };
+
+template<typename T>
+T *findItem(QGraphicsObject *parent, const QString &objectName)
+{
+    if (!parent)
+        return 0;
+
+    const QMetaObject &mo = T::staticMetaObject;
+    //qDebug() << parent->QGraphicsObject::children().count() << "children";
+    for (int i = 0; i < parent->childItems().count(); ++i) {
+        QDeclarativeItem *item = qobject_cast<QDeclarativeItem*>(parent->childItems().at(i));
+        if(!item)
+            continue;
+        //qDebug() << "try" << item;
+        if (mo.cast(item) && (objectName.isEmpty() || item->objectName() == objectName))
+            return static_cast<T*>(item);
+        item = findItem<T>(item, objectName);
+        if (item)
+            return static_cast<T*>(item);
+    }
+
+    return 0;
+}
 
 class KeysTestObject : public QObject
 {
@@ -204,6 +232,7 @@ void tst_QDeclarativeItem::keys()
     canvas->rootContext()->setContextProperty("keysTestObject", testObject);
 
     canvas->rootContext()->setContextProperty("enableKeyHanding", QVariant(true));
+    canvas->rootContext()->setContextProperty("forwardeeVisible", QVariant(true));
 
     canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/keystest.qml"));
     canvas->show();
@@ -213,6 +242,9 @@ void tst_QDeclarativeItem::keys()
     QApplication::sendEvent(canvas, &wa);
     QFocusEvent fe(QEvent::FocusIn);
     QApplication::sendEvent(canvas, &fe);
+
+    QVERIFY(canvas->rootObject());
+    QCOMPARE(canvas->rootObject()->property("isEnabled").toBool(), true);
 
     QKeyEvent key(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier, "A", false, 1);
     QApplication::sendEvent(canvas, &key);
@@ -284,7 +316,19 @@ void tst_QDeclarativeItem::keys()
 
     testObject->reset();
 
+    canvas->rootContext()->setContextProperty("forwardeeVisible", QVariant(false));
+    key = QKeyEvent(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier, "A", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QCOMPARE(testObject->mKey, int(Qt::Key_A));
+    QCOMPARE(testObject->mForwardedKey, 0);
+    QCOMPARE(testObject->mText, QLatin1String("A"));
+    QVERIFY(testObject->mModifiers == Qt::NoModifier);
+    QVERIFY(!key.isAccepted());
+
+    testObject->reset();
+
     canvas->rootContext()->setContextProperty("enableKeyHanding", QVariant(false));
+    QCOMPARE(canvas->rootObject()->property("isEnabled").toBool(), false);
 
     key = QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, "", false, 1);
     QApplication::sendEvent(canvas, &key);
@@ -292,6 +336,7 @@ void tst_QDeclarativeItem::keys()
     QVERIFY(!key.isAccepted());
 
     canvas->rootContext()->setContextProperty("enableKeyHanding", QVariant(true));
+    QCOMPARE(canvas->rootObject()->property("isEnabled").toBool(), true);
 
     key = QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, "", false, 1);
     QApplication::sendEvent(canvas, &key);
@@ -358,6 +403,165 @@ void tst_QDeclarativeItem::keysProcessingOrder()
     delete testObject;
 }
 
+QDeclarativeItemPrivate *childPrivate(QGraphicsObject *rootItem, const char * itemString)
+{
+    QDeclarativeItem *item = findItem<QDeclarativeItem>(rootItem, QString(QLatin1String(itemString)));
+    QDeclarativeItemPrivate* itemPrivate = QDeclarativeItemPrivate::get(item);
+    return itemPrivate;
+}
+
+QVariant childProperty(QGraphicsObject *rootItem, const char * itemString, const char * property)
+{
+    QDeclarativeItem *item = findItem<QDeclarativeItem>(rootItem, QString(QLatin1String(itemString)));
+    return item->property(property);
+}
+
+bool anchorsMirrored(QGraphicsObject *rootItem, const char * itemString)
+{
+    QDeclarativeItem *item = findItem<QDeclarativeItem>(rootItem, QString(QLatin1String(itemString)));
+    QDeclarativeItemPrivate* itemPrivate = QDeclarativeItemPrivate::get(item);
+    return itemPrivate->anchors()->mirrored();
+}
+
+void tst_QDeclarativeItem::layoutMirroring()
+{
+    QDeclarativeView *canvas = new QDeclarativeView(0);
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/layoutmirroring.qml"));
+    canvas->show();
+
+    QDeclarativeItem *rootItem = qobject_cast<QDeclarativeItem*>(canvas->rootObject());
+    QVERIFY(rootItem);
+    QDeclarativeItemPrivate *rootPrivate = QDeclarativeItemPrivate::get(rootItem);
+    QVERIFY(rootPrivate);
+
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "mirrored2")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->effectiveLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored2")->effectiveLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->effectiveLayoutMirror, true);
+
+    QCOMPARE(anchorsMirrored(rootItem, "mirrored1"), true);
+    QCOMPARE(anchorsMirrored(rootItem, "mirrored2"), true);
+    QCOMPARE(anchorsMirrored(rootItem, "notMirrored1"), false);
+    QCOMPARE(anchorsMirrored(rootItem, "notMirrored2"), false);
+    QCOMPARE(anchorsMirrored(rootItem, "inheritedMirror1"), true);
+    QCOMPARE(anchorsMirrored(rootItem, "inheritedMirror2"), true);
+
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "mirrored2")->inheritedLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "notMirrored2")->inheritedLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->inheritedLayoutMirror, true);
+
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->isMirrorImplicit, false);
+    QCOMPARE(childPrivate(rootItem, "mirrored2")->isMirrorImplicit, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->isMirrorImplicit, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored2")->isMirrorImplicit, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->isMirrorImplicit, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->isMirrorImplicit, true);
+
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->inheritMirrorFromParent, true);
+    QCOMPARE(childPrivate(rootItem, "mirrored2")->inheritMirrorFromParent, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->inheritMirrorFromParent, true);
+    QCOMPARE(childPrivate(rootItem, "notMirrored2")->inheritMirrorFromParent, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->inheritMirrorFromParent, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->inheritMirrorFromParent, true);
+
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->inheritMirrorFromItem, true);
+    QCOMPARE(childPrivate(rootItem, "mirrored2")->inheritMirrorFromItem, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->inheritMirrorFromItem, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored2")->inheritMirrorFromItem, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->inheritMirrorFromItem, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->inheritMirrorFromItem, false);
+
+    // load dynamic content using Loader that needs to inherit mirroring
+    rootItem->setProperty("state", "newContent");
+    QCOMPARE(childPrivate(rootItem, "notMirrored3")->effectiveLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror3")->effectiveLayoutMirror, true);
+
+    QCOMPARE(childPrivate(rootItem, "notMirrored3")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror3")->inheritedLayoutMirror, true);
+
+    QCOMPARE(childPrivate(rootItem, "notMirrored3")->isMirrorImplicit, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror3")->isMirrorImplicit, true);
+
+    QCOMPARE(childPrivate(rootItem, "notMirrored3")->inheritMirrorFromParent, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror3")->inheritMirrorFromParent, true);
+
+    QCOMPARE(childPrivate(rootItem, "notMirrored3")->inheritMirrorFromItem, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored3")->inheritMirrorFromItem, false);
+
+    // disable inheritance
+    rootItem->setProperty("childrenInherit", false);
+
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->effectiveLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->effectiveLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->effectiveLayoutMirror, false);
+
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->inheritedLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->inheritedLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->inheritedLayoutMirror, false);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->inheritedLayoutMirror, false);
+
+    // re-enable inheritance
+    rootItem->setProperty("childrenInherit", true);
+
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->effectiveLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->effectiveLayoutMirror, false);
+
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror1")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "inheritedMirror2")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "mirrored1")->inheritedLayoutMirror, true);
+    QCOMPARE(childPrivate(rootItem, "notMirrored1")->inheritedLayoutMirror, true);
+    
+    //
+    // dynamic parenting
+    //
+    QDeclarativeItem *parentItem1 = new QDeclarativeItem();
+    QDeclarativeItemPrivate::get(parentItem1)->effectiveLayoutMirror = true; // LayoutMirroring.enabled: true
+    QDeclarativeItemPrivate::get(parentItem1)->isMirrorImplicit = false;
+    QDeclarativeItemPrivate::get(parentItem1)->inheritMirrorFromItem = true; // LayoutMirroring.childrenInherit: true
+    QDeclarativeItemPrivate::get(parentItem1)->resolveLayoutMirror();
+
+    // inherit in constructor
+    QDeclarativeItem *childItem1 = new QDeclarativeItem(parentItem1);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem1)->effectiveLayoutMirror, true);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem1)->inheritMirrorFromParent, true);
+
+    // inherit through a parent change
+    QDeclarativeItem *childItem2 = new QDeclarativeItem();
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem2)->effectiveLayoutMirror, false);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem2)->inheritMirrorFromParent, false);
+    childItem2->setParentItem(parentItem1);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem2)->effectiveLayoutMirror, true);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem2)->inheritMirrorFromParent, true);
+
+    // stop inherting through a parent change
+    QDeclarativeItem *parentItem2 = new QDeclarativeItem();
+    QDeclarativeItemPrivate::get(parentItem2)->effectiveLayoutMirror = true; // LayoutMirroring.enabled: true
+    QDeclarativeItemPrivate::get(parentItem2)->resolveLayoutMirror();
+    childItem2->setParentItem(parentItem2);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem2)->effectiveLayoutMirror, false);
+    QCOMPARE(QDeclarativeItemPrivate::get(childItem2)->inheritMirrorFromParent, false);
+    
+    delete parentItem1;
+    delete parentItem2;
+}
+
+void tst_QDeclarativeItem::layoutMirroringIllegalParent()
+{
+    QDeclarativeComponent component(&engine);
+    component.setData("import QtQuick 1.1; QtObject { LayoutMirroring.enabled: true; LayoutMirroring.childrenInherit: true }", QUrl::fromLocalFile(""));
+    QTest::ignoreMessage(QtWarningMsg, "file::1:21: QML QtObject: LayoutDirection attached property only works with Items");
+    QObject *object = component.create();
+    QVERIFY(object != 0);
+}
+
 void tst_QDeclarativeItem::keyNavigation()
 {
     QDeclarativeView *canvas = new QDeclarativeView(0);
@@ -375,6 +579,11 @@ void tst_QDeclarativeItem::keyNavigation()
     QDeclarativeItem *item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
     QVERIFY(item);
     QVERIFY(item->hasActiveFocus());
+
+    QVariant result;
+    QVERIFY(QMetaObject::invokeMethod(canvas->rootObject(), "verify",
+            Q_RETURN_ARG(QVariant, result)));
+    QVERIFY(result.toBool());
 
     // right
     QKeyEvent key(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier, "", false, 1);
@@ -418,6 +627,137 @@ void tst_QDeclarativeItem::keyNavigation()
     QVERIFY(key.isAccepted());
 
     item = findItem<QDeclarativeItem>(canvas->rootObject(), "item2");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    // backtab
+    key = QKeyEvent(QEvent::KeyPress, Qt::Key_Backtab, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    delete canvas;
+}
+
+void tst_QDeclarativeItem::keyNavigation_RightToLeft()
+{
+    QDeclarativeView *canvas = new QDeclarativeView(0);
+    canvas->setFixedSize(240,320);
+
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/keynavigationtest.qml"));
+    canvas->show();
+    qApp->processEvents();
+
+    QDeclarativeItem *rootItem = qobject_cast<QDeclarativeItem*>(canvas->rootObject());
+    QVERIFY(rootItem);
+    QDeclarativeItemPrivate* rootItemPrivate = QDeclarativeItemPrivate::get(rootItem);
+
+    rootItemPrivate->effectiveLayoutMirror = true; // LayoutMirroring.mirror: true
+    rootItemPrivate->isMirrorImplicit = false;
+    rootItemPrivate->inheritMirrorFromItem = true; // LayoutMirroring.inherit: true
+    rootItemPrivate->resolveLayoutMirror();
+
+    QEvent wa(QEvent::WindowActivate);
+    QApplication::sendEvent(canvas, &wa);
+    QFocusEvent fe(QEvent::FocusIn);
+    QApplication::sendEvent(canvas, &fe);
+
+    QDeclarativeItem *item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    QVariant result;
+    QVERIFY(QMetaObject::invokeMethod(canvas->rootObject(), "verify",
+            Q_RETURN_ARG(QVariant, result)));
+    QVERIFY(result.toBool());
+
+    // right
+    QKeyEvent key(QEvent::KeyPress, Qt::Key_Left, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item2");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    // left
+    key = QKeyEvent(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    delete canvas;
+}
+
+void tst_QDeclarativeItem::keyNavigation_skipNotVisible()
+{
+    QDeclarativeView *canvas = new QDeclarativeView(0);
+    canvas->setFixedSize(240,320);
+
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/keynavigationtest.qml"));
+    canvas->show();
+    qApp->processEvents();
+
+    QEvent wa(QEvent::WindowActivate);
+    QApplication::sendEvent(canvas, &wa);
+    QFocusEvent fe(QEvent::FocusIn);
+    QApplication::sendEvent(canvas, &fe);
+
+    QDeclarativeItem *item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    // Set item 2 to not visible
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item2");
+    QVERIFY(item);
+    item->setVisible(false);
+    QVERIFY(!item->isVisible());
+
+    // right
+    QKeyEvent key(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    // tab
+    key = QKeyEvent(QEvent::KeyPress, Qt::Key_Tab, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item3");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    // backtab
+    key = QKeyEvent(QEvent::KeyPress, Qt::Key_Backtab, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item1");
+    QVERIFY(item);
+    QVERIFY(item->hasActiveFocus());
+
+    //Set item 3 to not visible
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item3");
+    QVERIFY(item);
+    item->setVisible(false);
+    QVERIFY(!item->isVisible());
+
+    // tab
+    key = QKeyEvent(QEvent::KeyPress, Qt::Key_Tab, Qt::NoModifier, "", false, 1);
+    QApplication::sendEvent(canvas, &key);
+    QVERIFY(key.isAccepted());
+
+    item = findItem<QDeclarativeItem>(canvas->rootObject(), "item4");
     QVERIFY(item);
     QVERIFY(item->hasActiveFocus());
 
@@ -669,6 +1009,8 @@ void tst_QDeclarativeItem::propertyChanges()
     QSignalSpy focusSpy(item, SIGNAL(focusChanged(bool)));
     QSignalSpy wantsFocusSpy(parentItem, SIGNAL(activeFocusChanged(bool)));
     QSignalSpy childrenChangedSpy(parentItem, SIGNAL(childrenChanged()));
+    QSignalSpy xSpy(item, SIGNAL(xChanged()));
+    QSignalSpy ySpy(item, SIGNAL(yChanged()));
 
     item->setParentItem(parentItem);
     item->setWidth(100.0);
@@ -713,6 +1055,14 @@ void tst_QDeclarativeItem::propertyChanges()
     QCOMPARE(parentItem->hasActiveFocus(), false);
     QCOMPARE(parentItem->hasFocus(), false);
     QCOMPARE(wantsFocusSpy.count(),0);
+
+    item->setX(10.0);
+    QCOMPARE(item->x(), 10.0);
+    QCOMPARE(xSpy.count(), 1);
+
+    item->setY(10.0);
+    QCOMPARE(item->y(), 10.0);
+    QCOMPARE(ySpy.count(), 1);
 
     delete canvas;
 }
@@ -804,30 +1154,89 @@ void tst_QDeclarativeItem::transformCrash()
     delete canvas;
 }
 
-template<typename T>
-T *tst_QDeclarativeItem::findItem(QGraphicsObject *parent, const QString &objectName)
+void tst_QDeclarativeItem::implicitSize()
 {
-    if (!parent)
-        return 0;
+    QDeclarativeView *canvas = new QDeclarativeView(0);
+    canvas->setSource(QUrl::fromLocalFile(SRCDIR "/data/implicitsize.qml"));
+    canvas->show();
 
-    const QMetaObject &mo = T::staticMetaObject;
-    //qDebug() << parent->QGraphicsObject::children().count() << "children";
-    for (int i = 0; i < parent->childItems().count(); ++i) {
-        QDeclarativeItem *item = qobject_cast<QDeclarativeItem*>(parent->childItems().at(i));
-        if(!item)
-            continue;
-        //qDebug() << "try" << item;
-        if (mo.cast(item) && (objectName.isEmpty() || item->objectName() == objectName))
-            return static_cast<T*>(item);
-        item = findItem<T>(item, objectName);
-        if (item)
-            return static_cast<T*>(item);
-    }
+    QDeclarativeItem *item = qobject_cast<QDeclarativeItem*>(canvas->rootObject());
+    QVERIFY(item);
+    QCOMPARE(item->width(), qreal(80));
+    QCOMPARE(item->height(), qreal(60));
 
-    return 0;
+    QCOMPARE(item->implicitWidth(), qreal(200));
+    QCOMPARE(item->implicitHeight(), qreal(100));
+
+    QMetaObject::invokeMethod(item, "resetSize");
+
+    QCOMPARE(item->width(), qreal(200));
+    QCOMPARE(item->height(), qreal(100));
+
+    QMetaObject::invokeMethod(item, "changeImplicit");
+
+    QCOMPARE(item->implicitWidth(), qreal(150));
+    QCOMPARE(item->implicitHeight(), qreal(80));
+    QCOMPARE(item->width(), qreal(150));
+    QCOMPARE(item->height(), qreal(80));
+
+    delete canvas;
 }
 
+void tst_QDeclarativeItem::testQtQuick11Attributes()
+{
+    QFETCH(QString, code);
+    QFETCH(QString, warning);
+    QFETCH(QString, error);
 
+    QDeclarativeEngine engine;
+    QObject *obj;
+
+    QDeclarativeComponent valid(&engine);
+    valid.setData("import QtQuick 1.1; Item { " + code.toUtf8() + " }", QUrl(""));
+    obj = valid.create();
+    QVERIFY(obj);
+    QVERIFY(valid.errorString().isEmpty());
+    delete obj;
+
+    QDeclarativeComponent invalid(&engine);
+    invalid.setData("import QtQuick 1.0; Item { " + code.toUtf8() + " }", QUrl(""));
+    QTest::ignoreMessage(QtWarningMsg, warning.toUtf8());
+    obj = invalid.create();
+    QCOMPARE(invalid.errorString(), error);
+    delete obj;
+}
+
+void tst_QDeclarativeItem::testQtQuick11Attributes_data()
+{
+    QTest::addColumn<QString>("code");
+    QTest::addColumn<QString>("warning");
+    QTest::addColumn<QString>("error");
+
+    QTest::newRow("implicitWidth") << "implicitWidth: 100"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Item.implicitWidth\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("implicitHeight") << "implicitHeight: 100"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Item.implicitHeight\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("onImplicitWidthChanged") << "onImplicitWidthChanged: x"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Item.onImplicitWidthChanged\" is not available in QtQuick 1.0.\n";
+
+    QTest::newRow("onImplicitHeightChanged") << "onImplicitHeightChanged: x"
+        << "QDeclarativeComponent: Component is not ready"
+        << ":1 \"Item.onImplicitHeightChanged\" is not available in QtQuick 1.0.\n";
+}
+
+void tst_QDeclarativeItem::qtbug_16871()
+{
+    QDeclarativeComponent component(&engine, SRCDIR "/data/qtbug_16871.qml");
+    QObject *o = component.create();
+    QVERIFY(o != 0);
+    delete o;
+}
 
 QTEST_MAIN(tst_QDeclarativeItem)
 

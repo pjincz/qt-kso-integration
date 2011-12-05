@@ -1,44 +1,45 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtNetwork module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
+#include <private/qabstractsocket_p.h>
 #include "qhttpnetworkconnection_p.h"
 #include "qhttpnetworkconnectionchannel_p.h"
 #include "private/qnoncontiguousbytedevice_p.h"
@@ -56,6 +57,7 @@
 #ifndef QT_NO_HTTP
 
 #ifndef QT_NO_OPENSSL
+#    include <private/qsslsocket_p.h>
 #    include <QtNetwork/qsslkey.h>
 #    include <QtNetwork/qsslcipher.h>
 #    include <QtNetwork/qsslconfiguration.h>
@@ -79,9 +81,9 @@ const int QHttpNetworkConnectionPrivate::defaultRePipelineLength = 2;
 
 
 QHttpNetworkConnectionPrivate::QHttpNetworkConnectionPrivate(const QString &hostName, quint16 port, bool encrypt)
-: hostName(hostName), port(port), encrypt(encrypt),
-  channelCount(defaultChannelCount),
-  pendingAuthSignal(false), pendingProxyAuthSignal(false)
+: state(RunningState),
+  hostName(hostName), port(port), encrypt(encrypt),
+  channelCount(defaultChannelCount)
 #ifndef QT_NO_NETWORKPROXY
   , networkProxy(QNetworkProxy::NoProxy)
 #endif
@@ -90,9 +92,9 @@ QHttpNetworkConnectionPrivate::QHttpNetworkConnectionPrivate(const QString &host
 }
 
 QHttpNetworkConnectionPrivate::QHttpNetworkConnectionPrivate(quint16 channelCount, const QString &hostName, quint16 port, bool encrypt)
-: hostName(hostName), port(port), encrypt(encrypt),
-  channelCount(channelCount),
-  pendingAuthSignal(false), pendingProxyAuthSignal(false)
+: state(RunningState),
+  hostName(hostName), port(port), encrypt(encrypt),
+  channelCount(channelCount)
 #ifndef QT_NO_NETWORKPROXY
   , networkProxy(QNetworkProxy::NoProxy)
 #endif
@@ -119,6 +121,42 @@ void QHttpNetworkConnectionPrivate::init()
         channels[i].setConnection(this->q_func());
         channels[i].init();
     }
+}
+
+void QHttpNetworkConnectionPrivate::pauseConnection()
+{
+    state = PausedState;
+
+    // Disable all socket notifiers
+    for (int i = 0; i < channelCount; i++) {
+#ifndef QT_NO_OPENSSL
+        if (encrypt)
+            QSslSocketPrivate::pauseSocketNotifiers(static_cast<QSslSocket*>(channels[i].socket));
+        else
+#endif
+            QAbstractSocketPrivate::pauseSocketNotifiers(channels[i].socket);
+    }
+}
+
+void QHttpNetworkConnectionPrivate::resumeConnection()
+{
+    state = RunningState;
+    // Enable all socket notifiers
+    for (int i = 0; i < channelCount; i++) {
+#ifndef QT_NO_OPENSSL
+        if (encrypt)
+            QSslSocketPrivate::resumeSocketNotifiers(static_cast<QSslSocket*>(channels[i].socket));
+        else
+#endif
+            QAbstractSocketPrivate::resumeSocketNotifiers(channels[i].socket);
+
+        // Resume pending upload if needed
+        if (channels[i].state == QHttpNetworkConnectionChannel::WritingState)
+            QMetaObject::invokeMethod(&channels[i], "_q_uploadDataReadyRead", Qt::QueuedConnection);
+    }
+
+    // queue _q_startNextRequest
+    QMetaObject::invokeMethod(this->q_func(), "_q_startNextRequest", Qt::QueuedConnection);
 }
 
 int QHttpNetworkConnectionPrivate::indexOf(QAbstractSocket *socket) const
@@ -218,7 +256,17 @@ void QHttpNetworkConnectionPrivate::prepareRequest(HttpMessagePair &messagePair)
     // set the host
     value = request.headerField("host");
     if (value.isEmpty()) {
-        QByteArray host = QUrl::toAce(hostName);
+        QHostAddress add;
+        QByteArray host;
+        if(add.setAddress(hostName)) {
+            if(add.protocol() == QAbstractSocket::IPv6Protocol) {
+                host = "[" + hostName.toAscii() + "]";//format the ipv6 in the standard way
+            } else {
+                host = QUrl::toAce(hostName);
+            }
+        } else {
+            host = QUrl::toAce(hostName);
+        }
 
         int port = request.url().port();
         if (port != -1) {
@@ -257,6 +305,13 @@ void QHttpNetworkConnectionPrivate::copyCredentials(int fromChannel, QAuthentica
 {
     Q_ASSERT(auth);
 
+    // NTLM is a multi phase authentication. Copying credentials between authenticators would mess things up.
+    if (!isProxy && channels[fromChannel].authMethod == QAuthenticatorPrivate::Ntlm)
+        return;
+    if (isProxy && channels[fromChannel].proxyAuthMethod == QAuthenticatorPrivate::Ntlm)
+        return;
+
+
     // select another channel
     QAuthenticator* otherAuth = 0;
     for (int i = 0; i < channelCount; ++i) {
@@ -282,8 +337,6 @@ bool QHttpNetworkConnectionPrivate::handleAuthenticateChallenge(QAbstractSocket 
     Q_ASSERT(socket);
     Q_ASSERT(reply);
 
-    Q_Q(QHttpNetworkConnection);
-
     resend = false;
     //create the response header to be used with QAuthenticatorPrivate.
     QList<QPair<QByteArray, QByteArray> > fields = reply->header();
@@ -296,10 +349,10 @@ bool QHttpNetworkConnectionPrivate::handleAuthenticateChallenge(QAbstractSocket 
         QAuthenticator* auth = 0;
         if (isProxy) {
             auth = &channels[i].proxyAuthenticator;
-            channels[i].proxyAuthMehtod = authMethod;
+            channels[i].proxyAuthMethod = authMethod;
         } else {
             auth = &channels[i].authenticator;
-            channels[i].authMehtod = authMethod;
+            channels[i].authMethod = authMethod;
         }
         //proceed with the authentication.
         if (auth->isNull())
@@ -308,46 +361,33 @@ bool QHttpNetworkConnectionPrivate::handleAuthenticateChallenge(QAbstractSocket 
         priv->parseHttpResponse(fields, isProxy);
 
         if (priv->phase == QAuthenticatorPrivate::Done) {
-            if ((isProxy && pendingProxyAuthSignal) ||(!isProxy && pendingAuthSignal)) {
-                // drop the request
-                reply->d_func()->eraseData();
-                channels[i].close();
-                channels[i].lastStatus = 0;
-                channels[i].state =  QHttpNetworkConnectionChannel::Wait4AuthState;
-                return false;
-            }
-            // cannot use this socket until the slot returns
-            channels[i].state = QHttpNetworkConnectionChannel::WaitingState;
-            socket->blockSignals(true);
+            pauseConnection();
             if (!isProxy) {
-                pendingAuthSignal = true;
-                emit q->authenticationRequired(reply->request(), auth, q);
-                pendingAuthSignal = false;
+                emit reply->authenticationRequired(reply->request(), auth);
 #ifndef QT_NO_NETWORKPROXY
             } else {
-                pendingProxyAuthSignal = true;
-                emit q->proxyAuthenticationRequired(networkProxy, auth, q);
-                pendingProxyAuthSignal = false;
+                emit reply->proxyAuthenticationRequired(networkProxy, auth);
 #endif
             }
-            socket->blockSignals(false);
-            // socket free to use
-            channels[i].state = QHttpNetworkConnectionChannel::IdleState;
+            resumeConnection();
+
             if (priv->phase != QAuthenticatorPrivate::Done) {
                 // send any pending requests
                 copyCredentials(i,  auth, isProxy);
-                QMetaObject::invokeMethod(q, "_q_restartAuthPendingRequests", Qt::QueuedConnection);
             }
-        } else if (priv->phase == QAuthenticatorPrivate::Start) {
-            // If the url's authenticator has a 'user' set we will end up here (phase is only set to 'Done' by
-            // parseHttpResponse above if 'user' is empty). So if credentials were supplied with the request,
-            // such as in the case of an XMLHttpRequest, this is our only opportunity to cache them.
-            emit q->cacheCredentials(reply->request(), auth, q);
         }
-        // - Changing values in QAuthenticator will reset the 'phase'.
+        // - Changing values in QAuthenticator will reset the 'phase'. Therefore if it is still "Done"
+        //   then nothing was filled in by the user or the cache
         // - If withCredentials has been set to false (e.g. by QtWebKit for a cross-origin XMLHttpRequest) then
         //   we need to bail out if authentication is required.
         if (priv->phase == QAuthenticatorPrivate::Done || !reply->request().withCredentials()) {
+            // Reset authenticator so the next request on that channel does not get messed up
+            auth = 0;
+            if (isProxy)
+                channels[i].proxyAuthenticator = QAuthenticator();
+            else
+                channels[i].authenticator = QAuthenticator();
+
             // authentication is cancelled, send the current contents to the user.
             emit channels[i].reply->headerChanged();
             emit channels[i].reply->readyRead();
@@ -356,15 +396,9 @@ bool QHttpNetworkConnectionPrivate::handleAuthenticateChallenge(QAbstractSocket 
                 ? QNetworkReply::ProxyAuthenticationRequiredError
                 : QNetworkReply::AuthenticationRequiredError;
             reply->d_func()->errorString = errorDetail(errorCode, socket);
-            emit q->error(errorCode, reply->d_func()->errorString);
-            emit channels[i].reply->finished();
+            emit reply->finishedWithError(errorCode, reply->d_func()->errorString);
             // ### at this point the reply could be deleted
             socket->close();
-            // remove pending request on the other channels
-            for (int j = 0; j < channelCount; ++j) {
-                if (j != i && channels[j].state ==  QHttpNetworkConnectionChannel::Wait4AuthState)
-                    channels[j].state = QHttpNetworkConnectionChannel::IdleState;
-            }
             return true;
         }
         //resend the request
@@ -380,8 +414,9 @@ void QHttpNetworkConnectionPrivate::createAuthorization(QAbstractSocket *socket,
 
     int i = indexOf(socket);
 
-    if (channels[i].authMehtod != QAuthenticatorPrivate::None) {
-        if (!(channels[i].authMehtod == QAuthenticatorPrivate::Ntlm && channels[i].lastStatus != 401)) {
+    // Send "Authorization" header, but not if it's NTLM and the socket is already authenticated.
+    if (channels[i].authMethod != QAuthenticatorPrivate::None) {
+        if (!(channels[i].authMethod == QAuthenticatorPrivate::Ntlm && channels[i].lastStatus != 401)) {
             QAuthenticatorPrivate *priv = QAuthenticatorPrivate::getPrivate(channels[i].authenticator);
             if (priv && priv->method != QAuthenticatorPrivate::None) {
                 QByteArray response = priv->calculateResponse(request.d->methodName(), request.d->uri(false));
@@ -389,8 +424,10 @@ void QHttpNetworkConnectionPrivate::createAuthorization(QAbstractSocket *socket,
             }
         }
     }
-    if (channels[i].proxyAuthMehtod != QAuthenticatorPrivate::None) {
-        if (!(channels[i].proxyAuthMehtod == QAuthenticatorPrivate::Ntlm && channels[i].lastStatus != 407)) {
+
+    // Send "Proxy-Authorization" header, but not if it's NTLM and the socket is already authenticated.
+    if (channels[i].proxyAuthMethod != QAuthenticatorPrivate::None) {
+        if (!(channels[i].proxyAuthMethod == QAuthenticatorPrivate::Ntlm && channels[i].lastStatus != 407)) {
             QAuthenticatorPrivate *priv = QAuthenticatorPrivate::getPrivate(channels[i].proxyAuthenticator);
             if (priv && priv->method != QAuthenticatorPrivate::None) {
                 QByteArray response = priv->calculateResponse(request.d->methodName(), request.d->uri(false));
@@ -723,6 +760,10 @@ void QHttpNetworkConnectionPrivate::removeReply(QHttpNetworkReply *reply)
 // although it is called _q_startNextRequest, it will actually start multiple requests when possible
 void QHttpNetworkConnectionPrivate::_q_startNextRequest()
 {
+    // If the QHttpNetworkConnection is currently paused then bail out immediately
+    if (state == PausedState)
+        return;
+
     //resend the necessary ones.
     for (int i = 0; i < channelCount; ++i) {
         if (channels[i].resendCurrent) {
@@ -743,7 +784,7 @@ void QHttpNetworkConnectionPrivate::_q_startNextRequest()
         return;
     // try to get a free AND connected socket
     for (int i = 0; i < channelCount; ++i) {
-        if (!channels[i].isSocketBusy() && channels[i].socket->state() == QAbstractSocket::ConnectedState) {
+        if (!channels[i].reply && !channels[i].isSocketBusy() && channels[i].socket->state() == QAbstractSocket::ConnectedState) {
             dequeueAndSendRequest(channels[i].socket);
         }
     }
@@ -753,7 +794,7 @@ void QHttpNetworkConnectionPrivate::_q_startNextRequest()
         return;
     // try to get a free unconnected socket
     for (int i = 0; i < channelCount; ++i) {
-        if (!channels[i].isSocketBusy()) {
+        if (!channels[i].reply && !channels[i].isSocketBusy()) {
             dequeueAndSendRequest(channels[i].socket);
         }
     }
@@ -773,17 +814,6 @@ void QHttpNetworkConnectionPrivate::_q_startNextRequest()
             fillPipeline(channels[i].socket);
 }
 
-void QHttpNetworkConnectionPrivate::_q_restartAuthPendingRequests()
-{
-    // send the request using the idle socket
-    for (int i = 0 ; i < channelCount; ++i) {
-        if (channels[i].state ==  QHttpNetworkConnectionChannel::Wait4AuthState) {
-            channels[i].state = QHttpNetworkConnectionChannel::IdleState;
-            if (channels[i].reply)
-                channels[i].sendRequest();
-        }
-    }
-}
 
 void QHttpNetworkConnectionPrivate::readMoreLater(QHttpNetworkReply *reply)
 {
@@ -832,31 +862,15 @@ QHttpNetworkReply* QHttpNetworkConnection::sendRequest(const QHttpNetworkRequest
     return d->queueRequest(request);
 }
 
-void QHttpNetworkConnection::enableEncryption()
-{
-    Q_D(QHttpNetworkConnection);
-    d->encrypt = true;
-}
-
-bool QHttpNetworkConnection::isEncrypted() const
+bool QHttpNetworkConnection::isSsl() const
 {
     Q_D(const QHttpNetworkConnection);
     return d->encrypt;
 }
 
-void QHttpNetworkConnection::setProxyAuthentication(QAuthenticator *authenticator)
+QHttpNetworkConnectionChannel *QHttpNetworkConnection::channels() const
 {
-    Q_D(QHttpNetworkConnection);
-    for (int i = 0; i < d->channelCount; ++i)
-        d->channels[i].proxyAuthenticator = *authenticator;
-}
-
-void QHttpNetworkConnection::setAuthentication(const QString &domain, QAuthenticator *authenticator)
-{
-    Q_UNUSED(domain); // ### domain ?
-    Q_D(QHttpNetworkConnection);
-    for (int i = 0; i < d->channelCount; ++i)
-        d->channels[i].authenticator = *authenticator;
+    return d_func()->channels;
 }
 
 #ifndef QT_NO_NETWORKPROXY
@@ -951,8 +965,11 @@ void QHttpNetworkConnection::ignoreSslErrors(const QList<QSslError> &errors, int
 // e.g. it is for SOCKS proxies which require authentication.
 void QHttpNetworkConnectionPrivate::emitProxyAuthenticationRequired(const QHttpNetworkConnectionChannel *chan, const QNetworkProxy &proxy, QAuthenticator* auth)
 {
-    Q_Q(QHttpNetworkConnection);
-    emit q->proxyAuthenticationRequired(proxy, auth, q);
+    // Also pause the connection because socket notifiers may fire while an user
+    // dialog is displaying
+    pauseConnection();
+    emit chan->reply->proxyAuthenticationRequired(proxy, auth);
+    resumeConnection();
     int i = indexOf(chan->socket);
     copyCredentials(i, auth, true);
 }

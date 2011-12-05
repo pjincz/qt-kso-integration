@@ -321,6 +321,10 @@ have libgstreamer-plugins-base installed.</source>
         <source>Playback complete</source>
         <translation>Відтворення завершене</translation>
     </message>
+    <message>
+        <source>Download error</source>
+        <translation>Помилка звантаження</translation>
+    </message>
 </context>
 <context>
     <name>Phonon::MMF::AbstractVideoPlayer</name>
@@ -439,6 +443,10 @@ have libgstreamer-plugins-base installed.</source>
     <message>
         <source>Error opening source: media type could not be determined</source>
         <translation>Помилка відкриття джерела: не вдалося визначити тип медіа-даних</translation>
+    </message>
+    <message>
+        <source>Failed to set requested IAP</source>
+        <translation>Збій встановлення точки доступу до Інтернет</translation>
     </message>
 </context>
 <context>
@@ -1200,6 +1208,11 @@ to
         <translation>%1: недостатньо ресурсів</translation>
     </message>
     <message>
+        <source>%1: permission denied</source>
+        <comment>QSystemSemaphore</comment>
+        <translation>%1: доступ заборонено</translation>
+    </message>
+    <message>
         <source>%1: unknown error %2</source>
         <comment>QSystemSemaphore</comment>
         <translation>%1: невідома помилка %2</translation>
@@ -1366,6 +1379,13 @@ to
     </message>
 </context>
 <context>
+    <name>QDeclarativeApplication</name>
+    <message>
+        <source>Application is an abstract class</source>
+        <translation>Application - це абстрактний клас</translation>
+    </message>
+</context>
+<context>
     <name>QDeclarativeBehavior</name>
     <message>
         <source>Cannot change the animation assigned to a Behavior.</source>
@@ -1493,6 +1513,14 @@ to
         <translation>Неможливо створити порожню специфікацію компоненти</translation>
     </message>
     <message>
+        <source>&quot;%1.%2&quot; is not available in %3 %4.%5.</source>
+        <translation>&quot;%1.%2&quot; не доступно в %3 %4.%5.</translation>
+    </message>
+    <message>
+        <source>&quot;%1.%2&quot; is not available due to component versioning.</source>
+        <translation>&quot;%1.%2&quot; не доступно через версіювання компонента.</translation>
+    </message>
+    <message>
         <source>Incorrectly specified signal assignment</source>
         <translation>Неправильно вказане призначення сигналу</translation>
     </message>
@@ -1589,6 +1617,10 @@ to
         <translation>Неправильне присвоєння властивості: очікувався скрипт</translation>
     </message>
     <message>
+        <source>Cannot assign multiple values to a singular property</source>
+        <translation>Неможливо присвоїти декілька значенть до одиничної властивості</translation>
+    </message>
+    <message>
         <source>Cannot assign object to property</source>
         <translation>Неможливо призначити об&apos;єкт властивості</translation>
     </message>
@@ -1681,8 +1713,12 @@ to
         <translation>Непраильна позиція псевдоніму</translation>
     </message>
     <message>
-        <source>Invalid alias reference. An alias reference must be specified as &lt;id&gt; or &lt;id&gt;.&lt;property&gt;</source>
-        <translation>Неправильне посилання на псевдонім. Посилання на псевдонім має бути вказане, як &lt;id&gt; або &lt;id&gt;.&lt;property&gt;</translation>
+        <source>Invalid alias reference. An alias reference must be specified as &lt;id&gt;, &lt;id&gt;.&lt;property&gt; or &lt;id&gt;.&lt;value property&gt;.&lt;property&gt;</source>
+        <translation>Неправильне посилання на псевдонім. Посилання на псевдонім повинно бути вказане як &lt;id&gt;, &lt;id&gt;.&lt;властивість&gt; або &lt;id&gt;.&lt;властивість-значення&gt;.&lt;властивість&gt;</translation>
+    </message>
+    <message>
+        <source>Alias property exceeds alias bounds</source>
+        <translation>Властивість-псевдонім виходить за межі псевдоніму</translation>
     </message>
     <message>
         <source>Invalid alias reference. Unable to find id &quot;%1&quot;</source>
@@ -1694,6 +1730,10 @@ to
     <message>
         <source>Invalid empty URL</source>
         <translation>Неправильний порожній URL</translation>
+    </message>
+    <message>
+        <source>createObject: value is not an object</source>
+        <translation>createObject: значення не є об’єктом</translation>
     </message>
 </context>
 <context>
@@ -1756,6 +1796,10 @@ to
 <context>
     <name>QDeclarativeImportDatabase</name>
     <message>
+        <source>cannot load module &quot;%1&quot;: File name case mismatch for &quot;%2&quot;</source>
+        <translation>неможливо завантажити модуль &quot;%1&quot;: Регістр імені файлу не збігається для &quot;%2&quot;</translation>
+    </message>
+    <message>
         <source>module &quot;%1&quot; definition &quot;%2&quot; not readable</source>
         <translation>неможливо прочитати визначення &quot;%2&quot; модуля &quot;%1&quot;</translation>
     </message>
@@ -1811,6 +1855,10 @@ to
         <source>is not a type</source>
         <translation>не є типом</translation>
     </message>
+    <message>
+        <source>File name case mismatch for &quot;%2&quot;</source>
+        <translation>Регістр імені файлу не збігається для &quot;%2&quot;</translation>
+    </message>
 </context>
 <context>
     <name>QDeclarativeKeyNavigationAttached</name>
@@ -1824,6 +1872,17 @@ to
     <message>
         <source>Keys is only available via attached properties</source>
         <translation>Keys доступні лише через прикріплені властивості</translation>
+    </message>
+</context>
+<context>
+    <name>QDeclarativeLayoutMirroringAttached</name>
+    <message>
+        <source>LayoutDirection attached property only works with Items</source>
+        <translation>Прикріплена властивість LayoutDirection працює лише з Item</translation>
+    </message>
+    <message>
+        <source>LayoutMirroring is only available via attached properties</source>
+        <translation>LayoutMirroring доступна лише через прикріплені властивості</translation>
     </message>
 </context>
 <context>
@@ -1925,7 +1984,7 @@ to
         <translation>Незакритий рядок в кінці файлу</translation>
     </message>
     <message>
-        <source>Illegal escape squence</source>
+        <source>Illegal escape sequence</source>
         <translation>Неприпустима керуюча послідовність</translation>
     </message>
     <message>
@@ -2077,22 +2136,22 @@ to
     </message>
 </context>
 <context>
-    <name>QDeclarativeTypeData</name>
+    <name>QDeclarativeTypeLoader</name>
     <message>
         <source>Script %1 unavailable</source>
-        <translation type="unfinished"></translation>
+        <translation>Скрипт %1 недоступний</translation>
     </message>
     <message>
         <source>Type %1 unavailable</source>
-        <translation type="unfinished">Тип %1 недоступний</translation>
+        <translation>Тип %1 недоступний</translation>
     </message>
     <message>
         <source>Namespace %1 cannot be used as a type</source>
-        <translation type="unfinished">Простір імен %1 не може бути використаний як тип</translation>
+        <translation>Простір імен %1 не може бути використаний як тип</translation>
     </message>
     <message>
         <source>%1 %2</source>
-        <translation type="unfinished">%1 %2</translation>
+        <translation></translation>
     </message>
 </context>
 <context>
@@ -3647,8 +3706,8 @@ Do you want to delete it anyway?</source>
         <translation>&lt;h3&gt;Про Qt&lt;/h3&gt;&lt;p&gt;Ця програма використовує Qt версії %1.&lt;/p&gt;</translation>
     </message>
     <message>
-        <source>&lt;p&gt;Qt is a C++ toolkit for cross-platform application development.&lt;/p&gt;&lt;p&gt;Qt provides single-source portability across MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux, and all major commercial Unix variants. Qt is also available for embedded devices as Qt for Embedded Linux and Qt for Windows CE.&lt;/p&gt;&lt;p&gt;Qt is available under three different licensing options designed to accommodate the needs of our various users.&lt;/p&gt;&lt;p&gt;Qt licensed under our commercial license agreement is appropriate for development of proprietary/commercial software where you do not want to share any source code with third parties or otherwise cannot comply with the terms of the GNU LGPL version 2.1 or GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU LGPL version 2.1 is appropriate for the development of Qt applications (proprietary or open source) provided you can comply with the terms and conditions of the GNU LGPL version 2.1.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU General Public License version 3.0 is appropriate for the development of Qt applications where you wish to use such applications in combination with software subject to the terms of the GNU GPL version 3.0 or where you are otherwise willing to comply with the terms of the GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Please see &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; for an overview of Qt licensing.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).&lt;/p&gt;&lt;p&gt;Qt is a Nokia product. See &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; for more information.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Qt - це інструментарій для крос-платформної розробки програм на C++.&lt;/p&gt;&lt;p&gt;Qt надає переносимість єдиного коду між MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux та усіма іншими головними комерційними варіантами Unix. Також, Qt доступна для вбудованих пристроїв у вигляді Qt для Embedded Linux та Qt для Windows CE.&lt;/p&gt;&lt;p&gt;Qt доступна на умовах трьох різних опцій ліцензування з метою задоволення потреб усіх наших різноманітних користувачів.&lt;/p&gt;&lt;p&gt;Qt ліцензована на умовах нашої комерційної ліцензійної угоди придатна для розробки пропієтарного/комерційного програмного забезпечення тоді, коли ви не бажаєте надавати будь-який код чи коли не можете прийняти умови ліцензій GNU LGPL версії 2.1 чи GNU GPL версії 3.0.&lt;/p&gt;&lt;p&gt;Qt ліцензована на умовах GNU LGPL версії 2.1 придатна для розробки програм на базі Qt (пропієтарних або з відкритим кодом) за умови, що ви можете погодитись з вимогами та умовами GNU LGPL версії 2.1.&lt;/p&gt;&lt;p&gt;Qt ліцензована на умовах GNU General Public License версії 3.0 придатна для розробки програм на базі Qt, коли ви бажаєте використовувати такі програми у поєднанні з програмним забезпеченням, що підпадає під вимоги GNU GPL версії 3.0 або коли ви бажаєте дотримуватись вимог GNU GPL версії 3.0.&lt;/p&gt;&lt;p&gt;Будь ласка, перегляньте &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; для огляду ліцензування Qt.&lt;/p&gt;&lt;p&gt;Copyright (C) 2010 Корпорація Nokia та/або її дочірні компанії.&lt;/p&gt;&lt;p&gt;Qt - це продукт Nokia. Подивіться &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; для додаткової інформації.&lt;/p&gt;</translation>
+        <source>&lt;p&gt;Qt is a C++ toolkit for cross-platform application development.&lt;/p&gt;&lt;p&gt;Qt provides single-source portability across MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux, and all major commercial Unix variants. Qt is also available for embedded devices as Qt for Embedded Linux and Qt for Windows CE.&lt;/p&gt;&lt;p&gt;Qt is available under three different licensing options designed to accommodate the needs of our various users.&lt;/p&gt;&lt;p&gt;Qt licensed under our commercial license agreement is appropriate for development of proprietary/commercial software where you do not want to share any source code with third parties or otherwise cannot comply with the terms of the GNU LGPL version 2.1 or GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU LGPL version 2.1 is appropriate for the development of Qt applications (proprietary or open source) provided you can comply with the terms and conditions of the GNU LGPL version 2.1.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU General Public License version 3.0 is appropriate for the development of Qt applications where you wish to use such applications in combination with software subject to the terms of the GNU GPL version 3.0 or where you are otherwise willing to comply with the terms of the GNU GPL version 3.0.&lt;/p&gt;&lt;p&gt;Please see &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; for an overview of Qt licensing.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).&lt;/p&gt;&lt;p&gt;Qt is a Nokia product. See &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; for more information.&lt;/p&gt;</source>
+        <translation>&lt;p&gt;Qt - це інструментарій для крос-платформної розробки програм на C++.&lt;/p&gt;&lt;p&gt;Qt надає переносимість єдиного коду між MS&amp;nbsp;Windows, Mac&amp;nbsp;OS&amp;nbsp;X, Linux та усіма іншими головними комерційними варіантами Unix. Також, Qt доступна для вбудованих пристроїв у вигляді Qt для Embedded Linux та Qt для Windows CE.&lt;/p&gt;&lt;p&gt;Qt доступна на умовах трьох різних опцій ліцензування з метою задоволення потреб усіх наших різноманітних користувачів.&lt;/p&gt;&lt;p&gt;Qt ліцензована на умовах нашої комерційної ліцензійної угоди придатна для розробки пропієтарного/комерційного програмного забезпечення тоді, коли ви не бажаєте надавати будь-який код чи коли не можете прийняти умови ліцензій GNU LGPL версії 2.1 чи GNU GPL версії 3.0.&lt;/p&gt;&lt;p&gt;Qt ліцензована на умовах GNU LGPL версії 2.1 придатна для розробки програм на базі Qt (пропієтарних або з відкритим кодом) за умови, що ви можете погодитись з вимогами та умовами GNU LGPL версії 2.1.&lt;/p&gt;&lt;p&gt;Qt ліцензована на умовах GNU General Public License версії 3.0 придатна для розробки програм на базі Qt, коли ви бажаєте використовувати такі програми у поєднанні з програмним забезпеченням, що підпадає під вимоги GNU GPL версії 3.0 або коли ви бажаєте дотримуватись вимог GNU GPL версії 3.0.&lt;/p&gt;&lt;p&gt;Будь ласка, перегляньте &lt;a href=&quot;http://qt.nokia.com/products/licensing&quot;&gt;qt.nokia.com/products/licensing&lt;/a&gt; для огляду ліцензування Qt.&lt;/p&gt;&lt;p&gt;Copyright (C) 2011 Корпорація Nokia та/або її дочірні компанії.&lt;/p&gt;&lt;p&gt;Qt - це продукт Nokia. Подивіться &lt;a href=&quot;http://qt.nokia.com/&quot;&gt;qt.nokia.com&lt;/a&gt; для додаткової інформації.&lt;/p&gt;</translation>
     </message>
     <message>
         <source>About Qt</source>
@@ -6123,7 +6182,7 @@ Do you want to overwrite it?</source>
     </message>
     <message>
         <source>Voice Dial</source>
-        <extracomment>Button to trigger voice dialling</extracomment>
+        <extracomment>Button to trigger voice dialing</extracomment>
         <translation>Голосовий набір</translation>
     </message>
     <message>
@@ -6590,6 +6649,10 @@ Do you want to overwrite it?</source>
     <message>
         <source>Error during SSL handshake: %1</source>
         <translation>Помилка рукостискання SSL: %1</translation>
+    </message>
+    <message>
+        <source>The peer certificate is blacklisted</source>
+        <translation>Сертифікат іншої сторони в чорному списку</translation>
     </message>
 </context>
 <context>

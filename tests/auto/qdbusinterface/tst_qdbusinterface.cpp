@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -169,6 +169,25 @@ public slots:
 int MyObject::callCount = 0;
 QVariantList MyObject::callArgs;
 
+class MyObjectUnknownType: public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "com.trolltech.QtDBus.MyObject")
+    Q_CLASSINFO("D-Bus Introspection", ""
+"  <interface name=\"com.trolltech.QtDBus.MyObjectUnknownTypes\" >\n"
+"    <property access=\"readwrite\" type=\"~\" name=\"prop1\" />\n"
+"    <signal name=\"somethingHappened\" >\n"
+"      <arg direction=\"out\" type=\"~\" />\n"
+"    </signal>\n"
+"    <method name=\"ping\" >\n"
+"      <arg direction=\"in\" type=\"~\" name=\"ping\" />\n"
+"      <arg direction=\"out\" type=\"~\" name=\"ping\" />\n"
+"    </method>\n"
+"    <method name=\"regularMethod\" />\n"
+"  </interface>\n"
+                "")
+};
+
 class Spy: public QObject
 {
     Q_OBJECT
@@ -228,6 +247,7 @@ private slots:
     void notValidDerived();
     void invalidAfterServiceOwnerChanged();
     void introspect();
+    void introspectUnknownTypes();
     void callMethod();
     void invokeMethod();
     void invokeMethodWithReturn();
@@ -250,8 +270,7 @@ void tst_QDBusInterface::initTestCase()
 
     con.registerObject("/", &obj, QDBusConnection::ExportAllProperties
                        | QDBusConnection::ExportAllSlots
-                       | QDBusConnection::ExportAllInvokables
-                       | QDBusConnection::ExportChildObjects);
+                       | QDBusConnection::ExportAllInvokables);
 }
 
 void tst_QDBusInterface::notConnected()
@@ -320,6 +339,27 @@ void tst_QDBusInterface::introspect()
     QCOMPARE(mo->propertyCount() - mo->propertyOffset(), 2);
     QVERIFY(mo->indexOfProperty("prop1") != -1);
     QVERIFY(mo->indexOfProperty("complexProp") != -1);
+}
+
+void tst_QDBusInterface::introspectUnknownTypes()
+{
+    QDBusConnection con = QDBusConnection::sessionBus();
+    MyObjectUnknownType obj;
+    con.registerObject("/unknownTypes", &obj, QDBusConnection::ExportAllContents);
+    QDBusInterface iface(QDBusConnection::sessionBus().baseService(), QLatin1String("/unknownTypes"),
+                         "com.trolltech.QtDBus.MyObjectUnknownTypes");
+
+    const QMetaObject *mo = iface.metaObject();
+    QVERIFY(mo->indexOfMethod("regularMethod()") != -1); // this is the control
+    QVERIFY(mo->indexOfMethod("somethingHappened(QDBusRawType<0x7e>*)") != -1);
+
+    QVERIFY(mo->indexOfMethod("ping(QDBusRawType<0x7e>*)") != -1);
+    int midx = mo->indexOfMethod("ping(QDBusRawType<0x7e>*)");
+    QCOMPARE(mo->method(midx).typeName(), "QDBusRawType<0x7e>*");
+
+    QVERIFY(mo->indexOfProperty("prop1") != -1);
+    int pidx = mo->indexOfProperty("prop1");
+    QCOMPARE(mo->property(pidx).typeName(), "QDBusRawType<0x7e>*");
 }
 
 void tst_QDBusInterface::callMethod()

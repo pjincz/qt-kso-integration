@@ -11,6 +11,7 @@ SUBDIRS += \
            qdeclarativeanchors \
            qdeclarativeanimatedimage \
            qdeclarativeanimations \
+           qdeclarativeapplication \
            qdeclarativebehaviors \
            qdeclarativebinding \
            qdeclarativeborderimage \
@@ -45,6 +46,7 @@ SUBDIRS += \
            qdeclarativemousearea \
            qdeclarativeparticles \
            qdeclarativepathview \
+           qdeclarativepincharea \
            qdeclarativepixmapcache \
            qdeclarativepositioners \
            qdeclarativeproperty \
@@ -76,6 +78,8 @@ contains(QT_CONFIG, webkit) {
     SUBDIRS += \
            qdeclarativewebview
 }
+
+contains(QT_CONFIG, opengl): SUBDIRS += qmlshadersplugin
 
 # Tests which should run in Pulse
 PULSE_TESTS = $$SUBDIRS

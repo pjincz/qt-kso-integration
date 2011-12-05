@@ -1,50 +1,50 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the QtDeclarative module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
-#include "private/qdeclarativeitem_p.h"
 #include "qdeclarativeitem.h"
 
 #include "private/qdeclarativeevents_p_p.h"
 #include <private/qdeclarativeengine_p.h>
 #include <private/qgraphicsitem_p.h>
+#include <QtDeclarative/private/qdeclarativeitem_p.h>
 
 #include <qdeclarativeengine.h>
 #include <qdeclarativeopenmetaobject_p.h>
@@ -56,7 +56,6 @@
 
 #include <QDebug>
 #include <QPen>
-#include <QFile>
 #include <QEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QtCore/qnumeric.h>
@@ -422,58 +421,33 @@ void QDeclarativeItemKeyFilter::componentComplete()
     \since 4.7
     \brief The KeyNavigation attached property supports key navigation by arrow keys.
 
-    It is common in key-based UIs to use arrow keys to navigate
-    between focused items.  The KeyNavigation property provides a
-    convenient way of specifying which item will gain focus
-    when an arrow key is pressed.  The following example provides
-    key navigation for a 2x2 grid of items.
+    Key-based user interfaces commonly allow the use of arrow keys to navigate between
+    focusable items.  The KeyNavigation attached property enables this behavior by providing a
+    convenient way to specify the item that should gain focus when an arrow or tab key is pressed.
 
-    \code
-    Grid {
-        columns: 2
-        width: 100; height: 100
-        Rectangle {
-            id: item1
-            focus: true
-            width: 50; height: 50
-            color: focus ? "red" : "lightgray"
-            KeyNavigation.right: item2
-            KeyNavigation.down: item3
-        }
-        Rectangle {
-            id: item2
-            width: 50; height: 50
-            color: focus ? "red" : "lightgray"
-            KeyNavigation.left: item1
-            KeyNavigation.down: item4
-        }
-        Rectangle {
-            id: item3
-            width: 50; height: 50
-            color: focus ? "red" : "lightgray"
-            KeyNavigation.right: item4
-            KeyNavigation.up: item1
-        }
-        Rectangle {
-            id: item4
-            width: 50; height: 50
-            color: focus ? "red" : "lightgray"
-            KeyNavigation.left: item3
-            KeyNavigation.up: item2
-        }
-    }
-    \endcode
+    The following example provides key navigation for a 2x2 grid of items:
 
-    By default KeyNavigation receives key events after the item it is attached to.
-    If the item accepts an arrow key event, the KeyNavigation
-    attached property will not receive an event for that key.  Setting the
-    \l priority property to KeyNavigation.BeforeItem allows handling
-    of the key events before normal item processing.
+    \snippet doc/src/snippets/declarative/keynavigation.qml 0
 
-    If an item has been set for a direction and the KeyNavigation
-    attached property receives the corresponding
-    key press and release events, the events will be accepted by
-    KeyNavigation and will not propagate any further.
+    The top-left item initially receives focus by setting \l {Item::}{focus} to
+    \c true. When an arrow key is pressed, the focus will move to the
+    appropriate item, as defined by the value that has been set for
+    the KeyNavigation \l left, \l right, \l up or \l down properties.
+
+    Note that if a KeyNavigation attached property receives the key press and release
+    events for a requested arrow or tab key, the event is accepted and does not
+    propagate any further.
+
+    By default, KeyNavigation receives key events after the item to which it is attached.
+    If the item accepts the key event, the KeyNavigation attached property will not
+    receive an event for that key.  Setting the \l priority property to
+    \c KeyNavigation.BeforeItem allows the event to be used for key navigation
+    before the item, rather than after.
+
+    If item to which the focus is switching is not enabled or visible, an attempt will
+    be made to skip this item and focus on the next. This is possible if there are
+    a chain of items with the same KeyNavigation handler. If multiple items in a row are not enabled
+    or visible, they will also be skipped.
 
     \sa {Keys}{Keys attached property}
 */
@@ -483,10 +457,20 @@ void QDeclarativeItemKeyFilter::componentComplete()
     \qmlproperty Item KeyNavigation::right
     \qmlproperty Item KeyNavigation::up
     \qmlproperty Item KeyNavigation::down
+    \qmlproperty Item KeyNavigation::tab
+    \qmlproperty Item KeyNavigation::backtab
 
     These properties hold the item to assign focus to
-    when Key_Left, Key_Right, Key_Up or Key_Down are
-    pressed.
+    when the left, right, up or down cursor keys, or the
+    tab key are pressed.
+*/
+
+/*!
+    \qmlproperty Item KeyNavigation::tab
+    \qmlproperty Item KeyNavigation::backtab
+
+    These properties hold the item to assign focus to
+    when the Tab key or Shift+Tab key combination (Backtab) are pressed.
 */
 
 QDeclarativeKeyNavigationAttached::QDeclarativeKeyNavigationAttached(QObject *parent)
@@ -600,7 +584,7 @@ void QDeclarativeKeyNavigationAttached::setBacktab(QDeclarativeItem *i)
 
     \list
     \o KeyNavigation.BeforeItem - process the key events before normal
-    item key processing.  If the event is accepted it will not
+    item key processing.  If the event is used for key navigation, it will be accepted and will not
     be passed on to the item.
     \o KeyNavigation.AfterItem (default) - process the key events after normal item key
     handling.  If the item accepts the key event it will not be
@@ -631,40 +615,49 @@ void QDeclarativeKeyNavigationAttached::keyPressed(QKeyEvent *event, bool post)
         return;
     }
 
+    bool mirror = false;
     switch(event->key()) {
-    case Qt::Key_Left:
-        if (d->left) {
-            d->left->setFocus(true);
+    case Qt::Key_Left: {
+        if (QDeclarativeItem *parentItem = qobject_cast<QDeclarativeItem*>(parent()))
+            mirror = QDeclarativeItemPrivate::get(parentItem)->effectiveLayoutMirror;
+        QDeclarativeItem* leftItem = mirror ? d->right : d->left;
+        if (leftItem) {
+            setFocusNavigation(leftItem, mirror ? "right" : "left");
             event->accept();
         }
         break;
-    case Qt::Key_Right:
-        if (d->right) {
-            d->right->setFocus(true);
+    }
+    case Qt::Key_Right: {
+        if (QDeclarativeItem *parentItem = qobject_cast<QDeclarativeItem*>(parent()))
+            mirror = QDeclarativeItemPrivate::get(parentItem)->effectiveLayoutMirror;
+        QDeclarativeItem* rightItem = mirror ? d->left : d->right;
+        if (rightItem) {
+            setFocusNavigation(rightItem, mirror ? "left" : "right");
             event->accept();
         }
         break;
+    }
     case Qt::Key_Up:
         if (d->up) {
-            d->up->setFocus(true);
+            setFocusNavigation(d->up, "up");
             event->accept();
         }
         break;
     case Qt::Key_Down:
         if (d->down) {
-            d->down->setFocus(true);
+            setFocusNavigation(d->down, "down");
             event->accept();
         }
         break;
     case Qt::Key_Tab:
         if (d->tab) {
-            d->tab->setFocus(true);
+            setFocusNavigation(d->tab, "tab");
             event->accept();
         }
         break;
     case Qt::Key_Backtab:
         if (d->backtab) {
-            d->backtab->setFocus(true);
+            setFocusNavigation(d->backtab, "backtab");
             event->accept();
         }
         break;
@@ -685,16 +678,19 @@ void QDeclarativeKeyNavigationAttached::keyReleased(QKeyEvent *event, bool post)
         return;
     }
 
+    bool mirror = false;
     switch(event->key()) {
     case Qt::Key_Left:
-        if (d->left) {
+        if (QDeclarativeItem *parentItem = qobject_cast<QDeclarativeItem*>(parent()))
+            mirror = QDeclarativeItemPrivate::get(parentItem)->effectiveLayoutMirror;
+        if (mirror ? d->right : d->left)
             event->accept();
-        }
         break;
     case Qt::Key_Right:
-        if (d->right) {
+        if (QDeclarativeItem *parentItem = qobject_cast<QDeclarativeItem*>(parent()))
+            mirror = QDeclarativeItemPrivate::get(parentItem)->effectiveLayoutMirror;
+        if (mirror ? d->left : d->right)
             event->accept();
-        }
         break;
     case Qt::Key_Up:
         if (d->up) {
@@ -723,47 +719,232 @@ void QDeclarativeKeyNavigationAttached::keyReleased(QKeyEvent *event, bool post)
     if (!event->isAccepted()) QDeclarativeItemKeyFilter::keyReleased(event, post);
 }
 
+void QDeclarativeKeyNavigationAttached::setFocusNavigation(QDeclarativeItem *currentItem, const char *dir)
+{
+    QDeclarativeItem *initialItem = currentItem;
+    bool isNextItem = false;
+    do {
+        isNextItem = false;
+        if (currentItem->isVisible() && currentItem->isEnabled()) {
+            currentItem->setFocus(true);
+        } else {
+            QObject *attached =
+                qmlAttachedPropertiesObject<QDeclarativeKeyNavigationAttached>(currentItem, false);
+            if (attached) {
+                QDeclarativeItem *tempItem = qvariant_cast<QDeclarativeItem*>(attached->property(dir));
+                if (tempItem) {
+                    currentItem = tempItem;
+                    isNextItem = true;
+                }
+            }
+        }
+    }
+    while (currentItem != initialItem && isNextItem);
+}
+
+/*!
+    \qmlclass LayoutMirroring QDeclarativeLayoutMirroringAttached
+    \since QtQuick 1.1
+    \ingroup qml-utility-elements
+    \brief The LayoutMirroring attached property is used to mirror layout behavior.
+
+    The LayoutMirroring attached property is used to horizontally mirror \l {anchor-layout}{Item anchors},
+    \l{Using QML Positioner and Repeater Items}{positioner} elements (such as \l Row and \l Grid)
+    and views (such as \l GridView and horizontal \l ListView). Mirroring is a visual change: left
+    anchors become right anchors, and positioner elements like \l Grid and \l Row reverse the
+    horizontal layout of child items.
+
+    Mirroring is enabled for an item by setting the \l enabled property to true. By default, this
+    only affects the item itself; setting the \l childrenInherit property to true propagates the mirroring
+    behavior to all child elements as well. If the \c LayoutMirroring attached property has not been defined
+    for an item, mirroring is not enabled.
+
+    The following example shows mirroring in action. The \l Row below is specified as being anchored
+    to the left of its parent. However, since mirroring has been enabled, the anchor is horizontally
+    reversed and it is now anchored to the right. Also, since items in a \l Row are positioned
+    from left to right by default, they are now positioned from right to left instead, as demonstrated
+    by the numbering and opacity of the items:
+
+    \snippet doc/src/snippets/declarative/layoutmirroring.qml 0
+
+    \image layoutmirroring.png
+
+    Layout mirroring is useful when it is necessary to support both left-to-right and right-to-left
+    layout versions of an application to target different language areas. The \l childrenInherit
+    property allows layout mirroring to be applied without manually setting layout configurations
+    for every item in an application. Keep in mind, however, that mirroring does not affect any
+    positioning that is defined by the \l Item \l {Item::}{x} coordinate value, so even with
+    mirroring enabled, it will often be necessary to apply some layout fixes to support the
+    desired layout direction. Also, it may be necessary to disable the mirroring of individual
+    child items (by setting \l {enabled}{LayoutMirroring.enabled} to false for such items) if
+    mirroring is not the desired behavior, or if the child item already implements mirroring in
+    some custom way.
+
+    See \l {QML Right-to-left User Interfaces} for further details on using \c LayoutMirroring and
+    other related features to implement right-to-left support for an application.
+*/
+
+/*!
+    \qmlproperty bool LayoutMirroring::enabled
+
+    This property holds whether the item's layout is mirrored horizontally. Setting this to true
+    horizontally reverses \l {anchor-layout}{anchor} settings such that left anchors become right,
+    and right anchors become left. For \l{Using QML Positioner and Repeater Items}{positioner} elements
+    (such as \l Row and \l Grid) and view elements (such as \l {GridView}{GridView} and \l {ListView}{ListView})
+    this also mirrors the horizontal layout direction of the item.
+
+    The default value is false.
+*/
+
+/*!
+    \qmlproperty bool LayoutMirroring::childrenInherit
+
+    This property holds whether the \l {enabled}{LayoutMirroring.enabled} value for this item
+    is inherited by its children.
+
+    The default value is false.
+*/
+
+QDeclarativeLayoutMirroringAttached::QDeclarativeLayoutMirroringAttached(QObject *parent) : QObject(parent), itemPrivate(0)
+{
+    if (QDeclarativeItem *item = qobject_cast<QDeclarativeItem*>(parent)) {
+        itemPrivate = QDeclarativeItemPrivate::get(item);
+        itemPrivate->attachedLayoutDirection = this;
+    } else
+        qmlInfo(parent) << tr("LayoutDirection attached property only works with Items");
+}
+
+QDeclarativeLayoutMirroringAttached * QDeclarativeLayoutMirroringAttached::qmlAttachedProperties(QObject *object)
+{
+    return new QDeclarativeLayoutMirroringAttached(object);
+}
+
+bool QDeclarativeLayoutMirroringAttached::enabled() const
+{
+    return itemPrivate ? itemPrivate->effectiveLayoutMirror : false;
+}
+
+void QDeclarativeLayoutMirroringAttached::setEnabled(bool enabled)
+{
+    if (!itemPrivate)
+        return;
+
+    itemPrivate->isMirrorImplicit = false;
+    if (enabled != itemPrivate->effectiveLayoutMirror) {
+        itemPrivate->setLayoutMirror(enabled);
+        if (itemPrivate->inheritMirrorFromItem)
+             itemPrivate->resolveLayoutMirror();
+    }
+}
+
+void QDeclarativeLayoutMirroringAttached::resetEnabled()
+{
+    if (itemPrivate && !itemPrivate->isMirrorImplicit) {
+        itemPrivate->isMirrorImplicit = true;
+        itemPrivate->resolveLayoutMirror();
+    }
+}
+
+bool QDeclarativeLayoutMirroringAttached::childrenInherit() const
+{
+    return itemPrivate ? itemPrivate->inheritMirrorFromItem : false;
+}
+
+void QDeclarativeLayoutMirroringAttached::setChildrenInherit(bool childrenInherit) {
+    if (itemPrivate && childrenInherit != itemPrivate->inheritMirrorFromItem) {
+        itemPrivate->inheritMirrorFromItem = childrenInherit;
+        itemPrivate->resolveLayoutMirror();
+        childrenInheritChanged();
+    }
+}
+
+void QDeclarativeItemPrivate::resolveLayoutMirror()
+{
+    Q_Q(QDeclarativeItem);
+    if (QDeclarativeItem *parentItem = q->parentItem()) {
+        QDeclarativeItemPrivate *parentPrivate = QDeclarativeItemPrivate::get(parentItem);
+        setImplicitLayoutMirror(parentPrivate->inheritedLayoutMirror, parentPrivate->inheritMirrorFromParent);
+    } else {
+        setImplicitLayoutMirror(isMirrorImplicit ? false : effectiveLayoutMirror, inheritMirrorFromItem);
+    }
+}
+
+void QDeclarativeItemPrivate::setImplicitLayoutMirror(bool mirror, bool inherit)
+{
+    inherit = inherit || inheritMirrorFromItem;
+    if (!isMirrorImplicit && inheritMirrorFromItem)
+        mirror = effectiveLayoutMirror;
+    if (mirror == inheritedLayoutMirror && inherit == inheritMirrorFromParent)
+        return;
+
+    inheritMirrorFromParent = inherit;
+    inheritedLayoutMirror = inheritMirrorFromParent ? mirror : false;
+
+    if (isMirrorImplicit)
+        setLayoutMirror(inherit ? inheritedLayoutMirror : false);
+    for (int i = 0; i < children.count(); ++i) {
+        if (QDeclarativeItem *child = qobject_cast<QDeclarativeItem *>(children.at(i))) {
+            QDeclarativeItemPrivate *childPrivate = QDeclarativeItemPrivate::get(child);
+            childPrivate->setImplicitLayoutMirror(inheritedLayoutMirror, inheritMirrorFromParent);
+        }
+    }
+}
+
+void QDeclarativeItemPrivate::setLayoutMirror(bool mirror)
+{
+    if (mirror != effectiveLayoutMirror) {
+        effectiveLayoutMirror = mirror;
+        if (_anchors) {
+            _anchors->d_func()->fillChanged();
+            _anchors->d_func()->centerInChanged();
+            _anchors->d_func()->updateHorizontalAnchors();
+        }
+        mirrorChange();
+        if (attachedLayoutDirection) {
+            emit attachedLayoutDirection->enabledChanged();
+        }
+    }
+}
+
 /*!
     \qmlclass Keys QDeclarativeKeysAttached
     \ingroup qml-basic-interaction-elements
     \since 4.7
     \brief The Keys attached property provides key handling to Items.
 
-    All visual primitives support key handling via the \e Keys
-    attached property.  Keys can be handled via the \e onPressed
-    and \e onReleased signal properties.
+    All visual primitives support key handling via the Keys
+    attached property.  Keys can be handled via the onPressed
+    and onReleased signal properties.
 
     The signal properties have a \l KeyEvent parameter, named
     \e event which contains details of the event.  If a key is
     handled \e event.accepted should be set to true to prevent the
     event from propagating up the item hierarchy.
 
-    \code
-    Item {
-        focus: true
-        Keys.onPressed: {
-            if (event.key == Qt.Key_Left) {
-                console.log("move left");
-                event.accepted = true;
-            }
-        }
-    }
-    \endcode
+    \section1 Example Usage
+
+    The following example shows how the general onPressed handler can
+    be used to test for a certain key; in this case, the left cursor
+    key:
+
+    \snippet doc/src/snippets/declarative/keys/keys-pressed.qml key item
 
     Some keys may alternatively be handled via specific signal properties,
     for example \e onSelectPressed.  These handlers automatically set
     \e event.accepted to true.
 
-    \code
-    Item {
-        focus: true
-        Keys.onLeftPressed: console.log("move left")
-    }
-    \endcode
+    \snippet doc/src/snippets/declarative/keys/keys-handler.qml key item
 
-    See \l {Qt::Key}{Qt.Key} for the list of keyboard codes.
+    See \l{Qt::Key}{Qt.Key} for the list of keyboard codes.
 
-    If priority is Keys.BeforeItem (default) the order of key event processing is:
+    \section1 Key Handling Priorities
+
+    The Keys attached property can be configured to handle key events
+    before or after the item it is attached to. This makes it possible
+    to intercept events in order to override an item's default behavior,
+    or act as a fallback for keys not handled by the item.
+
+    If \l priority is Keys.BeforeItem (default) the order of key event processing is:
 
     \list 1
     \o Items specified in \c forwardTo
@@ -774,6 +955,7 @@ void QDeclarativeKeyNavigationAttached::keyReleased(QKeyEvent *event, bool post)
     \endlist
 
     If priority is Keys.AfterItem the order of key event processing is:
+
     \list 1
     \o Item specific key handling, e.g. TextInput key handling
     \o Items specified in \c forwardTo
@@ -823,10 +1005,18 @@ void QDeclarativeKeyNavigationAttached::keyReleased(QKeyEvent *event, bool post)
 
     This example forwards key events to two lists:
     \qml
-    ListView { id: list1 ... }
-    ListView { id: list2 ... }
-    Keys.forwardTo: [list1, list2]
-    focus: true
+    Item {
+        ListView {
+            id: list1
+            // ...
+        }
+        ListView {
+            id: list2
+            // ...
+        }
+        Keys.forwardTo: [list1, list2]
+        focus: true
+    }
     \endqml
 */
 
@@ -940,6 +1130,20 @@ void QDeclarativeKeyNavigationAttached::keyReleased(QKeyEvent *event, bool post)
 
     This handler is called when the Down arrow has been pressed. The \a event
     parameter provides information about the event.
+*/
+
+/*!
+    \qmlsignal Keys::onTabPressed(KeyEvent event)
+
+    This handler is called when the Tab key has been pressed. The \a event
+    parameter provides information about the event.
+*/
+
+/*!
+    \qmlsignal Keys::onBacktabPressed(KeyEvent event)
+
+    This handler is called when the Shift+Tab key combination (Backtab) has
+    been pressed. The \a event parameter provides information about the event.
 */
 
 /*!
@@ -1181,7 +1385,7 @@ void QDeclarativeKeysAttached::keyPressed(QKeyEvent *event, bool post)
         d->inPress = true;
         for (int ii = 0; ii < d->targets.count(); ++ii) {
             QGraphicsItem *i = d->finalFocusProxy(d->targets.at(ii));
-            if (i) {
+            if (i && i->isVisible()) {
                 d->item->scene()->sendEvent(i, event);
                 if (event->isAccepted()) {
                     d->inPress = false;
@@ -1223,7 +1427,7 @@ void QDeclarativeKeysAttached::keyReleased(QKeyEvent *event, bool post)
         d->inRelease = true;
         for (int ii = 0; ii < d->targets.count(); ++ii) {
             QGraphicsItem *i = d->finalFocusProxy(d->targets.at(ii));
-            if (i) {
+            if (i && i->isVisible()) {
                 d->item->scene()->sendEvent(i, event);
                 if (event->isAccepted()) {
                     d->inRelease = false;
@@ -1248,7 +1452,7 @@ void QDeclarativeKeysAttached::inputMethodEvent(QInputMethodEvent *event, bool p
         d->inIM = true;
         for (int ii = 0; ii < d->targets.count(); ++ii) {
             QGraphicsItem *i = d->finalFocusProxy(d->targets.at(ii));
-            if (i && (i->flags() & QGraphicsItem::ItemAcceptsInputMethod)) {
+            if (i && i->isVisible() && (i->flags() & QGraphicsItem::ItemAcceptsInputMethod)) {
                 d->item->scene()->sendEvent(i, event);
                 if (event->isAccepted()) {
                     d->imeItem = i;
@@ -1276,7 +1480,7 @@ QVariant QDeclarativeKeysAttached::inputMethodQuery(Qt::InputMethodQuery query) 
     if (d->item) {
         for (int ii = 0; ii < d->targets.count(); ++ii) {
                 QGraphicsItem *i = d->finalFocusProxy(d->targets.at(ii));
-            if (i && (i->flags() & QGraphicsItem::ItemAcceptsInputMethod) && i == d->imeItem) { //### how robust is i == d->imeItem check?
+            if (i && i->isVisible() && (i->flags() & QGraphicsItem::ItemAcceptsInputMethod) && i == d->imeItem) { //### how robust is i == d->imeItem check?
                 QVariant v = static_cast<QDeclarativeItemAccessor *>(i)->doInputMethodQuery(query);
                 if (v.userType() == QVariant::RectF)
                     v = d->item->mapRectFromItem(i, v.toRectF());  //### cost?
@@ -1343,23 +1547,6 @@ QDeclarativeKeysAttached *QDeclarativeKeysAttached::qmlAttachedProperties(QObjec
     }
     \endqml
 
-    \section1 Identity
-
-    Each item has an "id" - the identifier of the Item.
-
-    The identifier can be used in bindings and other expressions to
-    refer to the item. For example:
-
-    \qml
-    Text { id: myText; ... }
-    Text { text: myText.text }
-    \endqml
-
-    The identifier is available throughout to the \l {components}{component}
-    where it is declared.  The identifier must be unique in the component.
-
-    The id should not be thought of as a "property" - it makes no sense
-    to write \c myText.id, for example.
 
     \section1 Key Handling
 
@@ -1387,16 +1574,10 @@ QDeclarativeKeysAttached *QDeclarativeKeysAttached::qmlAttachedProperties(QObjec
 
     See the \l {Keys}{Keys} attached property for detailed documentation.
 
-    \section1 Property Change Signals
+    \section1 Layout Mirroring
 
-    Most properties on Item and Item derivatives have a signal
-    emitted when they change. By convention, the signals are
-    named <propertyName>Changed, e.g. xChanged will be emitted when an item's
-    x property changes. Note that these also have signal handers e.g.
-    the onXChanged signal handler will be called when an item's x property
-    changes. For many properties in Item or Item derivatives this can be used
-    to add a touch of imperative logic to your application (when absolutely
-    necessary).
+    Item layouts can be mirrored using the \l {LayoutMirroring}{LayoutMirroring} attached property.
+
 */
 
 /*!
@@ -1756,8 +1937,8 @@ void QDeclarativeItemPrivate::parentProperty(QObject *o, void *rv, QDeclarativeN
     \qmlproperty list<Object> Item::data
     \default
 
-    The data property is allows you to freely mix visual children and resources
-    of an item.  If you assign a visual item to the data list it becomes
+    The data property allows you to freely mix visual children and resources
+    in an item.  If you assign a visual item to the data list it becomes
     a child and if you assign any other object type, it is added as a resource.
 
     So you can write:
@@ -1841,9 +2022,9 @@ void QDeclarativeItem::setClip(bool c)
 /*!
   \qmlproperty real Item::z
 
-  Sets the stacking order of the item.  By default the stacking order is 0.
+  Sets the stacking order of sibling items.  By default the stacking order is 0.
 
-  Items with a higher stacking value are drawn on top of items with a
+  Items with a higher stacking value are drawn on top of siblings with a
   lower stacking order.  Items with the same stacking value are drawn
   bottom up in the order they appear.  Items with a negative stacking
   value are drawn under their parent's content.
@@ -1919,11 +2100,26 @@ void QDeclarativeItem::setClip(bool c)
 /*!
     \qmlproperty bool Item::visible
 
-    Whether the item is visible. By default this is true.
+    This property holds whether the item is visible. By default this is true.
 
-    \note visible is not linked to actual visibility; if an item
-    moves off screen, or the opacity changes to 0, this will
-    not affect the visible property.
+    Setting this property directly affects the \c visible value of child
+    items. When set to \c false, the \c visible values of all child items also
+    become \c false. When set to \c true, the \c visible values of child items
+    are returned to \c true, unless they have explicitly been set to \c false.
+
+    (Because of this flow-on behavior, using the \c visible property may not
+    have the intended effect if a property binding should only respond to
+    explicit property changes. In such cases it may be better to use the
+    \l opacity property instead.)
+
+    Setting this property to \c false automatically causes \l focus to be set
+    to \c false, and this item will longer receive mouse and keyboard events.
+    (In contrast, setting the \l opacity to 0 does not affect the \l focus
+    property and the receiving of key events.)
+
+    \note This property's value is only affected by changes to this property or
+    the parent's \c visible property. It does not change, for example, if this
+    item moves off-screen, or if the \l opacity changes to 0.
 */
 
 
@@ -1957,12 +2153,8 @@ void QDeclarativeItem::geometryChanged(const QRectF &newGeometry,
             change.listener->itemGeometryChanged(this, newGeometry, oldGeometry);
     }
 
-    if (newGeometry.x() != oldGeometry.x())
-        emit xChanged();
     if (newGeometry.width() != oldGeometry.width())
         emit widthChanged();
-    if (newGeometry.y() != oldGeometry.y())
-        emit yChanged();
     if (newGeometry.height() != oldGeometry.height())
         emit heightChanged();
 }
@@ -2143,11 +2335,15 @@ QDeclarativeAnchorLine QDeclarativeItemPrivate::baseline() const
   \qmlproperty real Item::anchors.verticalCenterOffset
   \qmlproperty real Item::anchors.baselineOffset
 
+  \qmlproperty bool Item::anchors.mirrored
+
   Anchors provide a way to position an item by specifying its
   relationship with other items.
 
   Margins apply to top, bottom, left, right, and fill anchors.
   The \c anchors.margins property can be used to set all of the various margins at once, to the same value.
+  Note that margins are anchor-specific and are not applied if an item does not
+  use anchors.
 
   Offsets apply for horizontal center, vertical center, and baseline anchors.
 
@@ -2156,13 +2352,18 @@ QDeclarativeAnchorLine QDeclarativeItemPrivate::baseline() const
   \o \image declarative-anchors_example.png
   \o Text anchored to Image, horizontally centered and vertically below, with a margin.
   \qml
-  Image { id: pic; ... }
-  Text {
-      id: label
-      anchors.horizontalCenter: pic.horizontalCenter
-      anchors.top: pic.bottom
-      anchors.topMargin: 5
-      ...
+  Item {
+      Image {
+          id: pic
+          // ...
+      }
+      Text {
+          id: label
+          anchors.horizontalCenter: pic.horizontalCenter
+          anchors.top: pic.bottom
+          anchors.topMargin: 5
+          // ...
+      }
   }
   \endqml
   \row
@@ -2172,13 +2373,18 @@ QDeclarativeAnchorLine QDeclarativeItemPrivate::baseline() const
   property of both defaults to 0.
 
   \qml
-    Image { id: pic; ... }
-    Text {
-        id: label
-        anchors.left: pic.right
-        anchors.leftMargin: 5
-        ...
-    }
+  Item {
+      Image {
+          id: pic
+          // ...
+      }
+      Text {
+          id: label
+          anchors.left: pic.right
+          anchors.leftMargin: 5
+          // ...
+      }
+  }
   \endqml
   \endtable
 
@@ -2187,6 +2393,8 @@ QDeclarativeAnchorLine QDeclarativeItemPrivate::baseline() const
   four directional anchors.
 
   To clear an anchor value, set it to \c undefined.
+
+  \c anchors.mirrored returns true it the layout has been \l {LayoutMirroring}{mirrored}.
 
   \note You can only anchor an item to siblings or a parent.
 
@@ -2299,13 +2507,15 @@ void QDeclarativeItem::setBaselineOffset(qreal offset)
 /*!
   \qmlproperty real Item::opacity
 
-  The opacity of the item.  Opacity is specified as a number between 0
-  (fully transparent) and 1 (fully opaque).  The default is 1.
+  This property holds the opacity of the item.  Opacity is specified as a
+  number between 0 (fully transparent) and 1 (fully opaque).  The default is 1.
 
-  Opacity is an \e inherited attribute.  That is, the opacity is
-  also applied individually to child items.  In almost all cases this
-  is what you want, but in some cases (like the following example)
-  it may produce undesired results.
+  When this property is set, the specified opacity is also applied
+  individually to child items.  In almost all cases this is what you want,
+  but in some cases it may produce undesired results. For example in the
+  second set of rectangles below, the red rectangle has specified an opacity
+  of 0.5, which affects the opacity of its blue child rectangle even though
+  the child has not specified an opacity.
 
   \table
   \row
@@ -2340,6 +2550,12 @@ void QDeclarativeItem::setBaselineOffset(qreal offset)
     }
   \endqml
   \endtable
+
+  If an item's opacity is set to 0, the item will no longer receive mouse
+  events, but will continue to receive key events and will retain the keyboard
+  \l focus if it has been set. (In contrast, setting the \l visible property
+  to \c false stops both mouse and keyboard events, and also removes focus
+  from the item.)
 */
 
 /*!
@@ -2492,11 +2708,15 @@ QDeclarativeListProperty<QObject> QDeclarativeItemPrivate::resources()
 
   \qml
   Item {
-    states: [
-      State { ... },
-      State { ... }
-      ...
-    ]
+      states: [
+          State {
+              // ...
+          },
+          State {
+              // ...
+          }
+          // ...
+      ]
   }
   \endqml
 
@@ -2514,15 +2734,19 @@ QDeclarativeListProperty<QDeclarativeState> QDeclarativeItemPrivate::states()
 
   \qml
   Item {
-    transitions: [
-      Transition { ... },
-      Transition { ... }
-      ...
-    ]
+      transitions: [
+          Transition {
+              // ...
+          },
+          Transition {
+              // ...
+          }
+          // ...
+      ]
   }
   \endqml
 
-  \sa {qdeclarativeanimation.html#transitions}{QML Transitions}
+  \sa {QML Animation and Transitions}{Transitions}
 */
 
 
@@ -2543,11 +2767,15 @@ QDeclarativeListProperty<QDeclarativeTransition> QDeclarativeItemPrivate::transi
 
   \qml
   Item {
-    filter: [
-      Blur { ... },
-      Reflection { ... }
-      ...
-    ]
+      filter: [
+          Blur {
+              // ...
+          },
+          Reflection {
+              // ...
+          }
+          // ...
+      ]
   }
   \endqml
 */
@@ -2582,14 +2810,14 @@ QDeclarativeListProperty<QDeclarativeTransition> QDeclarativeItemPrivate::transi
   This property is often used in scripts to change between states. For
   example:
 
-  \qml
-    function toggle() {
-        if (button.state == 'On')
-            button.state = 'Off';
-        else
-            button.state = 'On';
-    }
-  \endqml
+  \js
+  function toggle() {
+      if (button.state == 'On')
+          button.state = 'Off';
+      else
+          button.state = 'On';
+  }
+  \endjs
 
   If the item is in its base state (i.e. no explicit state has been
   set), \c state will be a blank string. Likewise, you can return an
@@ -2769,6 +2997,7 @@ QVariant QDeclarativeItem::itemChange(GraphicsItemChange change,
     Q_D(QDeclarativeItem);
     switch (change) {
     case ItemParentHasChanged:
+        d->resolveLayoutMirror();
         emit parentChanged(parentItem());
         d->parentNotifier.notify();
         break;
@@ -3066,13 +3295,24 @@ void QDeclarativeItemPrivate::resetWidth()
     q->setImplicitWidth(q->implicitWidth());
 }
 
+void QDeclarativeItemPrivate::implicitWidthChanged()
+{
+    Q_Q(QDeclarativeItem);
+    emit q->implicitWidthChanged();
+}
+
+qreal QDeclarativeItemPrivate::implicitWidth() const
+{
+    return mImplicitWidth;
+}
+
 /*!
     Returns the width of the item that is implied by other properties that determine the content.
 */
 qreal QDeclarativeItem::implicitWidth() const
 {
     Q_D(const QDeclarativeItem);
-    return d->implicitWidth;
+    return d->implicitWidth();
 }
 
 /*!
@@ -3082,9 +3322,13 @@ qreal QDeclarativeItem::implicitWidth() const
 void QDeclarativeItem::setImplicitWidth(qreal w)
 {
     Q_D(QDeclarativeItem);
-    d->implicitWidth = w;
-    if (d->mWidth == w || widthValid())
+    bool changed = w != d->mImplicitWidth;
+    d->mImplicitWidth = w;
+    if (d->mWidth == w || widthValid()) {
+        if (changed)
+            d->implicitWidthChanged();
         return;
+    }
 
     qreal oldWidth = d->mWidth;
 
@@ -3093,6 +3337,9 @@ void QDeclarativeItem::setImplicitWidth(qreal w)
 
     geometryChanged(QRectF(x(), y(), width(), height()),
                     QRectF(x(), y(), oldWidth, height()));
+
+    if (changed)
+        d->implicitWidthChanged();
 }
 
 /*!
@@ -3174,14 +3421,62 @@ void QDeclarativeItemPrivate::resetHeight()
     q->setImplicitHeight(q->implicitHeight());
 }
 
+void QDeclarativeItemPrivate::implicitHeightChanged()
+{
+    Q_Q(QDeclarativeItem);
+    emit q->implicitHeightChanged();
+}
+
+qreal QDeclarativeItemPrivate::implicitHeight() const
+{
+    return mImplicitHeight;
+}
+
 /*!
     Returns the height of the item that is implied by other properties that determine the content.
 */
 qreal QDeclarativeItem::implicitHeight() const
 {
     Q_D(const QDeclarativeItem);
-    return d->implicitHeight;
+    return d->implicitHeight();
 }
+
+/*!
+    \qmlproperty real Item::implicitWidth
+    \qmlproperty real Item::implicitHeight
+    \since QtQuick 1.1
+
+    Defines the natural width or height of the Item if no \l width or \l height is specified.
+
+    The default implicit size for most items is 0x0, however some elements have an inherent
+    implicit size which cannot be overridden, e.g. Image, Text.
+
+    Setting the implicit size is useful for defining components that have a preferred size
+    based on their content, for example:
+
+    \qml
+    // Label.qml
+    import QtQuick 1.1
+
+    Item {
+        property alias icon: image.source
+        property alias label: text.text
+        implicitWidth: text.implicitWidth + image.implicitWidth
+        implicitHeight: Math.max(text.implicitHeight, image.implicitHeight)
+        Image { id: image }
+        Text {
+            id: text
+            wrapMode: Text.Wrap
+            anchors.left: image.right; anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+        }
+    }
+    \endqml
+
+    \bold Note: using implicitWidth of Text or TextEdit and setting the width explicitly
+    incurs a performance penalty as the text must be laid out twice.
+*/
+
 
 /*!
     Sets the implied height of the item to \a h.
@@ -3190,9 +3485,13 @@ qreal QDeclarativeItem::implicitHeight() const
 void QDeclarativeItem::setImplicitHeight(qreal h)
 {
     Q_D(QDeclarativeItem);
-    d->implicitHeight = h;
-    if (d->mHeight == h || heightValid())
+    bool changed = h != d->mImplicitHeight;
+    d->mImplicitHeight = h;
+    if (d->mHeight == h || heightValid()) {
+        if (changed)
+            d->implicitHeightChanged();
         return;
+    }
 
     qreal oldHeight = d->mHeight;
 
@@ -3201,6 +3500,9 @@ void QDeclarativeItem::setImplicitHeight(qreal h)
 
     geometryChanged(QRectF(x(), y(), width(), height()),
                     QRectF(x(), y(), width(), oldHeight));
+
+    if (changed)
+        d->implicitHeightChanged();
 }
 
 /*!

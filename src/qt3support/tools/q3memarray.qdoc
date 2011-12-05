@@ -1,26 +1,26 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the documentation of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:FDL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in a
-** written agreement between you and Nokia.
-**
 ** GNU Free Documentation License
 ** Alternatively, this file may be used under the terms of the GNU Free
 ** Documentation License version 1.3 as published by the Free Software
-** Foundation and appearing in the file included in the packaging of this
-** file.
+** Foundation and appearing in the file included in the packaging of
+** this file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms
+** and conditions contained in a signed written agreement between you
+** and Nokia.
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -51,7 +51,7 @@
     and less copying of data.
 
     Example:
-    \snippet doc/src/snippets/code/doc_src_q3memarray.qdoc 0
+    \snippet doc/src/snippets/code/doc_src_q3memarray.cpp 0
 
     Program output:
     \snippet doc/src/snippets/code/doc_src_q3memarray.qdoc 1
@@ -63,7 +63,7 @@
     the remaining bytes will typically be uninitialized, this can
     cause find() etc. to fail to find the element. Example:
 
-    \snippet doc/src/snippets/code/doc_src_q3memarray.qdoc 2
+    \snippet doc/src/snippets/code/doc_src_q3memarray.cpp 2
 
     To work around this, make sure that you use a struct where
     sizeof() returns the same as the sum of the sizes of the members
@@ -221,8 +221,8 @@
 
     New elements are not initialized.
 
-    \a optim is either Q3GArray::MemOptim (the default) or
-    Q3GArray::SpeedOptim. When optimizing for speed rather than memory
+    \a optim is either \c MemOptim (the default) or
+    \c SpeedOptim. When optimizing for speed rather than memory
     consumption, the array uses a smart grow and shrink algorithm that
     might allocate more memory than is actually needed for \a size
     elements. This speeds up subsequent resize operations, for example
@@ -352,10 +352,10 @@
     allocating memory or copying data.
 
     Example I (intended use):
-    \snippet doc/src/snippets/code/doc_src_q3memarray.qdoc 3
+    \snippet doc/src/snippets/code/doc_src_q3memarray.cpp 3
 
     Example II (you don't want to do this):
-    \snippet doc/src/snippets/code/doc_src_q3memarray.qdoc 4
+    \snippet doc/src/snippets/code/doc_src_q3memarray.cpp 4
 
     \warning If you do not call resetRawData(), Q3MemArray will attempt
     to deallocate or reallocate the raw data, which might not be too

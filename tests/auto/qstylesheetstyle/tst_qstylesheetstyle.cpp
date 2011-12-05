@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -48,6 +48,7 @@
 #endif
 
 #include <private/qstylesheetstyle_p.h>
+#include "../platformquirks.h"
 
 //TESTED_CLASS=
 //TESTED_FILES=
@@ -99,6 +100,7 @@ private slots:
     void task188195_baseBackground();
     void task232085_spinBoxLineEditBg();
     void changeStyleInChangeEvent();
+    void QTBUG15910_crashNullWidget();
 
     //at the end because it mess with the style.
     void widgetStyle();
@@ -822,6 +824,8 @@ void tst_QStyleSheetStyle::focusColors()
 
 void tst_QStyleSheetStyle::hoverColors()
 {
+    if (!PlatformQuirks::haveMouseCursor())
+        QSKIP("No mouse Cursor on this platform",SkipAll);
     QList<QWidget *> widgets;
     widgets << new QPushButton("TESTING");
     widgets << new QLineEdit("TESTING");
@@ -979,10 +983,11 @@ void tst_QStyleSheetStyle::background()
 
 void tst_QStyleSheetStyle::tabAlignement()
 {
-    QTabWidget tabWidget;
+    QWidget topLevel;
+    QTabWidget tabWidget(&topLevel);
     tabWidget.addTab(new QLabel("tab1"),"tab1");
     tabWidget.resize(QSize(400,400));
-    tabWidget.show();
+    topLevel.show();
     QTest::qWaitForWindowShown(&tabWidget);
     QTest::qWait(50);
     QTabBar *bar = qFindChild<QTabBar*>(&tabWidget);
@@ -1621,6 +1626,24 @@ void tst_QStyleSheetStyle::changeStyleInChangeEvent()
     wid.setStyleSheet(" /* ** */ ");
     wid.ensurePolished();
 }
+
+void tst_QStyleSheetStyle::QTBUG15910_crashNullWidget()
+{
+    struct : QWidget {
+        virtual void paintEvent(QPaintEvent* ) {
+            QStyleOption opt;
+            opt.init(this);
+            QPainter p(this);
+            style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, 0);
+            style()->drawPrimitive(QStyle::PE_Frame, &opt, &p, 0);
+            style()->drawControl(QStyle::CE_PushButton, &opt, &p, 0);
+        }
+    } w;
+    w.setStyleSheet("* { background-color: white; color:black; border 3px solid yellow }");
+    w.show();
+    QTest::qWaitForWindowShown(&w);
+}
+
 
 QTEST_MAIN(tst_QStyleSheetStyle)
 #include "tst_qstylesheetstyle.moc"

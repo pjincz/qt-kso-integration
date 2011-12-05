@@ -895,6 +895,7 @@ Parsing grid layout minimum size values</extracomment>
     <name>FormEditorOptionsPage</name>
     <message>
         <source>%1 %</source>
+        <extracomment>Zoom percentage</extracomment>
         <translation>%1 %</translation>
     </message>
     <message>
@@ -3257,8 +3258,8 @@ Do you want overwrite the template?</source>
         <translation>&lt;br/&gt;Qt Designer - це дизайнер графічного інтерфейсу користувача для програм Qt.&lt;br/&gt;</translation>
     </message>
     <message>
-        <source>%1&lt;br/&gt;Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).</source>
-        <translation>%1&lt;br/&gt;Copyright (C) 2010 Корпорація Nokia та/або її дочірні компанії.</translation>
+        <source>%1&lt;br/&gt;Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).</source>
+        <translation>%1&lt;br/&gt;Copyright (C) 2011 Корпорація Nokia та/або її дочірні компанії.</translation>
     </message>
 </context>
 <context>
@@ -4859,21 +4860,21 @@ Please select another name.</source>
     <name>qdesigner_internal::PreviewDeviceSkin</name>
     <message>
         <source>&amp;Portrait</source>
-        <translation>Книжка</translation>
+        <translation>&amp;Книжка</translation>
     </message>
     <message>
         <source>Landscape (&amp;CCW)</source>
         <extracomment>Rotate form preview counter-clockwise</extracomment>
-        <translation>Альбом (проти ГС)</translation>
+        <translation>Альбом (проти &amp;ГС)</translation>
     </message>
     <message>
         <source>&amp;Landscape (CW)</source>
         <extracomment>Rotate form preview clockwise</extracomment>
-        <translation>Альбом (за ГС)</translation>
+        <translation>А&amp;льбом (за ГС)</translation>
     </message>
     <message>
         <source>&amp;Close</source>
-        <translation>Закрити</translation>
+        <translation>З&amp;акрити</translation>
     </message>
 </context>
 <context>
@@ -5832,7 +5833,7 @@ This indicates an inconsistency in the ui-file.</source>
     <name>qdesigner_internal::ZoomablePreviewDeviceSkin</name>
     <message>
         <source>&amp;Zoom</source>
-        <translation>Масштаб</translation>
+        <translation>Мас&amp;штаб</translation>
     </message>
 </context>
 </TS>

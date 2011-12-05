@@ -1,40 +1,40 @@
 /****************************************************************************
 **
-** Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** This file is part of the test suite of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
-** Commercial Usage
-** Licensees holding valid Qt Commercial licenses may use this file in
-** accordance with the Qt Commercial License Agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and Nokia.
-**
 ** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU Lesser General Public License version 2.1 requirements
-** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
 ** In addition, as a special exception, Nokia gives you certain additional
-** rights.  These rights are described in the Nokia Qt LGPL Exception
+** rights. These rights are described in the Nokia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 3.0 as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL included in the
-** packaging of this file.  Please review the following information to
-** ensure the GNU General Public License version 3.0 requirements will be
-** met: http://www.gnu.org/copyleft/gpl.html.
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -46,6 +46,14 @@
 #include <QtGui/QClipboard>
 #ifdef Q_WS_MAC
 #include <Carbon/Carbon.h>
+#endif
+#ifdef Q_OS_SYMBIAN
+#include "private/qcore_symbian_p.h"
+#include "txtetext.h"
+#include <baclipb.h>
+#endif
+#ifdef SYMBIAN_ENABLE_SPLIT_HEADERS
+#include "txtclipboard.h"
 #endif
 
 //TESTED_CLASS=
@@ -62,6 +70,10 @@ private slots:
     void testSignals();
     void setMimeData();
     void clearBeforeSetText();
+#ifdef Q_OS_SYMBIAN
+    void pasteCopySymbian();
+    void copyPasteSymbian();
+#endif
 
 private:
     bool nativeClipboardWorking();
@@ -334,6 +346,76 @@ void tst_QClipboard::clearBeforeSetText()
     QApplication::processEvents();
     QCOMPARE(QApplication::clipboard()->text(), text);
 }
+
+/*
+    Test that text copied from qt application
+    can be pasted with symbian clipboard
+*/
+#ifdef Q_OS_SYMBIAN
+// ### This test case only makes sense in symbian
+void tst_QClipboard::pasteCopySymbian()
+{
+    if (!nativeClipboardWorking())
+        QSKIP("Native clipboard not working in this setup", SkipAll);
+    const QString string("Test string symbian.");
+    QApplication::clipboard()->setText(string);
+
+    const TInt KPlainTextBegin = 0;
+    RFs fs = qt_s60GetRFs();
+    CClipboard* cb = CClipboard::NewForReadingLC(fs);
+
+    CPlainText* text = CPlainText::NewL();
+    CleanupStack::PushL(text);
+    TInt dataLength = text->PasteFromStoreL(cb->Store(), cb->StreamDictionary(),
+                                            KPlainTextBegin);
+    if (dataLength == 0) {
+        User::Leave(KErrNotFound);
+    }
+    HBufC* hBuf = HBufC::NewL(dataLength);
+    TPtr buf = hBuf->Des();
+    text->Extract(buf, KPlainTextBegin, dataLength);
+
+    QString storeString = qt_TDesC2QString(buf);
+    CleanupStack::PopAndDestroy(text);
+    CleanupStack::PopAndDestroy(cb);
+
+    QCOMPARE(string, storeString);
+}
+#endif
+
+/*
+    Test that text copied to symbian clipboard
+    can be pasted to qt clipboard
+*/
+#ifdef Q_OS_SYMBIAN
+// ### This test case only makes sense in symbian
+void tst_QClipboard::copyPasteSymbian()
+{
+    if (!nativeClipboardWorking())
+        QSKIP("Native clipboard not working in this setup", SkipAll);
+    const QString string("Test string symbian.");
+    const TInt KPlainTextBegin = 0;
+
+    RFs fs = qt_s60GetRFs();
+    CClipboard* cb = CClipboard::NewForWritingLC(fs);
+    CStreamStore& store = cb->Store();
+    CStreamDictionary& dict = cb->StreamDictionary();
+    RStoreWriteStream symbianStream;
+    TStreamId symbianStId = symbianStream.CreateLC(cb->Store());
+
+    CPlainText* text = CPlainText::NewL();
+    CleanupStack::PushL(text);
+    TPtrC textPtr(qt_QString2TPtrC(string));
+    text->InsertL(KPlainTextBegin, textPtr);
+    text->CopyToStoreL(store, dict, KPlainTextBegin, textPtr.Length());
+    CleanupStack::PopAndDestroy(text);
+    (cb->StreamDictionary()).AssignL(KClipboardUidTypePlainText, symbianStId);
+    cb->CommitL();
+    CleanupStack::PopAndDestroy(2, cb);
+
+    QCOMPARE(QApplication::clipboard()->text(), string);
+}
+#endif
 
 QTEST_MAIN(tst_QClipboard)
 
