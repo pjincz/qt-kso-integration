@@ -888,7 +888,26 @@ void QWidgetPrivate::grabMouseWhileInWindow()
     }
 }
 
+
 #ifndef Q_WS_WINCE
+
+void QWidget::grabMouseWhileInWindow()
+{
+    d_func()->grabMouseWhileInWindow();
+}
+
+void QWidget::releaseMouseWhileInWindow()
+{
+    if (!qt_nograb() && mouseGrb == this) {
+        ReleaseCapture();
+        
+        if (mouseGrbCur) {
+            delete mouseGrbCur;
+            mouseGrbCur = 0;
+        }
+        mouseGrb = 0;
+    }	
+}
 void QWidget::grabMouse()
 {
     if (!qt_nograb()) {
