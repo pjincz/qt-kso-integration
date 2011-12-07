@@ -437,6 +437,10 @@ public:
     void setContextMenuPolicy(Qt::ContextMenuPolicy policy);
 
     // Grab functions
+#ifdef Q_WS_WIN
+	void grabMouseWhileInWindow();
+	void releaseMouseWhileInWindow();
+#endif
     void grabMouse();
 #ifndef QT_NO_CURSOR
     void grabMouse(const QCursor &);
