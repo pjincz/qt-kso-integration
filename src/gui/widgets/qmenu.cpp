@@ -550,6 +550,19 @@ void QMenuPrivate::setFirstActionActive()
     }
 }
 
+void QMenuPrivate::restoreCurrentAction()
+{
+    Q_Q(QMenu);
+    if (activeMenu) {
+        if (currentAction)
+            q->update(actionRect(currentAction));
+
+        currentAction = activeMenu->menuAction();
+        activateAction(currentAction, QAction::Hover);
+        q->update(actionRect(currentAction));
+    }
+}
+
 // popup == -1 means do not popup, 0 means immediately, others mean use a timer
 void QMenuPrivate::setCurrentAction(QAction *action, int popup, SelectionReason reason, bool activateFirst)
 {
@@ -2838,7 +2851,10 @@ QMenu::timerEvent(QTimerEvent *e)
             d->scroll->scrollTimer.stop();
     } else if(d->menuDelayTimer.timerId() == e->timerId()) {
         d->menuDelayTimer.stop();
-        internalDelayedPopup();
+        if (rect().contains(mapFromGlobal(QCursor::pos())))
+            internalDelayedPopup();
+        else
+            d->restoreCurrentAction();
     } else if(QMenuPrivate::sloppyDelayTimer == e->timerId()) {
         killTimer(QMenuPrivate::sloppyDelayTimer);
         QMenuPrivate::sloppyDelayTimer = 0;
