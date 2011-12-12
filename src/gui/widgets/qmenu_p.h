@@ -220,6 +220,7 @@ public:
     QWidget *topCausedWidget() const;
     QAction *actionAt(QPoint p) const;
     void setFirstActionActive();
+    void restoreCurrentAction();
     void setCurrentAction(QAction *, int popup = -1, SelectionReason reason = SelectedFromElsewhere, bool activateFirst = false);
     void popupAction(QAction *, int, bool);
     void setSyncAction();
