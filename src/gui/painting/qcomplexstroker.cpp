@@ -386,7 +386,8 @@ void QMathStroker::StrokeCloseSubPath(const QPolygonF &subPath, QPainterPath &ou
 {
     QVertices vertices(subPath);
     const int& s = vertices.size();
-    Q_ASSERT(s >= 2);
+    if (s < 2)
+        return;
 
     QVector<QPointF> firstpts, secondpts;
     QVector<QVector<QPointF> > compoundpts(m_compoundArray.size());
