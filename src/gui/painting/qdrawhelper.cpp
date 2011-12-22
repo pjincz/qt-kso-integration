@@ -1468,11 +1468,12 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
     }
 
     if (NULL != data->effects) {
-        if (!hasColorKey) {
+        if (!hasColorKey && !data->effects->hasBilevel) {
             qt_makeEffects(data->effects, buffer, length);
         } else {
             QImageEffectsPrivate tmp(*data->effects);
             tmp.hasColorKey = false;
+            tmp.hasBilevel = false;
             qt_makeEffects(&tmp, buffer, length);
         }
     }
