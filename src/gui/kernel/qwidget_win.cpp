@@ -258,6 +258,61 @@ extern "C" LRESULT QT_WIN_CALLBACK QtWndProc(HWND, UINT, WPARAM, LPARAM);
   QWidget member functions
  *****************************************************************************/
 
+bool __widget_zorder_lower(QWidget * w1, QWidget * w2)
+{
+    int dep1 = 0, dep2 = 0;
+    for(QWidget *tmp = w1; tmp; tmp = tmp->parentWidget(), dep1++);
+    for(QWidget *tmp = w2; tmp; tmp = tmp->parentWidget(), dep2++);
+    if (dep1 > dep2) {
+        while(dep1 != dep2) {
+            w1 = w1->parentWidget();
+            --dep1;
+        }
+        if (w1 == w2)
+            return false;
+    }
+    else if (dep1 < dep2) {
+        while(dep1 != dep2) {
+            w2 = w2->parentWidget();
+            --dep2;
+        }
+        if (w1 == w2)
+            return true;
+    }
+    while(w1->parentWidget() != w2->parentWidget()) {
+        w1 = w1->parentWidget();
+        w2 = w2->parentWidget();
+    }
+    Q_ASSERT(w1->parentWidget());
+    QWidget * parent = w1->parentWidget();
+    int i1 = parent->children().indexOf(w1);
+    int i2 = parent->children().indexOf(w2);
+    return i1 < i2;
+}
+
+static WId __find_native_upper_widget_handle(QWidget * w)
+{
+    if (!w || !w->parentWidget())
+        return NULL;
+
+    WId hParent = w->parentWidget()->effectiveWinId();
+    WId h = GetWindow(hParent, GW_CHILD);
+    WId hr = HWND_TOP;
+    while (h) {
+        QWidget * t = QWidget::find(h);
+        if (t) {
+            if (__widget_zorder_lower(w, t)) {
+                hr = t->internalWinId();
+            }
+            else {
+                break;
+            }
+        }
+        h = GetWindow(h, GW_HWNDNEXT);
+    }
+    return hr;
+}
+
 #ifndef Q_WS_WINCE
 void QWidgetPrivate::create_sys(WId window, bool initializeWindow, bool destroyOldWindow)
 {
@@ -458,7 +513,8 @@ void QWidgetPrivate::create_sys(WId window, bool initializeWindow, bool destroyO
                             parentw, NULL, appinst, NULL);
         if (!id)
             qErrnoWarning("QWidget::create: Failed to create window");
-        SetWindowPos(id, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        WId hUpper = __find_native_upper_widget_handle(q);
+        SetWindowPos(id, hUpper, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         setWinId(id);
 
         // when a widget have WA_DontCreateNativeAncestors Attribute
