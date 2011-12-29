@@ -762,6 +762,13 @@ void QPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textItem)
                                  bool((painter()->renderHints() & QPainter::TextAntialiasing)
                                       && !(painter()->font().styleStrategy() & QFont::NoAntialias)));
         painter()->fillPath(path, state->pen().brush());
+
+        if (ti.fontEngine->needEmbolden()) {            
+            //to get more accurate value, change the algorithm
+            qreal width = ti.fontEngine->fontDef.pixelSize / 24.0 * (ti.fontEngine->fontDef.weight / QFont::Bold);
+            QPen pen(state->pen().brush(), width);
+            painter()->strokePath(path, pen);
+        }
         painter()->setRenderHint(QPainter::Antialiasing, oldAA);
     }
 }
