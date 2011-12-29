@@ -282,6 +282,8 @@ private:
 
     virtual HB_Error getPointInOutline(HB_Glyph glyph, int flags, hb_uint32 point, HB_Fixed *xpos, HB_Fixed *ypos, hb_uint32 *nPoints);
 
+    virtual bool needEmbolden() const { return embolden; }
+
 protected:
 
     void freeGlyphSets();

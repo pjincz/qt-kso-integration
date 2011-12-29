@@ -217,6 +217,8 @@ public:
 
     virtual int glyphCount() const;
 
+    virtual bool needEmbolden() const { return false; }
+
     HB_Font harfbuzzFont() const;
     HB_Face harfbuzzFace() const;
 

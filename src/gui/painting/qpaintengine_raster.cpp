@@ -3041,7 +3041,7 @@ void QRasterPaintEngine::drawImage(const QRectF &r, const QImage &img, const QRe
     }
 }
 
-extern inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length);
+extern void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length);
 /*!
     \reimp
 */

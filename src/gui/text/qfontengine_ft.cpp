@@ -696,7 +696,8 @@ bool QFontEngineFT::init(FaceId faceId, bool antialias, GlyphFormat format)
         if (fake_oblique)
             transform = true;
         // fake bold
-        if ((fontDef.weight == QFont::Bold) && !(face->style_flags & FT_STYLE_FLAG_BOLD) && !FT_IS_FIXED_WIDTH(face))
+        bool fixWidth = (fontDef.family == QString("Monospace")) && FT_IS_FIXED_WIDTH(face);
+        if ((fontDef.weight == QFont::Bold) && !(face->style_flags & FT_STYLE_FLAG_BOLD) && !fixWidth)
             embolden = true;
         // underline metrics
         line_thickness =  QFixed::fromFixed(FT_MulFix(face->underline_thickness, face->size->metrics.y_scale));
@@ -809,7 +810,15 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyphMetrics(QGlyphSet *set, uint glyph
     }
 
     FT_GlyphSlot slot = face->glyph;
-    if (embolden) Q_FT_GLYPHSLOT_EMBOLDEN(slot);
+    if (embolden) {
+        const int scalex = face->size->metrics.x_scale;
+        const int scaley = face->size->metrics.y_scale;
+        face->size->metrics.x_scale = scalex / 0x10000 * matrix.xx;
+        face->size->metrics.y_scale = scaley / 0x10000 * matrix.yy;
+        Q_FT_GLYPHSLOT_EMBOLDEN(slot);
+        face->size->metrics.x_scale = scalex;
+        face->size->metrics.y_scale = scaley;
+    }
     int left  = slot->metrics.horiBearingX;
     int right = slot->metrics.horiBearingX + slot->metrics.width;
     int top    = slot->metrics.horiBearingY;
@@ -955,7 +964,16 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyph(QGlyphSet *set, uint glyph, Glyph
         return 0;
 
     FT_GlyphSlot slot = face->glyph;
-    if (embolden) Q_FT_GLYPHSLOT_EMBOLDEN(slot);
+    if (embolden) {
+        const int scalex = face->size->metrics.x_scale;
+        const int scaley = face->size->metrics.y_scale;
+        face->size->metrics.x_scale = scalex / 0x10000 * matrix.xx;
+        face->size->metrics.y_scale = scaley / 0x10000 * matrix.yy;
+        Q_FT_GLYPHSLOT_EMBOLDEN(slot);
+        face->size->metrics.x_scale = scalex;
+        face->size->metrics.y_scale = scaley;
+    }
+
     FT_Library library = qt_getFreetype();
 
     info.xOff = TRUNC(ROUND(slot->advance.x));
