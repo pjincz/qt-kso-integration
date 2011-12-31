@@ -5740,9 +5740,15 @@ void QPainter::drawImage(const QRectF &targetRect, const QImage &image, const QR
         qWarning("Invalid argument!");
         return;
     }
-    if (!d->engine || !d->extended) {
+    if (!d->engine && !d->extended) {
         qWarning("QPainter::drawImage: Painter not active");
         return;
+    }
+    if (!userData->hasEffects())
+        return drawImage(targetRect, image, sourceRect, flags);
+    else if (!d->extended) {
+        qWarning("QPainter::drawImage: image is drawed without any effects!");
+        return drawImage(targetRect, image, sourceRect, flags);
     }
 
     qreal x = targetRect.x();
