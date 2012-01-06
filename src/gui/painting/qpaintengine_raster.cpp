@@ -3841,9 +3841,10 @@ void QRasterPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textIte
 
     // only use subpixel antialiasing when drawing to widgets
     QFontEngineFT::GlyphFormat neededFormat =
-        painter()->device()->devType() == QInternal::Widget
+        (painter()->device()->devType() == QInternal::Widget ||
+         painter()->device()->devType() == QInternal::Image)
         ? fe->defaultGlyphFormat()
-        : QFontEngineFT::Format_A32;
+        : QFontEngineFT::Format_A8;
 
     if (d_func()->mono_surface
         || fe->isBitmapFont() // alphaPenBlt can handle mono, too
