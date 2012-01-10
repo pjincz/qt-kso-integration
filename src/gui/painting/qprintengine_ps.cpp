@@ -128,7 +128,8 @@ static const char *const ps_header =
 "{glyphs exch get/gn ED current dup 256 mod/min ED 256 idiv/maj ED CMap dup\n"
 "maj get dup null eq{pop 256 array 0 1 255{1 i exch/.notdef put}for}if dup\n"
 "min gn put maj exch put/current current 1 add def}for fnt/CMap CMap put fnt\n"
-"/NumGlyphs current put end}def/T1AddGlyphs{10 dict begin/glyphs ED/fnt ED\n"
+"/NumGlyphs current put end}BD/Sc{0 0 m w false charpath stroke}\n"
+"def/T1AddGlyphs{10 dict begin/glyphs ED/fnt ED\n"
 "/current fnt/NumGlyphs get def/CMap fnt/CMap get def/CharStrings fnt\n"
 "/CharStrings get def 0 1 glyphs length 2 idiv 1 sub{2 mul dup glyphs exch\n"
 "get/gn ED 1 add glyphs exch get/cs ED current dup 256 mod/min ED 256 idiv\n"
@@ -754,6 +755,8 @@ bool QPSPrintEngine::begin(QPaintDevice *pdev)
     d->fontsUsed = "";
     d->hugeDocument = false;
     d->simplePen = false;
+
+    d->postscript = true;
 
     setActive(true);
     d->printerState = QPrinter::Active;

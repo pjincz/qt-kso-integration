@@ -1619,7 +1619,6 @@ bool QPdfBaseEngine::begin(QPaintDevice *pdev)
     Q_D(QPdfBaseEngine);
     d->pdev = pdev;
 
-    d->postscript = false;
     d->currentObject = 1;
 
     d->currentPage = new QPdfPage;
@@ -1984,6 +1983,8 @@ void QPdfBaseEnginePrivate::drawTextItem(const QPointF &p, const QTextItemInt &t
 #else
     qreal last_x = 0.;
     qreal last_y = 0.;
+    if (postscript && (synthesized & QFontEngine::SynthesizedBold))
+        *currentPage << "BT\n";
     for (int i = 0; i < glyphs.size(); ++i) {
         qreal x = positions[i].x.toReal();
         qreal y = positions[i].y.toReal();
@@ -1997,12 +1998,15 @@ void QPdfBaseEnginePrivate::drawTextItem(const QPointF &p, const QTextItemInt &t
         last_x = x;
         last_y = y;
     }
+    if (postscript && (synthesized & QFontEngine::SynthesizedBold))
+        *currentPage << "ET\n";
     if (synthesized & QFontEngine::SynthesizedBold) {
-        *currentPage << stretch << (synthesized & QFontEngine::SynthesizedItalic
-                            ? "0 .3 -1 0 0 Tm\n"
-                            : "0 0 -1 0 0 Tm\n");
+        if (!postscript)
+            *currentPage << stretch << (synthesized & QFontEngine::SynthesizedItalic
+                                ? "0 .3 -1 0 0 Tm\n"
+                                : "0 0 -1 0 0 Tm\n");
         *currentPage << "/Span << /ActualText <> >> BDC\n";
-        last_x = 0.5*fe->lineThickness().toReal();
+        last_x = postscript ? 0 : 0.5*fe->lineThickness().toReal();
         last_y = 0.;
         for (int i = 0; i < glyphs.size(); ++i) {
             qreal x = positions[i].x.toReal();
@@ -2013,7 +2017,13 @@ void QPdfBaseEnginePrivate::drawTextItem(const QPointF &p, const QTextItemInt &t
             char buf[5];
             int g = font->addGlyph(glyphs[i]);
             *currentPage << x - last_x << last_y - y << "Td <"
-                        << QPdf::toHex((ushort)g, buf) << "> Tj\n";
+                        << QPdf::toHex((ushort)g, buf) << "> ";
+            if (!postscript)
+                *currentPage << "Tj\n";
+            else {
+                qreal lineWidth = 0.5 * fe->lineThickness().toReal();
+                *currentPage << lineWidth << " Sc\n";
+            }
             last_x = x;
             last_y = y;
         }

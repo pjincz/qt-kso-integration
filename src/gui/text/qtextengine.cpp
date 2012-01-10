@@ -2829,6 +2829,8 @@ QTextItemInt::QTextItemInt(const QGlyphLayout &g, QFont *font, const QChar *char
     : flags(0), justified(false), underlineStyle(QTextCharFormat::NoUnderline), charFormat(format),
       num_chars(numChars), chars(chars_), logClusters(0), f(font),  glyphs(g), fontEngine(fe)
 {
+    ascent = QFixed(QFontMetrics(QTextItem::font()).ascent());
+    descent = QFixed(QFontMetrics(QTextItem::font()).descent());
 }
 
 // Fix up flags and underlineStyle with given info
