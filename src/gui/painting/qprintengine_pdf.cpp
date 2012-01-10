@@ -145,6 +145,8 @@ bool QPdfEngine::begin(QPaintDevice *pdev)
     d->pages.clear();
     d->imageCache.clear();
 
+    d->postscript = false;
+
     setActive(true);
     state = QPrinter::Active;
     d->writeHeader();
