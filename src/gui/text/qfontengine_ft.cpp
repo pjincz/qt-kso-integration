@@ -1067,7 +1067,9 @@ QFontEngineFT::Glyph *QFontEngineFT::loadGlyph(QGlyphSet *set, uint glyph, Glyph
         info.x += 1;
     }
 
-    bool large_glyph = (((short)(slot->linearHoriAdvance>>10) != slot->linearHoriAdvance>>10)
+    bool large_glyph = ((transform
+                         ? ((short)(slot->advance.x) != slot->advance.x)
+                         : ((short)(slot->linearHoriAdvance>>10) != slot->linearHoriAdvance>>10))
                         || ((uchar)(info.width) != info.width)
                         || ((uchar)(info.height) != info.height)
                         || ((signed char)(info.x) != info.x)
