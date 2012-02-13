@@ -343,8 +343,12 @@ void QAnchorGenerator::Generate(const QPainterPath& path2generate,
     for (int i = 0; i < polygons.size(); ++i) {
         if (polygons[i].isClosed())
             pathAfterGenerate.addPolygon(polygons[i]);
-        else
-            GenerateCap(polygons[i].constData(), polygons[i].count(), pathAfterGenerate, generatedCapPath);
+		else {
+			if (m_pCustomStartCap || m_pCustomEndCap)
+				GenerateCap(polygons[i].constData(), polygons[i].count(), pathAfterGenerate, generatedCapPath);
+			else
+				pathAfterGenerate.addPolygon(polygons[i]);
+		}
     }
 }
 
@@ -580,7 +584,7 @@ void QCustomLineAnchorState::CalcTransform(qreal width, const QPointF& fromPt, c
     mtx *= translateMatrix;
 }
 
-bool QCustomLineAnchorState::CalcCrossYPts(const QPainterPath& path, std::vector<qreal>& dists,
+bool QCustomLineAnchorState::CalcCrossYPts(const QPainterPath& path, QUnshareVector<qreal>& dists,
                                            qreal width) const
 {
     QMatrix mtx;
@@ -590,18 +594,22 @@ bool QCustomLineAnchorState::CalcCrossYPts(const QPainterPath& path, std::vector
     QList<QPolygonF> polygons = path.toSubpathPolygons(QTransform(mtx), m_flatness);
     for (int subIndex = 0; subIndex < polygons.size(); ++subIndex) {
         const QPolygonF &poly = polygons[subIndex];
-        QVector<int> flags(poly.count());
-        for (int i = 0; i < poly.count(); ++i) {
-            const qreal& x = poly[i].x();
-            if (x > 0) flags[i] = 1;
-            else if (x < 0) flags[i] = -1;
-            else flags[i] = 0;
+		const int count = poly.count();
+		const QPointF *pPoints = poly.constData();
+        static QUnshareVector<int> flags;
+		flags.resize(count);
+		int *pFlags = flags.data();
+        for (int i = 0; i < count; ++i) {
+            const qreal& x = pPoints[i].x();
+            if (x > 0) pFlags[i] = 1;
+            else if (x < 0) pFlags[i] = -1;
+            else pFlags[i] = 0;
         }
-        for (int i = 0; i < poly.count() - 1; ++i)
-            CalcCrossYPt(poly[i], poly[i+1], flags[i], flags[i+1], dists);
+        for (int i = 0; i < count - 1; ++i)
+            CalcCrossYPt(pPoints[i], pPoints[i+1], pFlags[i], pFlags[i+1], dists);
     }
-    std::sort(dists.begin(), dists.end());
-    return !dists.empty();
+    qSort(dists.begin(), dists.end());
+    return !dists.isEmpty();
 }
 
 void QCustomLineAnchorState::CopyTo(QCustomLineAnchorState& capState) const
@@ -618,7 +626,7 @@ void QCustomLineAnchorState::CopyTo(QCustomLineAnchorState& capState) const
 }
 
 void QCustomLineAnchorState::CalcCrossYPt(const QPointF& pt1, const QPointF& pt2, int flag1,
-                                          int flag2, std::vector<qreal>& dists)
+                                          int flag2, QUnshareVector<qreal>& dists)
 {
     const int& f = flag1 * flag2;		
     if (f < 0)
@@ -660,7 +668,8 @@ QCustomLineAnchorState *QCustomFillAnchor::Clone() const
 
 qreal QCustomFillAnchor::GetDevideDistance(qreal width) const
 {
-    std::vector<qreal> dists;
+    static QUnshareVector<qreal> dists;
+	dists.resize(0);
     if (CalcCrossYPts(m_capPath, dists, width)) {
         if (dists[0] >= 0)
             return 0;
@@ -720,7 +729,8 @@ QCustomLineAnchorState *QCustomStrokeAnchor::Clone() const
 
 qreal QCustomStrokeAnchor::GetDevideDistance(qreal width) const
 {
-    std::vector<qreal> dists;
+    static QUnshareVector<qreal> dists;
+	dists.resize(0);
     if (CalcCrossYPts(m_capPath, dists, width)) {
         if (dists[0] >= 0)
             return width;

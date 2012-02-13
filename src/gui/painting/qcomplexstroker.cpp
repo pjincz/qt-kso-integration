@@ -110,6 +110,9 @@ struct vertex_dist
     QPointF pt;
     qreal dist;
 
+	vertex_dist()
+		: dist(0)
+	{}
     vertex_dist(const QPointF& p)
         : pt(p), dist(0) 
     {}
@@ -130,11 +133,14 @@ public:
     const vertex_dist& first() const;
     const vertex_dist& last() const;	
     const vertex_dist& operator[](int index) const;
+	const vertex_dist* constData() const;
 
 private:
-    std::vector<vertex_dist> m_pVertices;
+    static QUnshareVector<vertex_dist> m_pVertices;
     bool m_bClosed;
 };
+
+QUnshareVector<vertex_dist> QVertices::m_pVertices;
 
 QVertices::QVertices(const QPolygonF &subPath)
 {
@@ -156,7 +162,7 @@ void QVertices::reset(const QPolygonF &polygon)
     // 可以调节。
     const qreal& zeroDist = 0.000001f;
 
-    m_pVertices.clear();
+	m_pVertices.resize(0);
     m_pVertices.reserve(polygon.size());
     for (int i = 0; i < polygon.size() - 1; ++i) {
         vertex_dist v(polygon[i], polygon[i+1]);
@@ -165,26 +171,30 @@ void QVertices::reset(const QPolygonF &polygon)
     }
 
     vertex_dist v(polygon.back(), polygon[0]);
-    if (!polygon.isClosed())
+	m_bClosed = polygon.isClosed();
+    if (!m_bClosed)
         m_pVertices.push_back(v);
     else if (zeroDist < v.dist)
         m_pVertices.push_back(v);
-    m_bClosed = polygon.isClosed();
 }
 
 const vertex_dist& QVertices::first() const
 {
-    return m_pVertices.front();
+    return m_pVertices.first();
 }
 
 const vertex_dist& QVertices::last() const
 {
-    return m_pVertices.back();
+    return m_pVertices.last();
 }
 
-const vertex_dist& QVertices::operator[](int index) const
+ const vertex_dist& QVertices::operator[](int index) const
+ {
+     return m_pVertices.at(index);
+ }
+const vertex_dist* QVertices::constData() const
 {
-    return m_pVertices[index];
+	return m_pVertices.constData();
 }
 
 QMathStroker::QMathStroker()
@@ -389,7 +399,9 @@ void QMathStroker::StrokeCloseSubPath(const QPolygonF &subPath, QPainterPath &ou
     if (s < 2)
         return;
 
-    QVector<QPointF> firstpts, secondpts;
+    static QUnshareVector<QPointF> firstpts, secondpts;
+    firstpts.resize(0);
+    secondpts.resize(0);
     QVector<QVector<QPointF> > compoundpts(m_compoundArray.size());
 
     for (int i = 0; i < s - 2; ++i)
@@ -426,9 +438,13 @@ void QMathStroker::StrokeOpenSubPath(const QPolygonF &subPath, QPainterPath &out
     const int& s = vertices.size();
     Q_ASSERT(s >= 2);
 
-    QVector<QPointF> firstpts, secondpts;
+    static QUnshareVector<QPointF> firstpts, secondpts;
+	firstpts.resize(0);
+	secondpts.resize(0);
     QVector<QVector<QPointF> > compoundpts(m_compoundArray.size());
-    QVector<QPointF> startCapPts, endCapPts;
+    static QUnshareVector<QPointF> startCapPts, endCapPts;
+	startCapPts.resize(0);
+	endCapPts.resize(0);
 
     CalcStartPoints(vertices, firstpts, secondpts, compoundpts, startCapPts);
     for (int i = 0; i < s - 2; ++i)
@@ -464,17 +480,18 @@ void QMathStroker::StrokeOpenSubPath(const QPolygonF &subPath, QPainterPath &out
 }
 
 void QMathStroker::CalcPoints(const QVertices& vertices, int first, int second,
-                              int third, QVector<QPointF>& firstPts, 
-                              QVector<QPointF>& secondPts,
+                              int third, QUnshareVector<QPointF>& firstPts, 
+                              QUnshareVector<QPointF>& secondPts,
                               QVector<QVector<QPointF> >& compoundPts) const
 {
-    QVector<QPointF> firstptstemp;
-    QVector<QPointF> secondptstemp;
+    static QUnshareVector<QPointF> firstptstemp, secondptstemp;
+	firstptstemp.resize(0);
+	secondptstemp.resize(0);
 
     CalcJoin(firstptstemp, secondptstemp, vertices[first].pt, vertices[second].pt,
         vertices[third].pt, vertices[first].dist, vertices[second].dist);
-    ScalePoints(firstptstemp, vertices[second].pt);
-    ScalePoints(secondptstemp, vertices[second].pt);
+    ScalePoints(firstptstemp.data(), firstptstemp.size(), vertices[second].pt);
+    ScalePoints(secondptstemp.data(), secondptstemp.size(), vertices[second].pt);
     firstPts << firstptstemp;
     secondPts << secondptstemp;
 
@@ -491,55 +508,58 @@ void QMathStroker::CalcPoints(const QVertices& vertices, int first, int second,
 }
 
 void QMathStroker::CalcStartPoints(const QVertices& vertices, 
-                                   QVector<QPointF>& firstPts, 
-                                   QVector<QPointF>& secondPts,
+                                   QUnshareVector<QPointF>& firstPts, 
+                                   QUnshareVector<QPointF>& secondPts,
                                    QVector<QVector<QPointF> > & compoundPts,
-                                   QVector<QPointF>& startCapPts) const
+                                   QUnshareVector<QPointF>& startCapPts) const
 {
+	Q_ASSERT(firstPts.isEmpty() && secondPts.isEmpty() && startCapPts.isEmpty());
+	Q_ASSERT(vertices.size() >= 2);
+
+	const vertex_dist *pVertexs = vertices.constData();
+
     QPointF startFirstPt, startSecondPt;	
-    CalcStartPoints(vertices[0].pt, vertices[1].pt, vertices[0].dist, startFirstPt, startSecondPt);
+    CalcStartPoints(pVertexs[0].pt, pVertexs[1].pt, pVertexs[0].dist, startFirstPt, startSecondPt);
 
-    QVector<QPointF> firstPtsTemp, secondPtsTemp;	
-    firstPtsTemp.push_back(startFirstPt);
-    secondPtsTemp.push_back(startSecondPt);
-    ScalePoints(firstPtsTemp, vertices[0].pt);
-    ScalePoints(secondPtsTemp, vertices[0].pt);
-
-    firstPts << firstPtsTemp;
-    secondPts << secondPtsTemp;
+    firstPts.push_back(startFirstPt);
+    secondPts.push_back(startSecondPt);
+    ScalePoints(firstPts.data(), firstPts.size(), pVertexs[0].pt);
+    ScalePoints(secondPts.data(), secondPts.size(), pVertexs[0].pt);
 
     if (!compoundPts.empty())
     {
         Q_ASSERT(compoundPts.size() == m_compoundArray.size());
         QVector<QVector<QPointF> >compoundPtsTemp(m_compoundArray.size());
-        CalcCompoundPoints(firstPtsTemp, secondPtsTemp, compoundPtsTemp);
+        CalcCompoundPoints(firstPts, secondPts, compoundPtsTemp);
         for (int i = 0; i < m_compoundArray.size(); ++i)
         {
             compoundPts[i] << compoundPtsTemp[i];
         }
     }
 
-    QVector<QPointF> startCapPtsTemp;
-    CalcCap(vertices[1].pt, vertices[0].pt, vertices[0].dist, m_startCap, startCapPtsTemp);
-    ScalePoints(startCapPtsTemp, vertices[0].pt);
+    static QUnshareVector<QPointF> startCapPtsTemp;
+	startCapPtsTemp.resize(0);
+    CalcCap(pVertexs[1].pt, pVertexs[0].pt, pVertexs[0].dist, m_startCap, startCapPtsTemp);
+    ScalePoints(startCapPtsTemp.data(), startCapPtsTemp.size(), pVertexs[0].pt);
     startCapPts << startCapPtsTemp;
 }
 
 void QMathStroker::CalcEndPoints(const QVertices& vertices,
-                                 QVector<QPointF>& firstPts, 
-                                 QVector<QPointF>& secondPts,
+                                 QUnshareVector<QPointF>& firstPts, 
+                                 QUnshareVector<QPointF>& secondPts,
                                  QVector<QVector<QPointF> > & compoundPts,
-                                 QVector<QPointF>& endCapPts) const
+                                 QUnshareVector<QPointF>& endCapPts) const
 {
-    QPointF endFirstPt, endSecondPt;	
+	static QUnshareVector<QPointF> firstPtsTemp, secondPtsTemp;
+	firstPtsTemp.resize(1);
+	secondPtsTemp.resize(1);
     const int& s = vertices.size();
-    CalcEndPoints(vertices[s-2].pt, vertices[s-1].pt, vertices[s-2].dist, endFirstPt, endSecondPt);
+	Q_ASSERT(s >= 2);
+	const vertex_dist *pVertexs = vertices.constData();
+    CalcEndPoints(pVertexs[s-2].pt, pVertexs[s-1].pt, pVertexs[s-2].dist, firstPtsTemp[0], secondPtsTemp[0]);
 
-    QVector<QPointF> firstPtsTemp, secondPtsTemp;
-    firstPtsTemp.push_back(endFirstPt);
-    secondPtsTemp.push_back(endSecondPt);
-    ScalePoints(firstPtsTemp, vertices[s-1].pt);
-    ScalePoints(secondPtsTemp, vertices[s-1].pt);
+    ScalePoints(firstPtsTemp.data(), firstPtsTemp.size(), pVertexs[s-1].pt);
+    ScalePoints(secondPtsTemp.data(), secondPtsTemp.size(), pVertexs[s-1].pt);
 
     firstPts << firstPtsTemp;
     secondPts << secondPtsTemp;
@@ -555,9 +575,10 @@ void QMathStroker::CalcEndPoints(const QVertices& vertices,
         }
     }
 
-    QVector<QPointF> endCapPtsTemp;
-    CalcCap(vertices[s-2].pt, vertices[s-1].pt, vertices[s-2].dist, m_endCap, endCapPtsTemp);
-    ScalePoints(endCapPtsTemp, vertices[s-1].pt);
+    static QUnshareVector<QPointF> endCapPtsTemp;
+	endCapPtsTemp.resize(0);
+    CalcCap(pVertexs[s-2].pt, pVertexs[s-1].pt, pVertexs[s-2].dist, m_endCap, endCapPtsTemp);
+    ScalePoints(endCapPtsTemp.data(), endCapPtsTemp.size(), pVertexs[s-1].pt);
     endCapPts << endCapPtsTemp;
 }
 
@@ -650,16 +671,11 @@ void QMathStroker::CalcCompoundPoints(const QVector<QPointF>& firstpts,
     }
 }
 
-void QMathStroker::ScalePoints(QVector<QPointF>& pts, const QPointF& centerPt) const
+void QMathStroker::ScalePoints(QPointF *pts, int nCount, const QPointF& centerPt) const
 {
     if (m_scaleX != 1 && m_scaleY != 1)
     {
-        // 		Matrix mtx;
-        // 		mtx.Translate(centerPt.X, centerPt.Y);
-        // 		mtx.Scale(m_scaleX, m_scaleY);
-        // 		mtx.Translate(-centerPt.X, -centerPt.Y);
-        // 		mtx.TransformPoints(&pts[0], pts.size());
-        for (int i = 0; i < pts.size(); ++i)
+        for (int i = 0; i < nCount; ++i)
         {
             pts[i].rx() = centerPt.x() + (pts[i].x() - centerPt.x()) * m_scaleX;
             pts[i].ry() = centerPt.y() + (pts[i].y() - centerPt.y()) * m_scaleY;
@@ -671,7 +687,7 @@ void QMathStroker::CalcCap(const QPointF& p0,
                            const QPointF& p1, 
                            qreal len01, 
                            Qt::PenCapStyle lineCap, 
-                           QVector<QPointF>& capPts) const
+                           QUnshareVector<QPointF>& capPts) const
 {
     const qreal& twidth = m_width / 2;
     const qreal& tempd1 = twidth / len01;
@@ -705,43 +721,60 @@ void QMathStroker::CalcCap(const QPointF& p0,
 void QMathStroker::CalcCapFlat(const QPointF& p0, 
                                const QPointF& p1,
                                qreal dx, qreal dy,
-                               QVector<QPointF>& capPts) const
+                               QUnshareVector<QPointF>& capPts) const
 {
     Q_UNUSED(p0);
-    capPts.push_back(QPointF(p1.x() + dx, p1.y() - dy));
-    capPts.push_back(QPointF(p1.x() - dx, p1.y() + dy));
+	int index = capPts.size();
+	capPts.resize(index + 2);
+	QPointF *p = capPts.data();
+    p[index].rx() = p1.x() + dx;
+	p[index++].ry() = p1.y() - dy;
+    p[index].rx()   = p1.x() - dx;
+	p[index].ry()   = p1.y() + dy;
 }
 
 void QMathStroker::CalcCapSquare(const QPointF& p0,
                                  const QPointF& p1, 
                                  qreal dx, qreal dy, 
-                                 QVector<QPointF>& capPts) const
+                                 QUnshareVector<QPointF>& capPts) const
 {
     Q_UNUSED(p0);
-    capPts.push_back(QPointF(p1.x() + dx, p1.y() - dy));
-    capPts.push_back(QPointF(p1.x() + dx + dy, p1.y() - dy + dx));
-    capPts.push_back(QPointF(p1.x() - dx + dy, p1.y() + dy + dx));
-    capPts.push_back(QPointF(p1.x() - dx, p1.y() + dy));
+	int index = capPts.size();
+	capPts.resize(index + 4);
+	QPointF *p = capPts.data();
+    p[index].rx() = p1.x() + dx;
+	p[index++].ry() = p1.y() - dy;
+    p[index].rx() = p1.x() + dx + dy;
+	p[index++].ry() = p1.y() - dy + dx;
+    p[index].rx() = p1.x() - dx + dy;
+	p[index++].ry() = p1.y() + dy + dx;
+    p[index].rx() = p1.x() - dx;
+	p[index].ry() = p1.y() + dy;
 }
 
 void QMathStroker::CalcCapTriangle(const QPointF& p0, 
                                    const QPointF& p1, 
                                    qreal dx, qreal dy, 
-                                   QVector<QPointF>& capPts) const
+                                   QUnshareVector<QPointF>& capPts) const
 {
     Q_UNUSED(p0);
-    capPts.push_back(QPointF(p1.x() + dx, p1.y() - dy));
-    capPts.push_back(QPointF(p1.x() + dy, p1.y() + dx));
-    capPts.push_back(QPointF(p1.x() - dx, p1.y() + dy));
+	int index = capPts.size();
+	capPts.resize(index + 3);
+	QPointF *p = capPts.data();
+    p[index].rx() = p1.x() + dx;
+	p[index++].ry() = p1.y() - dy;
+    p[index].rx() = p1.x() + dy;
+	p[index++].ry() = p1.y() + dx;
+    p[index].rx() = p1.x() - dx;
+	p[index].ry() = p1.y() + dy;
 }
 
 void QMathStroker::CalcCapRound(const QPointF& p0, 
                                 const QPointF& p1, 
                                 qreal dx, qreal dy, 
-                                QVector<QPointF>& capPts) const
+                                QUnshareVector<QPointF>& capPts) const
 {
     Q_UNUSED(p0);
-    capPts.push_back(QPointF(p1.x() + dx, p1.y() - dy));
 
     const qreal& calcWidth = m_width / 2;
     const qreal& approxscale = 1;
@@ -751,19 +784,26 @@ void QMathStroker::CalcCapRound(const QPointF& p0,
     qreal a1 = M_PI + qAtan2(dy, dx);
     a1 -= da;
 
+	int index = capPts.size();
+	capPts.resize(index + n + 2);
+	QPointF *p = capPts.data();
+	p[index].rx() = p1.x() + dx;
+	p[index++].ry() = p1.y() - dy;
     for (int i = 0; i < n; ++i)
     {
         const qreal& costemp = qCos(a1) * calcWidth;
         const qreal& sintemp = qSin(a1) * calcWidth;
-        capPts.push_back(QPointF(p1.x() - costemp, p1.y() + sintemp));
+        p[index].rx() = p1.x() - costemp;
+		p[index++].ry() = p1.y() + sintemp;
         a1 -= da;
     }
 
-    capPts.push_back(QPointF(p1.x() - dx, p1.y() + dy));
+    p[index].rx() = p1.x() - dx;
+	p[index].ry() = p1.y() + dy;
 }
 
-void QMathStroker::CalcJoin(QVector<QPointF>& firstpts,
-                            QVector<QPointF>& secondpts,
+void QMathStroker::CalcJoin(QUnshareVector<QPointF>& firstpts,
+                            QUnshareVector<QPointF>& secondpts,
                             const QPointF& p0,
                             const QPointF& p1, 
                             const QPointF& p2, 
@@ -796,7 +836,7 @@ void QMathStroker::CalcJoin(QVector<QPointF>& firstpts,
     std::reverse(secondpts.begin(), secondpts.end());
 }
 
-void QMathStroker::CalcInnerJoin(QVector<QPointF>& pts,
+void QMathStroker::CalcInnerJoin(QUnshareVector<QPointF>& pts,
                                  const QPointF& p0, 
                                  const QPointF& p1,
                                  const QPointF& p2, 
@@ -838,7 +878,7 @@ void QMathStroker::CalcInnerJoin(QVector<QPointF>& pts,
     }
 }
 
-void QMathStroker::CalcOuterJoin(QVector<QPointF>& pts,
+void QMathStroker::CalcOuterJoin(QUnshareVector<QPointF>& pts,
                                  const QPointF& p0, 
                                  const QPointF& p1,
                                  const QPointF& p2, 
@@ -869,8 +909,8 @@ void QMathStroker::CalcOuterJoin(QVector<QPointF>& pts,
     }
 }
 
-void QMathStroker::CalcStraightJoin(QVector<QPointF>& firstpts,
-                                    QVector<QPointF>& secondpts,
+void QMathStroker::CalcStraightJoin(QUnshareVector<QPointF>& firstpts,
+                                    QUnshareVector<QPointF>& secondpts,
                                     const QPointF& p0, 
                                     const QPointF& p1,
                                     const QPointF& p2, 
@@ -898,7 +938,7 @@ void QMathStroker::CalcStraightJoin(QVector<QPointF>& firstpts,
     }	
 }
 
-void QMathStroker::CalcLineJoinMiter(QVector<QPointF>& pts,
+void QMathStroker::CalcLineJoinMiter(QUnshareVector<QPointF>& pts,
                                      const QPointF& p0, 
                                      const QPointF& p1, 
                                      const QPointF& p2, 
@@ -949,7 +989,7 @@ void QMathStroker::CalcLineJoinMiter(QVector<QPointF>& pts,
     }
 }
 
-void QMathStroker::CalcLineJoinMiterClipped(QVector<QPointF>& pts,
+void QMathStroker::CalcLineJoinMiterClipped(QUnshareVector<QPointF>& pts,
                                             const QPointF& p0, 
                                             const QPointF& p1, 
                                             const QPointF& p2, 
@@ -978,7 +1018,7 @@ void QMathStroker::CalcLineJoinMiterClipped(QVector<QPointF>& pts,
     }
 }
 
-void QMathStroker::CalcLineJoinBevel(QVector<QPointF>& pts, 
+void QMathStroker::CalcLineJoinBevel(QUnshareVector<QPointF>& pts, 
                                      const QPointF& p0, 
                                      const QPointF& p1, 
                                      const QPointF& p2, 
@@ -993,7 +1033,7 @@ void QMathStroker::CalcLineJoinBevel(QVector<QPointF>& pts,
     pts.push_back(pt120);
 }
 
-void QMathStroker::CalcLineJoinRound(QVector<QPointF>& pts, 
+void QMathStroker::CalcLineJoinRound(QUnshareVector<QPointF>& pts, 
                                      const QPointF& p0, 
                                      const QPointF& p1, 
                                      const QPointF& p2, 
@@ -1276,7 +1316,8 @@ qreal QPathZoomer::GetOffSet() const
 void QPathZoomer::ZoomPath(const QPainterPath& path2zoom, QPainterPath& pathAfterZoom, const qreal flatness) const
 {
     if (0 == m_offset) {
-        pathAfterZoom.addPath(path2zoom);
+		Q_ASSERT(pathAfterZoom.isEmpty());
+        pathAfterZoom = path2zoom;
         return;
     }
 
@@ -1794,7 +1835,7 @@ Qt::PenJoinStyle QComplexStroker::joinStyle() const
 
 void QComplexStroker::setJoinStyle(Qt::PenJoinStyle pcs)
 {
-    if (d_ptr->joinStyle = pcs)
+    if (d_ptr->joinStyle == pcs)
         return;
     detach();
     d_ptr->joinStyle = pcs;
