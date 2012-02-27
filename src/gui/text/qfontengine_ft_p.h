@@ -118,6 +118,8 @@ struct QFreetypeFace
     static void addGlyphToPath(FT_Face face, FT_GlyphSlot g, const QFixedPoint &point, QPainterPath *path, FT_Fixed x_scale, FT_Fixed y_scale);
     static void addBitmapToPath(FT_GlyphSlot slot, const QFixedPoint &point, QPainterPath *path, bool = false);
 
+    void initGlyphToUnicodeMap();
+    bool rotateInVerticalMode(glyph_t glyphIndex);
 private:
     friend class QScopedPointerDeleter<QFreetypeFace>;
     QFreetypeFace() : _lock(QMutex::Recursive) {}
@@ -125,6 +127,7 @@ private:
     QAtomicInt ref;
     QMutex _lock;
     QByteArray fontData;
+    QVarLengthArray<quint16> glyphToUnicode;
 };
 
 class Q_GUI_EXPORT QFontEngineFT : public QFontEngine
@@ -178,6 +181,7 @@ public:
         QGlyphSet();
         ~QGlyphSet();
         FT_Matrix transformationMatrix;
+        FT_Vector verticalModeOffset;
         unsigned long id; // server sided id, GlyphSet for X11
         bool outline_drawing;
 
