@@ -745,6 +745,7 @@ QFontDef qt_FcPatternToQFontDef(FcPattern *pattern, const QFontDef &request)
 {
     QFontDef fontDef;
     fontDef.styleStrategy = request.styleStrategy;
+    fontDef.verticalMetrics = request.verticalMetrics;
 
     FcChar8 *value = 0;
     if (FcPatternGetString(pattern, FC_FAMILY, 0, &value) == FcResultMatch) {
