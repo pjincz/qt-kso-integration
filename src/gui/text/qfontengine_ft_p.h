@@ -118,16 +118,20 @@ struct QFreetypeFace
     static void addGlyphToPath(FT_Face face, FT_GlyphSlot g, const QFixedPoint &point, QPainterPath *path, FT_Fixed x_scale, FT_Fixed y_scale);
     static void addBitmapToPath(FT_GlyphSlot slot, const QFixedPoint &point, QPainterPath *path, bool = false);
 
-    void initGlyphToUnicodeMap();
-    bool rotateInVerticalMode(glyph_t glyphIndex);
+    void initForVerticalMode();
+    bool isRotatedInVerticalMode(glyph_t glyphIndex);
+    glyph_t substituteForVerticalMode(glyph_t glyphIndex);
 private:
     friend class QScopedPointerDeleter<QFreetypeFace>;
-    QFreetypeFace() : _lock(QMutex::Recursive) {}
+    QFreetypeFace() : _lock(QMutex::Recursive), isCJKFont(false) {}
     ~QFreetypeFace() {}
+    bool testCJKFont();
     QAtomicInt ref;
     QMutex _lock;
     QByteArray fontData;
-    QVarLengthArray<quint16> glyphToUnicode;
+    QVarLengthArray<quint8> glyphVerticalAttributes;
+    QVarLengthArray<QPair<glyph_t, glyph_t> > punctSubst;
+    bool isCJKFont;
 };
 
 class Q_GUI_EXPORT QFontEngineFT : public QFontEngine
