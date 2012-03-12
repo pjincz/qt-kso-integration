@@ -462,10 +462,17 @@ void QPSPrintEnginePrivate::drawImage(qreal x, qreal y, qreal w, qreal h,
         const QImage constMask(mask);
         while(suby < height) {
             qreal subImageHeight = qMin(subheight, height-suby);
-            const QImage subImage(constImg.scanLine(suby), width, subImageHeight,
+            QImage subImage(constImg.scanLine(suby), width, subImageHeight,
                                   constImg.bytesPerLine(), constImg.format());
-            const QImage subMask = mask.isNull() ? mask : QImage(constMask.scanLine(suby), width, subImageHeight,
+            QImage subMask = mask.isNull() ? mask : QImage(constMask.scanLine(suby), width, subImageHeight,
                                                                  constMask.bytesPerLine(), constMask.format());
+
+            if (constImg.colorTable().count())
+            {
+                subImage.setColorTable(constImg.colorTable());
+                subMask.setColorTable(constImg.colorTable());
+            }
+
             drawImageHelper(x, y + suby/scaleY, w, subImageHeight/scaleY,
                             subImage, subMask, gray, scaleX, scaleY);
             suby += subheight;
