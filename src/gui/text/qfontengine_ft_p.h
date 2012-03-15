@@ -123,15 +123,16 @@ struct QFreetypeFace
     glyph_t substituteForVerticalMode(glyph_t glyphIndex);
 private:
     friend class QScopedPointerDeleter<QFreetypeFace>;
-    QFreetypeFace() : _lock(QMutex::Recursive), isCJKFont(false) {}
+    QFreetypeFace() : _lock(QMutex::Recursive), isCJKFont(false), hasGsubVert(false) {}
     ~QFreetypeFace() {}
     bool testCJKFont();
     QAtomicInt ref;
     QMutex _lock;
     QByteArray fontData;
     QVarLengthArray<quint8> glyphVerticalAttributes;
-    QVarLengthArray<QPair<glyph_t, glyph_t> > punctSubst;
+    QHash<glyph_t, glyph_t> verticalSubst;
     bool isCJKFont;
+    bool hasGsubVert;
 };
 
 class Q_GUI_EXPORT QFontEngineFT : public QFontEngine

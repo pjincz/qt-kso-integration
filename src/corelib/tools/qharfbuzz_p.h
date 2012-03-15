@@ -68,6 +68,15 @@ Q_CORE_EXPORT HB_Bool qShapeItem(HB_ShaperItem *item);
 // ### temporary
 Q_CORE_EXPORT HB_Face qHBNewFace(void *font, HB_GetFontTableFunc tableFunc);
 Q_CORE_EXPORT void qHBFreeFace(HB_Face);
+Q_CORE_EXPORT HB_Error qHBGSUBSelectScript(HB_GSUBHeader*  gsub,
+                             HB_UInt         script_tag,
+                             HB_UShort*      script_index);
+
+Q_CORE_EXPORT HB_Error qHBGSUBAddFeature(HB_GSUBHeader* gsub,
+                           HB_UInt script_tag,
+                           HB_UInt feature_tag);
+
+Q_CORE_EXPORT HB_UInt qHBApplySingleSubstitute(HB_GSUBHeader* gsub, HB_UInt gindex);
 
 Q_DECLARE_TYPEINFO(HB_GlyphAttributes, Q_PRIMITIVE_TYPE);
 Q_DECLARE_TYPEINFO(HB_FixedPoint, Q_PRIMITIVE_TYPE);
