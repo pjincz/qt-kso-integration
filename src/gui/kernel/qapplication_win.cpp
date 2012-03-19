@@ -3249,6 +3249,16 @@ bool QETWidget::translateMouseEvent(const MSG &msg)
                 target = popupChild;
             }
 
+            // We have to clean popupButtonFocus before sending event to target, which
+            // may have a new event loop. Otherwise, the mouse event will be send to 
+            // popupButtonFocus, when u popup a widget in the new event loop. 
+            //												By Kingsoft
+            if (releaseAfter)
+			{
+                popupButtonFocus = 0;
+				qt_button_down = 0;
+			}
+
             pos = target->mapFromGlobal(globalPos);
                 QMouseEvent e(type, pos, globalPos,
                             Qt::MouseButton(button),
