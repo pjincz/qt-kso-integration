@@ -763,6 +763,12 @@ QList<int> QKeyMapperPrivate::possibleKeys(QKeyEvent *e)
 
     quint32 baseKey = kbItem->qtKey[0];
     Qt::KeyboardModifiers keyMods = e->modifiers();
+
+    // same with Linux version, shortcut ignore KeyPad Modifier,
+    // so, we remove this.                added by Kingsoft.
+    if (keyMods & Qt::KeypadModifier)
+        keyMods = keyMods & ~Qt::KeypadModifier;
+
     if (baseKey == Qt::Key_Return && (e->nativeModifiers() & ExtendedKey)) {
         result << int(Qt::Key_Enter + keyMods);
         return result;
