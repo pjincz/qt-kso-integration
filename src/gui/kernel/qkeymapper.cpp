@@ -76,7 +76,7 @@ QList<int> QKeyMapper::possibleKeys(QKeyEvent *e)
     QList<int> result;
 
     if (!e->nativeScanCode()) {
-        Qt::KeypadModifier keyMods = e->modifiers();
+        Qt::KeyboardModifiers keyMods = e->modifiers();
 
         // same with Linux version, shortcut ignore KeyPad Modifier,
         // so, we remove this.                added by Kingsoft.
