@@ -2813,6 +2813,7 @@ void QFontEngineFT::addGlyphsToPath(glyph_t *glyphs, QFixedPoint *positions, int
         tm.xy = -0x10000;
         FT_Matrix_Multiply(&m, &tm);
         FT_Set_Transform(face, &tm, 0);
+        freetype->matrix = tm;
         QFixed yoff = QFixed::fromFixed(qreal(face->units_per_EM - face->ascender) / face->units_per_EM * xsize);
         QFixed xoff = QFixed::fromFixed(qreal(face->ascender) / face->units_per_EM * ysize);
 
@@ -2829,6 +2830,7 @@ void QFontEngineFT::addGlyphsToPath(glyph_t *glyphs, QFixedPoint *positions, int
             if (lastRotation != rotation)
             {
                 FT_Set_Transform(face, rotation ? &tm : &m, 0);
+                freetype->matrix = rotation ? tm : m;
                 lastRotation = rotation;
             }
 
