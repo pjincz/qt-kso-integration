@@ -848,7 +848,7 @@ QFont QGtkStylePrivate::getThemeFont()
         PangoFontDescription *gtk_font = style->font_desc;
         font.setPointSizeF((float)(pango_font_description_get_size(gtk_font))/PANGO_SCALE);
 
-        QString family = QString::fromLatin1(pango_font_description_get_family(gtk_font));
+		QString family = QString::fromLocal8Bit(pango_font_description_get_family(gtk_font));
         if (!family.isEmpty())
             font.setFamily(family);
 
