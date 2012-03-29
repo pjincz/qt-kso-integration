@@ -6940,6 +6940,8 @@ void QImageEffects::setBilevel(qreal threshold)
         return;
     }
 
+	detach();
+
     unsetDuotone();
     d->hasBilevel = true;
     d->bilevelThreshold = qRound(threshold * 100);
@@ -6951,6 +6953,11 @@ void QImageEffects::setBilevel(qreal threshold)
 */
 void QImageEffects::unsetBilevel()
 {
+	if (!d->hasBilevel)
+		return;
+
+	detach();
+
     d->hasBilevel = false;
 }
 
@@ -6965,6 +6972,8 @@ void QImageEffects::unsetBilevel()
 */
 void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
 {
+	detach();
+
     d->hasColorMatirx = true;
     d->colorMatrix = mtx;
 }
@@ -6976,6 +6985,11 @@ void QImageEffects::setColorMatrix(const QMatrix4x4 &mtx)
 */
 void QImageEffects::unsetColorMatrix()
 {
+	if (!d->hasColorMatirx)
+		return;
+
+	detach();
+
     d->hasColorMatirx = false;
 }
 
@@ -6984,6 +6998,8 @@ void QImageEffects::unsetColorMatrix()
 
 void QImageEffects::setDuotone( QRgb color1, QRgb color2 )
 {
+	detach();
+
 	unsetBilevel();
 	d->hasDuotone = true;
 	d->duotoneColor1 = color1;
@@ -6992,17 +7008,28 @@ void QImageEffects::setDuotone( QRgb color1, QRgb color2 )
 
 void QImageEffects::unsetDuotone()
 {
+	if (!d->hasDuotone)
+		return;
+
+	detach();
+
     d->hasDuotone = false;
 }
 
 
 void QImageEffects::setBrightness(qreal brightness)
 {
+	if (d->brightness == brightness)
+		return;
+	detach();
+
     d->brightness = brightness;
 }
 
 void QImageEffects::setColorKey(QRgb key, quint8 tolerance/* = 0*/)
 {
+	detach();
+
     d->hasColorKey = true;
     d->colorKey = key;
     d->tolerance = tolerance;
@@ -7010,11 +7037,21 @@ void QImageEffects::setColorKey(QRgb key, quint8 tolerance/* = 0*/)
 
 void QImageEffects::unsetColorKey()
 {
+	if (!d->hasColorKey)
+		return;
+
+	detach();
+
     d->hasColorKey = false;
 }
 
 void QImageEffects::setContrast(qreal contrast)
 {
+	if (d->contrast == contrast)
+		return;
+
+	detach();
+
     d->contrast = contrast;
 }
 
@@ -7036,7 +7073,22 @@ bool QImageEffects::hasEffects() const
 
 void QImageEffects::resetState() 
 {
+	detach();
+
 	d->resetState();
+}
+
+
+void QImageEffects::detach()
+{
+	if (d->ref == 1)
+		return;
+
+	QImageEffectsPrivate *x = new QImageEffectsPrivate(*d);
+	if (!d->ref.deref())
+		delete d;
+	x->ref = 1;
+	d = x;
 }
 
 QT_END_NAMESPACE

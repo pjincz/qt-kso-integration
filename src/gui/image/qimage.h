@@ -383,6 +383,8 @@ public:
     bool hasEffects() const;
 	void resetState();
 
+	void detach();
+
 private:
     QImageEffectsPrivate *d;
 
