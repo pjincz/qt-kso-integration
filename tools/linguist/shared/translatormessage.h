@@ -150,6 +150,8 @@ public:
     bool needs8Bit() const;
     void dump() const;
 
+	bool operator < (const TranslatorMessage & msg) const;
+
 private:
     QString     m_id;
     QString     m_context;

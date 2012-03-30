@@ -544,7 +544,7 @@ bool saveTS(const Translator &translator, QIODevice &dev, ConversionData &cd, in
     bool fileIsUtf8 = (format == 20 || trIsUtf8);
 
     // The xml prolog allows processors to easily detect the correct encoding
-    t << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE TS>\n";
+    t << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE TS>\n";
 
     if (format == 11)
         t << "<TS version=\"1.1\"";
@@ -594,7 +594,11 @@ bool saveTS(const Translator &translator, QIODevice &dev, ConversionData &cd, in
         t << "    <name>"
           << evilBytes(context, firstMsg.isUtf8() || fileIsUtf8, format, codecName)
           << "</name>\n";
-        foreach (const TranslatorMessage &msg, messageOrder[context]) {
+
+		QList<TranslatorMessage> msgList = messageOrder[context];
+		if (!msgList.isEmpty())
+			qSort(msgList);
+        foreach (const TranslatorMessage &msg, msgList) {
             //msg.dump();
 
             bool isUtf8 = msg.isUtf8();

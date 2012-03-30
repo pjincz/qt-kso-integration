@@ -181,6 +181,15 @@ void TranslatorMessage::dump() const
         << "\nExtra             : " << m_extra;
 }
 
+bool TranslatorMessage::operator< (const TranslatorMessage & msg) const
+{
+	if (m_sourcetext == msg.m_sourcetext)
+	{
+		return m_comment < msg.m_comment;
+	}
+	else
+		return m_sourcetext < msg.m_sourcetext;
+}
 
 QT_END_NAMESPACE
 
