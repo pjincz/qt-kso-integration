@@ -3734,6 +3734,8 @@ bool QETWidget::translatePaintEvent(const MSG &msg)
     if (!GetUpdateRect(internalWinId(), 0, FALSE)) { // The update bounding rect is invalid
         d_func()->hd = 0;
         setAttribute(Qt::WA_PendingUpdate, false);
+        if (msg.message == WM_ERASEBKGND)
+            return true;
         return false;
     }
 
