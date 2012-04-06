@@ -115,6 +115,15 @@ inline bool operator<(const TimerHeapElement& a, const TimerHeapElement& b)
     return difference < UINT_MAX / 2;
 }
 
+#ifdef _LIBCPP_NAMESPACE
+inline void swap(TimerHeapElement a, TimerHeapElement b)
+{
+    TimerHeapElement t = a;
+    a = b;
+    b = t;
+}
+#endif
+
 // ----------------
 
 // Class to represent iterators in the heap when calling the standard library heap algorithms.
