@@ -221,10 +221,10 @@ namespace WebCore {
         cacheDOMNodeWrapper(exec, node->document(), node, wrapper);
         return wrapper;
     }
-    template<class WrapperClass, class DOMClass> inline JSC::JSValue getDOMNodeWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* node)
+    template<class WrapperClass, class DOMClass> inline JSNode* getDOMNodeWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* node)
     {
         if (!node)
-            return JSC::jsNull();
+            return NULL;//JSC::jsNull();
         if (JSNode* wrapper = getCachedDOMNodeWrapper(exec, node->document(), node))
             return wrapper;
         return createDOMNodeWrapper<WrapperClass>(exec, globalObject, node);

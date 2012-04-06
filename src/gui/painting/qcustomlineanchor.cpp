@@ -4,6 +4,7 @@
 
 #include <QtCore/qmath.h>
 #include <algorithm>
+#include <vector>
 
 static const qreal vertex_dist_epsilon = 1.0e-30;
 
