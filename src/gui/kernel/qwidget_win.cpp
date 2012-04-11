@@ -1968,7 +1968,7 @@ void QWidgetPrivate::updateFrameStrut()
 #ifndef Q_WS_WINCE
     if (AdjustWindowRectEx(&rect, style & ~(WS_OVERLAPPED), FALSE, exstyle)) {
 		NCCALCSIZE_PARAMS lparams;
-		RECT windowRect;
+		RECT windowRect = {0,0,0,0};
 		GetWindowRect(q->internalWinId(), &windowRect);
 		lparams.rgrc[0] = windowRect;
 		lparams.rgrc[1]	= windowRect;
@@ -1981,6 +1981,7 @@ void QWidgetPrivate::updateFrameStrut()
 								lparams.rgrc[0].top - lparams.rgrc[1].top,
 								lparams.rgrc[1].right - lparams.rgrc[0].right,
 								lparams.rgrc[1].bottom - lparams.rgrc[0].bottom);
+		data.fstrut_dirty = false;
 	}
 #else
     if (AdjustWindowRectEx(&rect, style, FALSE, exstyle)) {
