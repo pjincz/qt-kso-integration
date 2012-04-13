@@ -47,6 +47,7 @@
 #include "qpixmapcache.h"
 #include "qstyleoption.h"
 #include "private/qstyle_p.h"
+#include "private/qstylehelper_p.h"
 #ifndef QT_NO_DEBUG
 #include "qdebug.h"
 #endif
@@ -2081,6 +2082,11 @@ QRect QStyle::alignedRect(Qt::LayoutDirection direction, Qt::Alignment alignment
     else if ((alignment & Qt::AlignHCenter) == Qt::AlignHCenter)
         x += rectangle.size().width()/2 - w/2;
     return QRect(x, y, w, h);
+}
+
+qreal QStyle::dpiScaled(qreal value)
+{
+    return QStyleHelper::dpiScaled(value);
 }
 
 /*!
