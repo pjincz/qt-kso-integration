@@ -846,6 +846,7 @@ public:
     static Qt::Alignment visualAlignment(Qt::LayoutDirection direction, Qt::Alignment alignment);
     static QRect alignedRect(Qt::LayoutDirection direction, Qt::Alignment alignment,
                              const QSize &size, const QRect &rectangle);
+    static qreal dpiScaled(qreal value);
 
     int layoutSpacing(QSizePolicy::ControlType control1,
                       QSizePolicy::ControlType control2, Qt::Orientation orientation,
