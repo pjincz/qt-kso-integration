@@ -519,6 +519,7 @@ public:
 
         WA_X11DoNotAcceptFocus = 132,
 
+		WA_MSCustomFrameStruct = 133,			// Win Only, to deal with WM_NCCALCSIZE		add by Kingsoft.
         // Add new attributes before this line
         WA_AttributeCount
     };

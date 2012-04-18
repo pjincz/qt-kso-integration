@@ -518,6 +518,10 @@ public:
     void registerDropSite(bool);
     static void adjustFlags(Qt::WindowFlags &flags, QWidget *w = 0);
 
+#ifdef Q_OS_WIN
+	void setFrameStrut(int left, int top, int right, int bottom);
+#endif
+
     void updateFrameStrut();
     QRect frameStrut() const;
 
