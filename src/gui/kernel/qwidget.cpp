@@ -7319,6 +7319,40 @@ void QWidget::setUpdatesEnabled(bool enable)
 */
 
 
+/*!  \fn void QWidget::setCustomFrameStruct()
+    \brief Custom window frame struct. Widget must be a window.
+    Call setCustomFrameStruct(-1, -1, -1, -1) to cancel custom FrameStruct.
+	This function make Qt can process WM_NCCALCSIZE message.
+    for Windows Platform only.			add by kingsoft
+
+    \sa customFrameStruct()
+*/
+void QWidget::setCustomFrameStruct(int left, int top, int right, int bottom)
+{
+#ifdef Q_OS_WIN
+    Q_D(QWidget);
+    d->setFrameStrut(left, top, right, bottom);
+#else
+    return;
+#endif
+}
+
+/*!  \fn void QWidget::customFrameStruct()
+	\brief Return custom window frame struct. Widget must be a window.
+    return QRect(-1,-1,-1,-1) if havn't set custom window frame struct.
+
+    for Windows Platform only.			add by kingsoft
+
+    \sa setCustomFrameStruct
+*/
+QRect QWidget::customFrameStruct()
+{
+    Q_D(QWidget);
+    if (!testAttribute(Qt::WA_MSCustomFrameStruct))
+        return QRect(-1, -1, -1, -1);
+    return d->frameStrut();
+}
+
 /*! \internal
 
    Makes the widget visible in the isVisible() meaning of the word.

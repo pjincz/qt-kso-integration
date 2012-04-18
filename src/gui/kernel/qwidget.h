@@ -545,6 +545,9 @@ public:
 
     QRect contentsRect() const;
 
+    void setCustomFrameStruct(int left, int top, int right, int bottom);
+    QRect customFrameStruct();
+
 public:
     QLayout *layout() const;
     void setLayout(QLayout *);

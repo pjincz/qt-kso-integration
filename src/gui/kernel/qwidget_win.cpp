@@ -1948,6 +1948,49 @@ void QWidgetPrivate::setMask_sys(const QRegion &region)
         DeleteObject(wr);
 }
 
+/*
+  \internal
+  Platform-specific part of QWidget::setFrameStrut(int left, int top, int right, int bottom).
+  This function will send ResizeEvent to make sure qt's client area is right, and
+  AFAIK, i have to send QResizeEvent and rewrite data.crect.
+*/
+void QWidgetPrivate::setFrameStrut(int left, int top, int right, int bottom)
+{
+    Q_Q(QWidget);
+
+    // invaild rect will unset framestruct
+    if (left == -1 && top == -1 && right == -1 && bottom == -1)
+    {
+        q->setAttribute(Qt::WA_MSCustomFrameStruct, false);
+        data.fstrut_dirty = true;
+        updateFrameStrut();
+        return;
+    }
+
+    QTLWExtra *topData = this->topData();
+
+    topData->frameStrut.setCoords(left, top, right, bottom);
+    data.fstrut_dirty = false;
+    q->setAttribute(Qt::WA_MSCustomFrameStruct, true);
+
+    RECT wr = {0, 0, 0, 0};
+    if (q->internalWinId() && GetWindowRect(q->internalWinId(), &wr) && wr.right > 0 && wr.bottom > 0)
+    {
+        wr.left += left;
+        wr.top += top;
+        wr.right -= right;
+        wr.bottom -= bottom;
+        QRect cr(wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top);
+        // if windows state is not normal, we can't change the data.crect.
+        if (data.crect != cr && !q->testAttribute(Qt::WA_WState_Hidden) && !q->isMinimized() && !q->isMaximized())
+        {
+            QResizeEvent re(cr.size(), data.crect.size());
+            QApplication::sendEvent(q, &re);
+			data.crect = cr;
+        }
+    }
+}
+
 void QWidgetPrivate::updateFrameStrut()
 {
     Q_Q(QWidget);
@@ -1956,6 +1999,13 @@ void QWidgetPrivate::updateFrameStrut()
         return;
 
     if (!q->internalWinId()) {
+        data.fstrut_dirty = false;
+        return;
+    }
+
+    // have custom frame, so return...
+    if (q->testAttribute(Qt::WA_MSCustomFrameStruct))
+    {
         data.fstrut_dirty = false;
         return;
     }
