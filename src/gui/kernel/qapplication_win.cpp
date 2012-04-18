@@ -1714,6 +1714,23 @@ extern "C" LRESULT QT_WIN_CALLBACK QtWndProc(HWND hwnd, UINT message, WPARAM wPa
         }
     } else {
         switch (message) {
+        case WM_NCCALCSIZE:
+            {
+                if(wParam && widget && widget->isWindow() && widget->testAttribute(Qt::WA_MSCustomFrameStruct))
+                {
+                    QRect frameStruct = widget->customFrameStruct();
+                    LPNCCALCSIZE_PARAMS p = (LPNCCALCSIZE_PARAMS)lParam;
+                    p->rgrc[0].bottom -= frameStruct.bottom();
+                    p->rgrc[0].left += frameStruct.left();
+                    p->rgrc[0].top += frameStruct.top();
+                    p->rgrc[0].right -= frameStruct.right();
+                    // force resize client area.
+                    widget->setCustomFrameStruct(frameStruct.left(), frameStruct.top(), frameStruct.right(), frameStruct.bottom());
+                    return 0;
+                }
+                result = false;
+                break;
+            }
         case WM_TOUCH:
             result = QApplicationPrivate::instance()->translateTouchEvent(msg);
             break;
@@ -3801,15 +3818,36 @@ bool QETWidget::translateConfigEvent(const MSG &msg)
             data->crect = cr;
         if (isWindow()) {                        // update title/icon text
             d_func()->createTLExtra();
+
+            // make sure SIZE_MAXIMIZED, SIZE_MINIMIZED and SIZE_RESTORE change windowState.			add by Kingsoft
+            bool bMinimized = isMinimized();
+            uint oldState = data->window_state;
+            if (msg.wParam == SIZE_MAXIMIZED)
+            {
+                data->window_state &= ~(Qt::WindowMinimized | Qt::WindowFullScreen);
+                data->window_state |= Qt::WindowMaximized;
+            }
+            else if (msg.wParam == SIZE_RESTORED)
+            {
+                data->window_state &= ~(Qt::WindowMaximized | Qt::WindowFullScreen | Qt::WindowMinimized);
+            }
+            else if (msg.wParam == SIZE_MINIMIZED)
+            {
+                data->window_state &= ~(Qt::WindowMaximized | Qt::WindowFullScreen);
+                data->window_state |= Qt::WindowMinimized;
+            }
+
+            QWindowStateChangeEvent e(Qt::WindowStates(oldState), true);
+            QApplication::sendEvent(this, &e);
+
             // Capture SIZE_MINIMIZED without preceding WM_SYSCOMMAND
             // (like Windows+M)
-            if (msg.wParam == SIZE_MINIMIZED && !isMinimized()) {
+            if (msg.wParam == SIZE_MINIMIZED && !bMinimized) {
 #ifndef Q_WS_WINCE
                 const QString title = windowIconText();
                 if (!title.isEmpty())
                     d_func()->setWindowTitle_helper(title);
 #endif
-                data->window_state |= Qt::WindowMinimized;
                 if (isVisible()) {
                     QHideEvent e;
                     QApplication::sendSpontaneousEvent(this, &e);
@@ -3818,7 +3856,7 @@ bool QETWidget::translateConfigEvent(const MSG &msg)
             } else if (msg.wParam != SIZE_MINIMIZED) {
                 bool window_state_changed = false;
                 Qt::WindowStates oldstate = Qt::WindowStates(dataPtr()->window_state);
-                if (isMinimized()) {
+                if (bMinimized) {
 #ifndef Q_WS_WINCE
                     const QString title = windowTitle();
                     if (!title.isEmpty())

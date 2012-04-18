@@ -528,6 +528,7 @@ public:
 
         WA_SymbianNoSystemRotation = 133,
 
+		WA_MSCustomFrameStruct = 134,			// Win Only, to deal with WM_NCCALCSIZE		add by Kingsoft.
         // Add new attributes before this line
         WA_AttributeCount
     };
