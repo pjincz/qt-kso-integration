@@ -961,6 +961,17 @@ Qt::DropAction QDragManager::drag(QDrag *o)
         dragPrivate()->target = 0;
     }
 
+    // after drag finished, we must reset mouse_buttons status, otherwise, ...
+    // we miss to clean the status.			add by kingsoft.
+    QApplicationPrivate::mouse_buttons = Qt::NoButton;
+    if (GetAsyncKeyState(VK_LBUTTON))
+        QApplicationPrivate::mouse_buttons |= Qt::LeftButton;
+    if (GetAsyncKeyState(VK_RBUTTON))
+        QApplicationPrivate::mouse_buttons |= Qt::RightButton;
+    if (GetAsyncKeyState(VK_MBUTTON))
+        QApplicationPrivate::mouse_buttons |= Qt::MidButton;
+    
+
     // clean up
     obj->releaseQt();
     obj->Release();        // Will delete obj if refcount becomes 0
