@@ -491,6 +491,38 @@ void qt_bitmapblit16_sse2(QRasterBuffer *rasterBuffer, int x, int y,
     }
 }
 
+void __qt_setbilevel_sse(uint *buffer, int length, const quint8 percent)
+{
+    __m128i *pSrc = reinterpret_cast<__m128i*>(buffer);
+    __m128i *pEnd = pSrc + length / 4;
+    const __m128i alphaMask = _mm_set1_epi32(0xff000000);
+    const __m128i redMask = _mm_set1_epi32(0x000000ff);
+    const __m128i mpercent = _mm_set1_epi32(percent);
+
+    if (percent == 0) {
+        for (; pSrc < pEnd; pSrc ++) {
+            const __m128i msrc = _mm_loadu_si128(pSrc);
+            const __m128i malpha = _mm_and_si128(msrc, alphaMask);
+            __m128i mwhite = _mm_or_si128(malpha, _mm_srli_epi32(malpha, 8));
+            mwhite = _mm_or_si128(mwhite, _mm_srli_epi32(mwhite, 16));
+            _mm_storeu_si128(pSrc, mwhite);
+        }
+    } else {
+        for (; pSrc < pEnd; pSrc ++) {
+            const __m128i msrc = _mm_loadu_si128(pSrc);
+            const __m128i malpha = _mm_and_si128(msrc, alphaMask);
+            __m128i mlhs = _mm_and_si128(msrc, redMask);
+            mlhs = _mm_mullo_epi16(mlhs, _mm_set1_epi32(100));
+            __m128i mrhs = _mm_srli_epi32(malpha, 24);
+            mrhs = _mm_mullo_epi16(mrhs, mpercent);
+            __m128i result = _mm_cmpgt_epi32(mlhs, mrhs);
+            result = _mm_and_si128(result, _mm_srli_epi32(malpha, 24));
+            result = _mm_or_si128(result, _mm_or_si128(_mm_slli_epi32(result, 8), _mm_slli_epi32(result, 16)));
+            _mm_storeu_si128(pSrc, _mm_or_si128(malpha, result));
+        }
+    }
+}
+
 QT_END_NAMESPACE
 
 #endif // QT_HAVE_SSE2

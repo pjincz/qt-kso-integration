@@ -113,48 +113,21 @@ struct Q_GUI_EXPORT QImageData {        // internal image data
 };
 
 #ifdef QT_HAVE_SSE2
+
 struct Q_GUI_EXPORT QM128Data {
-    __m128i *m_mmtxs;
+    void *m_mmtxs;
 
-    QM128Data()
-    {
-		m_mmtxs = (__m128i*)_aligned_malloc(sizeof(__m128i) * 2, 16);
+    QM128Data();
 
-        m_mmtxs[0] = _mm_set1_epi16(0);
-        m_mmtxs[1] = _mm_set1_epi16(0);
-    }
+    QM128Data(const QM128Data &rhs);
 
-	QM128Data(const QM128Data &rhs)
-	{
-		m_mmtxs = (__m128i*)_aligned_malloc(sizeof(__m128i) * 2, 16);
+    ~QM128Data();
 
-		m_mmtxs[0] = rhs.m_mmtxs[0];
-		m_mmtxs[1] = rhs.m_mmtxs[1];
-	}
+    QM128Data& operator=(const QM128Data &rhs);
 
-	~QM128Data()
-	{
-		_aligned_free(m_mmtxs);
-	}
+    void* operator new(size_t size);
 
-	QM128Data& operator=(const QM128Data &rhs)
-	{
-		m_mmtxs[0] = rhs.m_mmtxs[0];
-		m_mmtxs[1] = rhs.m_mmtxs[1];
-
-		return *this;
-	}
-
-    void* operator new(size_t size)
-    {
-        return _aligned_malloc(size, 16);
-    }
-
-    void operator delete(void *p)
-    {
-        QM128Data *pc = static_cast<QM128Data*>(p);
-        _aligned_free(pc);
-    }
+    void operator delete(void *p);
 };
 #endif
 
@@ -170,7 +143,7 @@ public:
     QImageEffectsPrivate();
     ~QImageEffectsPrivate();
 
-	void updateColorMatrixInt();
+    void updateColorMatrixInt();
     void updateColorMatrix();
     void prepare();
     void transform(QRgb *buffer, int length) const;
@@ -178,8 +151,8 @@ public:
     void transform_cpp(QRgb *buffer, int length) const;
     void setTransformFunc();
 
-	QMatrix4x4 createDuotoneMatrix(const QRgb clr1, const QRgb clr2) const;
-	void resetState();
+    QMatrix4x4 createDuotoneMatrix(const QRgb clr1, const QRgb clr2) const;
+    void resetState();
 
     QAtomicInt ref;
     bool hasColorMatirx;
