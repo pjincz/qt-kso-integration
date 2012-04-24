@@ -196,6 +196,25 @@ contains(QMAKE_MAC_XARCH, no) {
             silent:ssse3_compiler.commands = @echo compiling[ssse3] ${QMAKE_FILE_IN} && $$ssse3_compiler.commands
             QMAKE_EXTRA_COMPILERS += ssse3_compiler
         }
+        sse4_1 {
+            sse4_1_compiler.commands = $$QMAKE_CXX -c -Winline
+
+            mac {
+                sse4_1_compiler.commands += -Xarch_i386 -msse4.1
+                sse4_1_compiler.commands += -Xarch_x86_64 -msse4.1
+            } else {
+                sse4_1_compiler.commands += -msse4.1
+            }
+
+            sse4_1_compiler.commands += $(CXXFLAGS) $(INCPATH) ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
+            sse4_1_compiler.dependency_type = TYPE_C
+            sse4_1_compiler.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_OBJ)}
+            sse4_1_compiler.input = SSE4_SOURCES
+            sse4_1_compiler.variable_out = OBJECTS
+            sse4_1_compiler.name = compiling[sse4_1] ${QMAKE_FILE_IN}
+            silent:sse4_1_compiler.commands = @echo compiling[sse4_1] ${QMAKE_FILE_IN} && $$sse4_1_compiler.commands
+            QMAKE_EXTRA_COMPILERS += sse4_1_compiler
+        }
         iwmmxt {
             iwmmxt_compiler.commands = $$QMAKE_CXX -c -Winline
             iwmmxt_compiler.commands += -mcpu=iwmmxt
@@ -215,6 +234,7 @@ contains(QMAKE_MAC_XARCH, no) {
         sse: SOURCES += $$SSE_SOURCES
         sse2: SOURCES += $$SSE2_SOURCES
         ssse3: SOURCES += $$SSSE3_SOURCES
+        sse4: SOURCES += $$SSE4_SOURCES
         iwmmxt: SOURCES += $$IWMMXT_SOURCES
     }
 }

@@ -3069,6 +3069,9 @@ void QRasterPaintEngine::drawImage(const QRectF &r, const QImage &img, const QRe
     QImageEffectsPrivate tmpEffects = *effects->data_ptr();
     tmpEffects.prepare();
 
+    bool stretch_sr = r.width() != sr.width() || r.height() != sr.height();
+    const QClipData *clip = d->clip();
+
     //d->solid_color_filler.effects = effects;
     d->image_filler.effects =  &tmpEffects;
     d->image_filler_xform.effects = &tmpEffects;
@@ -3111,10 +3114,6 @@ void QRasterPaintEngine::drawImage(const QRectF &r, const QImage &img, const QRe
         s->matrix = old;
         goto Exit;
     }
-
-    bool stretch_sr = r.width() != sr.width() || r.height() != sr.height();
-
-    const QClipData *clip = d->clip();
 
     if (s->matrix.type() > QTransform::TxTranslate || stretch_sr) {
         QTransform copy = s->matrix;
