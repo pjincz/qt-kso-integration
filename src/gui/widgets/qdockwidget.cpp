@@ -763,6 +763,7 @@ void QDockWidgetPrivate::endDrag(bool abort)
                                     myLayout->widgetForRole(QDockWidgetLayout::TitleBar) != 0);
 #endif
                 undockedGeometry = q->geometry();
+                if (q->focusPolicy() != Qt::NoFocus)
                 q->activateWindow();
             } else {
                 mwLayout->revert(state->widgetItem);
