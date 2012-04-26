@@ -292,6 +292,7 @@ void QToolBarPrivate::endDrag(bool abort)
                 setWindowState(true); // gets rid of the X11BypassWindowManager window flag
                                       // and activates the resizer
 #endif
+                if (q->focusPolicy() != Qt::NoFocus)
                 q->activateWindow();
 			   emit q->dragFinished();
             } else {

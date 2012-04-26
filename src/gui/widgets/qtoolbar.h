@@ -152,7 +152,7 @@ Q_SIGNALS:
     void toolButtonStyleChanged(Qt::ToolButtonStyle toolButtonStyle);
     void topLevelChanged(bool topLevel);
     void visibilityChanged(bool visible);
-	void dragFinished();
+    void dragFinished(); // will be removed    by kingsoft
 
 protected:
 	void setFullSize(bool fullSize);
