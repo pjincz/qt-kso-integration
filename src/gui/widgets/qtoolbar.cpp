@@ -328,6 +328,7 @@ bool QToolBarPrivate::mousePressEvent(QMouseEvent *event)
     if (!layout->movable())
         return true;
 
+	layout->setExpanded(false, false);
     initDrag(event->pos());
     return true;
 }
