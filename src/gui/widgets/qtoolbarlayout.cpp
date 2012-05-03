@@ -974,7 +974,7 @@ QSize QToolBarLayout::expandedSize(const QSize &size) const
     return result;
 }
 
-void QToolBarLayout::setExpanded(bool exp)
+void QToolBarLayout::setExpanded(bool exp, bool bAnimating)
 {
     if (exp == expanded)
         return;
@@ -986,11 +986,6 @@ void QToolBarLayout::setExpanded(bool exp)
     if (!tb)
         return;
     if (QMainWindow *win = qobject_cast<QMainWindow*>(tb->parentWidget())) {
-#ifdef QT_NO_DOCKWIDGET
-        animating = false;
-#else
-        animating = !tb->isWindow() && win->isAnimated();
-#endif
         QMainWindowLayout *layout = qt_mainwindow_layout(win);
         if (expanded) {
             tb->raise();
@@ -1001,8 +996,24 @@ void QToolBarLayout::setExpanded(bool exp)
                 layoutActions(rect.size());
             }
         }
-        layout->layoutState.toolBarAreaLayout.apply(animating);
+		layout->layoutState.toolBarAreaLayout.apply(bAnimating);
+	}
+}
+
+void QToolBarLayout::setExpanded(bool exp)
+{
+    QToolBar *tb = qobject_cast<QToolBar*>(parentWidget());
+	if (tb)
+	{
+		if (QMainWindow *win = qobject_cast<QMainWindow*>(tb->parentWidget())) {
+#ifdef QT_NO_DOCKWIDGET
+			animating = false;
+#else
+			animating = !tb->isWindow() && win->isAnimated();
+#endif
+		}
     }
+	setExpanded(exp, animating);
 }
 
 QSize QToolBarLayout::minimumSize() const
