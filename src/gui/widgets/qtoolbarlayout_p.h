@@ -126,6 +126,7 @@ public:
 
 public Q_SLOTS:
     void setExpanded(bool b);
+	void setExpanded(bool bExp, bool bAnimating);
 
 private:
     QList<QToolBarItem*> items;
