@@ -1984,9 +1984,7 @@ void QWidgetPrivate::setFrameStrut(int left, int top, int right, int bottom)
         // if windows state is not normal, we can't change the data.crect.
         if (data.crect != cr && !q->testAttribute(Qt::WA_WState_Hidden) && !q->isMinimized() && !q->isMaximized())
         {
-            QResizeEvent re(cr.size(), data.crect.size());
-            QApplication::sendEvent(q, &re);
-			data.crect = cr;
+			setGeometry_sys(wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, false);
         }
     }
 }
