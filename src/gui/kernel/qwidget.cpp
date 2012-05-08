@@ -7504,6 +7504,10 @@ void QWidgetPrivate::show_helper()
         qApp->d_func()->openPopup(q);
 #endif
 
+	// openPopup close 'ime candidate window', that who may hide q at last;
+	if (!q->testAttribute(Qt::WA_WState_Visible))
+		return;
+
     // send the show event before showing the window
     QShowEvent showEvent;
     QApplication::sendEvent(q, &showEvent);
