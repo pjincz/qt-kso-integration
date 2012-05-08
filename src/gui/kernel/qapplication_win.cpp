@@ -2807,10 +2807,12 @@ void QApplicationPrivate::openPopup(QWidget *popup)
         return;
 
     // close any opened 'ime candidate window'
+	// this message way let QLineEdit hide QComplete's popup window.
     if (imeParentWnd)
         ::SendMessage(imeParentWnd, WM_IME_ENDCOMPOSITION, 0, 0);
 
-    if (QApplicationPrivate::popupWidgets->count() == 1 && !qt_nograb()) {
+	// close 'ime candidate window' may clean QApplicationPrivate::popupWidgets.   -- modified by Kingsoft.
+    if (QApplicationPrivate::popupWidgets && QApplicationPrivate::popupWidgets->count() == 1 && !qt_nograb()) {
         Q_ASSERT(popup->testAttribute(Qt::WA_WState_Created));
         setAutoCapture(popup->internalWinId());        // grab mouse/keyboard
     }
@@ -2819,7 +2821,7 @@ void QApplicationPrivate::openPopup(QWidget *popup)
     // new popup gets the focus
     if (popup->focusWidget()) {
         popup->focusWidget()->setFocus(Qt::PopupFocusReason);
-    } else if (QApplicationPrivate::popupWidgets->count() == 1) { // this was the first popup
+    } else if (QApplicationPrivate::popupWidgets && QApplicationPrivate::popupWidgets->count() == 1) { // this was the first popup
         if (QWidget *fw = QApplication::focusWidget()) {
             QFocusEvent e(QEvent::FocusOut, Qt::PopupFocusReason);
             QApplication::sendEvent(fw, &e);
