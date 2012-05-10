@@ -8701,6 +8701,13 @@ bool QWidget::event(QEvent *event)
         d->topData()->embedded = 1;
 #endif
         break;
+	case QEvent::CancelEmbeddingControl:
+		d->topData()->frameStrut.setCoords(0 ,0, 0, 0);
+		data->fstrut_dirty = false;
+#if defined(Q_WS_WIN) || defined(Q_WS_X11)
+		d->topData()->embedded = 0;
+#endif
+		break;
 #ifndef QT_NO_ACTION
     case QEvent::ActionAdded:
     case QEvent::ActionRemoved:
