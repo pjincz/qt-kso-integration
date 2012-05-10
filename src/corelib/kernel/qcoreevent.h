@@ -290,6 +290,7 @@ public:
 #endif
         EnterModal = 250,	// added by kingsoft temp code will rollbacked by shell3 --by jinchizhong
         LeaveModal = 251,	// added by kingsoft temp code will rollbacked by shell3 --by jinchizhong
+		CancelEmbeddingControl = 252,		// added by kingsoft, for cancel EmbbedingControl.
 
         // 512 reserved for Qt Jambi's MetaCall event
         // 513 reserved for Qt Jambi's DeleteOnMainThread event
