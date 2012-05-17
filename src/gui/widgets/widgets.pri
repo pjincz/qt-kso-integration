@@ -65,6 +65,7 @@ HEADERS += \
         widgets/qtextbrowser.h \
         widgets/qtoolbar.h \
         widgets/qtoolbar_p.h \
+        widgets/qtoolbaritemwidget.h \
         widgets/qtoolbarlayout_p.h \
         widgets/qtoolbarextension_p.h \
         widgets/qtoolbarseparator_p.h \
