@@ -269,7 +269,7 @@ namespace WTF {
 #endif
 
     template<typename T, bool useSwap> struct Mover;
-    template<typename T> struct Mover<T, true> { static void move(T& from, T& to) { swap<T>(from, to); } };
+    template<typename T> struct Mover<T, true> { static void move(T& from, T& to) { swap(from, to); } };
     template<typename T> struct Mover<T, false> { static void move(T& from, T& to) { to = from; } };
 
     template<typename Key, typename Value, typename HashFunctions> class IdentityHashTranslator {
