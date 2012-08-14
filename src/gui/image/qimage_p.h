@@ -131,6 +131,8 @@ struct Q_GUI_EXPORT QM128Data {
 };
 #endif
 
+typedef QMap<QRgb, QRgb> ColorMap;
+
 struct Q_GUI_EXPORT QImageEffectsPrivate
 {
 public:
@@ -165,6 +167,7 @@ public:
     QMatrix4x4 colorMatrix;
     int colorMatrixInt[4][4];
     QRgb colorKey;
+    ColorMap colorMap;
     quint8 tolerance;
     quint8 colorKeyLow[3];
     quint8 colorKeyHight[3];
