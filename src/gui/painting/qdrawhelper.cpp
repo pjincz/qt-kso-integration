@@ -609,11 +609,22 @@ inline void qt_handleColorKey(const QImageEffectsPrivate *effects, uint *buffer,
     }
 }
 
+inline void qt_handleColorMap(const QImageEffectsPrivate *effects, uint *buffer, int length)
+{
+    Q_ASSERT(NULL != effects && NULL != buffer);
+
+    for (int i = 0; i < length; i++) {
+        if (effects->colorMap.contains(buffer[i]))
+            buffer[i] = effects->colorMap.value(buffer[i]);
+    }
+}
+
 inline void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length)
 {
     Q_ASSERT(NULL != effects && NULL != buffer);
 
     qt_handleColorKey(effects, buffer, length);
+    qt_handleColorMap(effects, buffer, length);
 
     if (!effects->colorMatrix.isIdentity())
         effects->transform(buffer, length);
@@ -3616,6 +3627,23 @@ static TextureBlendType getBlendType(const QSpanData *data)
     return ft;
 }
 
+static inline bool hasAlpha(QImageEffectsPrivate *effect)
+{
+    if (NULL == effect)
+        return false;
+
+	if (effect->hasColorKey)
+        return true;
+
+    QList<QRgb> newColors = effect->colorMap.values();
+    foreach (const QRgb& color, newColors) {
+        if (qAlpha(color) != 0xff)
+            return true;
+    }
+
+    return false;
+}
+
 static inline Operator getOperator(const QSpanData *data, const QSpan *spans, int spanCount)
 {
     Operator op;
@@ -3646,7 +3674,7 @@ static inline Operator getOperator(const QSpanData *data, const QSpan *spans, in
     case QSpanData::Texture:
         op.src_fetch = sourceFetch[getBlendType(data)][data->texture.format];
         solidSource = !data->texture.hasAlpha;
-        if (NULL != data->effects && data->effects->hasColorKey)
+        if (NULL != data->effects && hasAlpha(data->effects))
             solidSource = false;
     default:
         break;

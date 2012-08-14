@@ -374,6 +374,7 @@ public:
     void setBrightness(qreal brightness);
     void setColorKey(QRgb key, quint8 tolerance = 0);
     void unsetColorKey();
+    void setRemapTable(const QMap<QRgb, QRgb>& colorMap);
     void setColorMatrix(const QMatrix4x4 &mtx);
     void unsetColorMatrix();
     void setContrast(qreal contrast);
