@@ -6690,6 +6690,8 @@ void QImageEffectsPrivate::resetState()
 
 	memset(colorMatrixInt[0], 0, sizeof(colorMatrixInt));
 	colorMatrixInt[0][0] = colorMatrixInt[1][1] = colorMatrixInt[2][2] = colorMatrixInt[3][3] = base_scale;
+
+	colorMap.clear();
 }
 
 QMatrix4x4 QImageEffectsPrivate::createDuotoneMatrix(const QRgb clr1, const QRgb clr2) const
@@ -6889,6 +6891,15 @@ void QImageEffectsPrivate::prepare()
         }
     }
 
+    ColorMap premuledMap;
+    ColorMap::const_iterator it = colorMap.constBegin();
+    for (; it != colorMap.constEnd(); it++) {
+        QRgb preOldColor = PREMUL(it.key());
+        QRgb preNewColor = PREMUL(it.value());
+        premuledMap[preOldColor] = preNewColor;
+    }
+    colorMap = premuledMap;
+
     if (hasDuotone || hasColorMatirx || brightness != 0 || contrast != 1)
         checkBound = true;
     else
@@ -7045,6 +7056,16 @@ void QImageEffects::unsetColorKey()
     d->hasColorKey = false;
 }
 
+void QImageEffects::setRemapTable(const QMap<QRgb, QRgb>& colorMap)
+{
+	if (colorMap == d->colorMap)
+		return;
+
+	detach();
+
+	d->colorMap = colorMap;
+}
+
 void QImageEffects::setContrast(qreal contrast)
 {
 	if (d->contrast == contrast)
@@ -7061,14 +7082,15 @@ void QImageEffects::setContrast(qreal contrast)
 */
 bool QImageEffects::hasEffects() const
 {
-    if (d->hasColorMatirx)
-        return !d->colorMatrix.isIdentity();
+    if (d->hasColorMatirx && !d->colorMatrix.isIdentity())
+        return true;
     else
         return (d->hasDuotone
                 || d->hasBilevel
                 || d->hasColorKey
                 || d->brightness != 0
-                || d->contrast != 1);
+                || d->contrast != 1
+                || !d->colorMap.isEmpty());
 }
 
 void QImageEffects::resetState() 
