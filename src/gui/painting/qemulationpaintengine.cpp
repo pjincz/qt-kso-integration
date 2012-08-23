@@ -44,6 +44,8 @@
 #include <private/qtextengine_p.h>
 #include <qdebug.h>
 
+#include <QtGui/qcomplexstroker.h>
+
 QT_BEGIN_NAMESPACE
 
 QEmulationPaintEngine::QEmulationPaintEngine(QPaintEngineEx *engine)
@@ -111,6 +113,28 @@ void QEmulationPaintEngine::fill(const QVectorPath &path, const QBrush &brush)
     real_engine->fill(path, brush);
 }
 
+QComplexStroker createStrokerFromPen(const QPen &pen);
+
+QRectF getBoundingRect(const QVectorPath &strokePath, const QPen &pen)
+{
+    QPainterPath path2fill;
+    QPainterPath path2stroke = strokePath.convertToPainterPath();
+    if (strokePath.hasImplicitClose())
+        path2stroke.closeSubpath();
+
+    if (qpen_is_complex(pen)) {
+        QComplexStroker stroker = createStrokerFromPen(pen);
+        path2fill = stroker.createStroke(path2stroke);
+    } else {
+        QPainterPathStroker stroker;
+        stroker.setWidth(pen.widthF());
+        stroker.setJoinStyle(pen.joinStyle());
+        stroker.setCapStyle(pen.capStyle());
+        path2fill = stroker.createStroke(path2stroke);
+    }
+    return path2fill.boundingRect();
+}
+
 void QEmulationPaintEngine::stroke(const QVectorPath &path, const QPen &pen)
 {
     QPainterState *s = state();
@@ -137,7 +161,9 @@ void QEmulationPaintEngine::stroke(const QVectorPath &path, const QPen &pen)
                 return;
             } else if (g->coordinateMode() == QGradient::ObjectBoundingMode) {
                 QTransform mat = brush.transform();
-                QRectF r = path.controlPointRect();
+                //must consider the width of pen, or the width or height may be 0!
+                //QRectF r = path.controlPointRect();
+                QRectF r = getBoundingRect(path, pen);
                 mat.translate(r.x(), r.y());
                 mat.scale(r.width(), r.height());
                 brush.setTransform(mat);
