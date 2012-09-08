@@ -173,6 +173,7 @@ QGuiEventDispatcherGlibPrivate::QGuiEventDispatcherGlibPrivate()
     x11EventSource = reinterpret_cast<GX11EventSource *>(g_source_new(&x11EventSourceFuncs,
                                                                       sizeof(GX11EventSource)));
     g_source_set_can_recurse(&x11EventSource->source, true);
+    g_source_set_priority(&x11EventSource->source, G_PRIORITY_HIGH);	
 
     memset(&x11EventSource->pollfd, 0, sizeof(GPollFD));
     x11EventSource->flags = QEventLoop::AllEvents;
