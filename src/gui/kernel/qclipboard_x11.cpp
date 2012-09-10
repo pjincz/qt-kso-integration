@@ -1044,8 +1044,7 @@ bool QClipboard::event(QEvent *e)
             DEBUG("QClipboard: SelectionRequest at time %lx (ours %lx)",
                   req->time, d->timestamp);
 
-            if (d->timestamp == CurrentTime // we don't own the selection anymore
-                || (req->time != CurrentTime && req->time < d->timestamp)) {
+            if (req->time != CurrentTime && req->time < d->timestamp) {
                 DEBUG("QClipboard: SelectionRequest too old");
                 XSendEvent(dpy, req->requestor, False, NoEventMask, &event);
                 break;
