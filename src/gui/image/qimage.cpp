@@ -6905,9 +6905,7 @@ void QImageEffectsPrivate::prepare()
     else
         checkBound = false;
 
-#ifdef QT_HAVA_SEE2
     setTransformFunc();
-#endif
 }
 
 QImageEffects::QImageEffects()
