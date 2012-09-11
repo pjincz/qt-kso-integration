@@ -4639,7 +4639,7 @@ void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
         // 16-byte alignment, hence we hardcode this requirement here..
         (unsigned char *) _aligned_malloc(rasterPoolSize, sizeof(void*) * 2);
 #else
-    unsigned char rasterPoolOnStack[rasterPoolInitialSize];
+    unsigned char* rasterPoolOnStack = (unsigned char*)malloc(rasterPoolInitialSize);
     rasterPoolBase = rasterPoolOnStack;
 #endif
     Q_CHECK_PTR(rasterPoolBase);
@@ -4689,8 +4689,7 @@ void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
 #if defined(Q_WS_WIN64)
             _aligned_free(rasterPoolBase);
 #else
-            if (rasterPoolBase != rasterPoolOnStack) // initially on the stack
-                free(rasterPoolBase);
+            free(rasterPoolBase);
 #endif
 
             rasterPoolSize = new_size;
@@ -4715,8 +4714,7 @@ void QRasterPaintEnginePrivate::rasterize(QT_FT_Outline *outline,
 #if defined(Q_WS_WIN64)
     _aligned_free(rasterPoolBase);
 #else
-    if (rasterPoolBase != rasterPoolOnStack) // initially on the stack
-        free(rasterPoolBase);
+    free(rasterPoolBase);
 #endif
 }
 
