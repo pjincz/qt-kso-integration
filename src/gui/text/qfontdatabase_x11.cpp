@@ -1915,7 +1915,7 @@ void QFontDatabase::load(const QFontPrivate *d, int script)
     // normalize the request to get better caching
     QFontDef req = d->request;
     if (req.pixelSize <= 0)
-        req.pixelSize = qFloor(qt_pixelSize(req.pointSize, d->dpi) * 100.0 + 0.5) * 0.01;
+        req.pixelSize = qt_pixelSize(req.pointSize, d->dpi);
     if (req.pixelSize < 1)
         req.pixelSize = 1;
 
