@@ -73,11 +73,10 @@ struct QFontDef
           escapementAngle(0.0),
           styleStrategy(QFont::PreferDefault), styleHint(QFont::AnyStyle),
           weight(50), fixedPitch(false), style(QFont::StyleNormal), stretch(100),
-          ignorePitch(true)
-#ifdef Q_WS_MAC
-          ,fixedPitchComputed(false)
-#endif
-        , verticalMetrics(false)
+          ignorePitch(true),
+          fixedPitchComputed(false),
+          verticalMetrics(false),
+          reserved(0)
     {
     }
 

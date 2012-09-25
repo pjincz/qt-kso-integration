@@ -298,8 +298,11 @@ QBitmap QBitmap::fromData(const QSize &size, const uchar *bits, QImage::Format m
     // Need to memcpy each line separatly since QImage is 32bit aligned and
     // this data is only byte aligned...
     int bytesPerLine = (size.width() + 7) / 8;
-    for (int y = 0; y < size.height(); ++y)
+    for (int y = 0; y < size.height(); ++y) {
+        // work around valgrind's uninitlize memory check
+		*(int*)(image.scanLine(y) + image.bytesPerLine() - 4) = 0;
         memcpy(image.scanLine(y), bits + bytesPerLine * y, bytesPerLine);
+    }
     return QBitmap::fromImage(image);
 }
 

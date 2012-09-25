@@ -1007,13 +1007,13 @@ private:
 			for (int i = s - 2; i > 0; --i)
 			{
 				const qreal& offset = inter_offset[i];
-				const QPointF pt1(pt1.x() + offset * dx10,
+				const QPointF ptA(pt1.x() + offset * dx10,
 					             pt1.y() + offset * dy10);
-				const QPointF pt2(pt2.x() + offset * dx20,
+				const QPointF ptB(pt2.x() + offset * dx20,
 					             pt2.y() + offset * dy20);
 				bevels.push_back(SuperColorBevel(
 			                     SuperColorBevel::SolidColor, 
-					             pt1, pt2, inter_colors[i], inter_colors[i]));
+								 ptA, ptB, inter_colors[i], inter_colors[i]));
 			}
 			bevels.push_back(SuperColorBevel(
 			                 SuperColorBevel::SolidColor, 
