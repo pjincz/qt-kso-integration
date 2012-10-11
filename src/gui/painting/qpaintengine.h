@@ -85,6 +85,8 @@ public:
     RenderFlags renderFlags() const;
     QString text() const;
     QFont font() const;
+
+    QList<qreal> advancesX() const;
 };
 Q_DECLARE_TYPEINFO(QTextItem, Q_PRIMITIVE_TYPE);
 
