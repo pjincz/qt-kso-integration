@@ -142,6 +142,19 @@ QFont QTextItem::font() const
     return ti->f ? *ti->f : QApplication::font();
 }
 
+QList<qreal> QTextItem::advancesX() const
+{
+    const QTextItemInt *ti = static_cast<const QTextItemInt *>(this);
+    QList<qreal> advances;
+    advances.reserve(ti->num_chars);
+    const QFixed* adv_x = ti->glyphs.advances_x;
+    for (int i = 0; i < ti->num_chars; ++i) {
+        advances.append(adv_x->toReal());
+        ++adv_x;
+    }
+
+    return advances;
+}
 
 /*!
   \class QPaintEngine
