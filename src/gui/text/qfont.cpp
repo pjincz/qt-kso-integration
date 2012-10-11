@@ -116,10 +116,10 @@ bool QFontDef::exactMatch(const QFontDef &other) const
       positive results.
     */
     if (pixelSize != -1 && other.pixelSize != -1) {
-        if (pixelSize != other.pixelSize)
+        if (!qFuzzyCompare(pixelSize, other.pixelSize))
             return false;
     } else if (pointSize != -1 && other.pointSize != -1) {
-        if (pointSize != other.pointSize)
+        if (!qFuzzyCompare(pointSize, other.pointSize))
             return false;
     } else {
         return false;

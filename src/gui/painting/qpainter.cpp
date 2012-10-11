@@ -6114,7 +6114,6 @@ void QPainter::drawText(const QPointF &p, const QString &str,unsigned int flags,
 
     QTransform oldTrans;
     bool transChanged = !qFuzzyIsNull(font().escapementAngle());
-    this->setClipping(false);
     if (transChanged) {
 
         oldTrans = this->worldTransform();

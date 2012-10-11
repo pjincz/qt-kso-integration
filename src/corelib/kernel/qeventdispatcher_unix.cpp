@@ -457,6 +457,11 @@ bool QTimerInfoList::timerWait(timeval &tm)
     if (currentTime < t->timeout) {
         // time to wait
         tm = t->timeout - currentTime;
+        // wait at least 1 millisecond, see bug QT-7618
+        // Since we use select() and not pselect() to wait anything less
+        // than 1 millisecond results in a CPU consuming busy wait loop
+        if ((0 == tm.tv_sec) && tm.tv_usec < 1000)
+            tm.tv_usec = 1000;
     } else {
         // no time to wait
         tm.tv_sec  = 0;

@@ -3187,10 +3187,12 @@ int QApplication::x11ProcessEvent(XEvent* event)
         X11->time = event->xmotion.time;
         break;
     case XKeyPress:
-        X11->userTime = event->xkey.time;
+        if (event->xkey.serial != 0) // Compatible InputContext
+            X11->userTime = event->xkey.time;
         // fallthrough intended
     case XKeyRelease:
-        X11->time = event->xkey.time;
+        if (event->xkey.serial != 0) // Compatible InputContext
+            X11->time = event->xkey.time;
         break;
     case PropertyNotify:
         X11->time = event->xproperty.time;
