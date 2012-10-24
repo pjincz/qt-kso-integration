@@ -266,14 +266,21 @@ QFixed QFontEngine::averageCharWidth() const
 
 QTransform QFontEngine::applyTextRotation(const QTransform &matrix)
 {
-    if (qFuzzyIsNull(fontDef.escapementAngle)) {
-        return matrix;
-    } else {
-        QTransform result;
-        result.rotate(fontDef.escapementAngle);
-        result *= matrix;
-        return result;
-    }
+#ifdef Q_OS_WIN
+	return matrix;
+#else
+	if (qFuzzyIsNull(fontDef.escapementAngle)) 
+	{
+		return matrix;
+	} 
+	else 
+	{
+		QTransform result;
+		result.rotate(-fontDef.escapementAngle);
+		result *= matrix;
+		return result;
+	}
+#endif
 }
 
 void QFontEngine::getGlyphPositions(const QGlyphLayout &glyphs, const QTransform &matrix, QTextItem::RenderFlags flags,

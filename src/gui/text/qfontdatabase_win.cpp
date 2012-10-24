@@ -683,13 +683,13 @@ QFontEngine *loadEngine(int script, const QFontPrivate *fp, const QFontDef &requ
 
         lf.lfHeight = -qRound(request.pixelSize);
         lf.lfWidth                = 0;
-        if (qFuzzyIsNull(request.escapementAngle)) {
+        //if (qFuzzyIsNull(request.escapementAngle)) {
             lf.lfEscapement = 0;
             lf.lfOrientation = 0;
-        } else {
-            lf.lfEscapement = -request.escapementAngle * 10;
-            lf.lfOrientation = lf.lfEscapement;
-        }
+        //} else {
+        //    lf.lfEscapement = -request.escapementAngle * 10;
+        //    lf.lfOrientation = lf.lfEscapement;
+        //}
 
         if (desc->style->key.weight == 50)
             lf.lfWeight = FW_DONTCARE;
