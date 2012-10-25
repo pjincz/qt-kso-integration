@@ -6112,15 +6112,17 @@ void QPainter::drawText(const QPointF &p, const QString &str,unsigned int flags,
             Q_ASSERT_X(false, Q_FUNC_INFO, "stringToCMap shouldn't fail twice");
     }
 
+#if !defined(Q_WS_WIN) && !defined(Q_WS_MAC)
     QTransform oldTrans;
     bool transChanged = !qFuzzyIsNull(font().escapementAngle());
     if (transChanged) {
 
         oldTrans = this->worldTransform();
         this->translate(p);
-        this->rotate(-font().escapementAngle());
+        this->rotate(font().escapementAngle());
         this->translate(-p);
     }
+#endif
 
     QFixed width = QFixed::fromReal(0.0);
     for (int i = 0; i < len; ++i) {
@@ -6137,8 +6139,10 @@ void QPainter::drawText(const QPointF &p, const QString &str,unsigned int flags,
     gf.width = width;
     drawTextItem(p, gf);
 
+#if !defined(Q_WS_WIN) && !defined(Q_WS_MAC)
     if (transChanged)
         this->setWorldTransform(oldTrans);
+#endif
 }
 /*!
    \internal
