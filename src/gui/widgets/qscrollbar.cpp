@@ -524,6 +524,8 @@ bool QScrollBar::event(QEvent *event)
     case QEvent::Wheel: {
         event->ignore();
         // override wheel event without adding virtual function override
+        if(!isEnabled())
+			return false;
         QWheelEvent *ev = static_cast<QWheelEvent *>(event);
         int delta = ev->delta();
         // scrollbar is a special case - in vertical mode it reaches minimum

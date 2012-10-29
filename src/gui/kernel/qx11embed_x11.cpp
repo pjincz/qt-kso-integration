@@ -634,7 +634,7 @@ void QX11EmbedWidgetPrivate::checkActivateWindow(QObject *o)
         return;
 
     // if it already is the active window, don't do anything
-    if (w->window() != qApp->activeWindow())
+    if (w->window() != qApp->activeWindow() && !(w->windowFlags() && Qt::X11BypassWindowManagerHint))
     {
         qApp->setActiveWindow(w->window());
         currentFocus = w;
