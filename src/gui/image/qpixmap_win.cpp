@@ -324,7 +324,10 @@ QPixmap QPixmap::fromWinHICON(HICON icon)
     ICONINFO iconinfo;
     bool result = GetIconInfo(icon, &iconinfo); //x and y Hotspot describes the icon center
     if (!result)
+    {
         qWarning("QPixmap::fromWinHICON(), failed to GetIconInfo()");
+        return QPixmap();
+    }
 
     int w = iconinfo.xHotspot * 2;
     int h = iconinfo.yHotspot * 2;
@@ -392,7 +395,10 @@ QPixmap QPixmap::fromWinHICON(HICON icon)
     ICONINFO iconinfo;
     bool result = GetIconInfo(icon, &iconinfo);
     if (!result)
+    {
         qWarning("QPixmap::fromWinHICON(), failed to GetIconInfo()");
+        return QPixmap();
+    }
 
     int w = 0;
     int h = 0;
