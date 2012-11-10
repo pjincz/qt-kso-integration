@@ -352,6 +352,15 @@ namespace Phonon
         }
 
 
+        QImage VideoWidget::snapshot() const
+        {
+            AbstractVideoRenderer *r = m_widget->currentRenderer();
+            if (r)
+                return r->snapshot();
+
+            return QImage();
+        }
+
         AbstractVideoRenderer *VideoWidget::getRenderer(int graphIndex, RendererType type, bool autoCreate)
         {
             int index = graphIndex * 2 + type;
