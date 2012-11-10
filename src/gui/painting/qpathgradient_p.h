@@ -1266,7 +1266,7 @@ public:
 	void generate(color_type* span, int x, int y, unsigned len) const
 	{
 		memset(span, 0, sizeof(color_type) * len);
-		m_clamp_generater->generate(span, x, y, len);
+        m_clamp_generater->generate(span, x, y, len);
 	}
 
 private:
@@ -1296,7 +1296,7 @@ public:
 						   : m_clamp_span_gen(pgb, mtx)
 						   , m_span_cache(pgb, mtx)
 	{
-		m_span_cache.reset_clamp_span_generater(m_clamp_span_gen);
+        m_span_cache.reset_clamp_span_generater(m_clamp_span_gen);
 	}
 
 	virtual ~path_gradient_span_gen()
@@ -1308,7 +1308,7 @@ public:
 	}
 
 	virtual void generate(color_type* span, int x, int y, unsigned len)
-	{
+    {
 		m_span_cache.generate(span, x, y, len);
 	}
 

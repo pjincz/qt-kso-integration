@@ -33,7 +33,7 @@ namespace Phonon
         class VideoWindow;
         class AbstractVideoRenderer;
 
-        class VideoWidget : public BackendNode, public Phonon::VideoWidgetInterface
+        class VideoWidget : public BackendNode, public Phonon::VideoWidgetInterface44
         {
             enum RendererType
             {
@@ -42,7 +42,7 @@ namespace Phonon
             };
 
             Q_OBJECT
-                Q_INTERFACES(Phonon::VideoWidgetInterface)
+                Q_INTERFACES(Phonon::VideoWidgetInterface44)
         public:
             VideoWidget(QWidget *parent = 0);
             ~VideoWidget();
@@ -63,6 +63,8 @@ namespace Phonon
             void setCurrentGraph(int index);
 
             QWidget *widget();
+
+            QImage snapshot() const;
 
             void notifyVideoLoaded();
             AbstractVideoRenderer *switchRendering(AbstractVideoRenderer *current);
