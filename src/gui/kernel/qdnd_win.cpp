@@ -521,6 +521,14 @@ QOleDropSource::QueryContinueDrag(BOOL fEscapePressed, DWORD grfKeyState)
 #ifdef QDND_DEBUG
     qDebug("QOleDropSource::QueryContinueDrag(fEscapePressed %d, grfKeyState %d)", fEscapePressed, grfKeyState);
 #endif
+    QWidget* pSource = QDragManager::self()->source();
+    if (pSource)
+    {
+        QDragQueryEvent qdevent;
+        QApplication::sendEvent(pSource, &qdevent);
+        if (qdevent.hasCancelDrag())
+             return ResultFromScode(DRAGDROP_S_CANCEL);
+    }
 
     if (fEscapePressed) {
         return ResultFromScode(DRAGDROP_S_CANCEL);

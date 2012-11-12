@@ -468,6 +468,16 @@ private:
 
 class QMimeData;
 
+class Q_GUI_EXPORT QDragQueryEvent : public QEvent
+{
+public:
+    QDragQueryEvent() : QEvent(DragQuery), bcancelDrag(false) {}
+    void cancelDrag() { bcancelDrag = true; }
+    bool hasCancelDrag() { return bcancelDrag; }
+private:
+    bool bcancelDrag;
+};
+
 class Q_GUI_EXPORT QDropEvent : public QEvent
 // QT3_SUPPORT
                               , public QMimeSource

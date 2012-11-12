@@ -116,6 +116,7 @@ public:
         DragLeave = 62,                         // drag leaves or is cancelled
         Drop = 63,                              // actual drop
         DragResponse = 64,                      // drag accepted/rejected
+        DragQuery = 65,                         // added by kingsoft. used to cancel a drag operation
         ChildAdded = 68,                        // new child widget
         ChildPolished = 69,                     // polished child widget
 #ifdef QT3_SUPPORT
