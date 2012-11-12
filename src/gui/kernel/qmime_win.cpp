@@ -153,35 +153,44 @@ static bool setData(const QByteArray &data, STGMEDIUM *pmedium)
     return true;
 }
 
+static void getDataFromStream(IStream* pstm, QByteArray& data)
+{
+    char szBuffer[4096];
+    ULONG actualRead = 0;
+    LARGE_INTEGER pos = {{0, 0}};
+    //Move to front (can fail depending on the data model implemented)
+    HRESULT hr = pstm->Seek(pos, STREAM_SEEK_SET, NULL);
+    while(SUCCEEDED(hr)){
+        hr = pstm->Read(szBuffer, sizeof(szBuffer), &actualRead);
+        if (SUCCEEDED(hr) && actualRead > 0) {
+            data += QByteArray::fromRawData(szBuffer, actualRead);
+        }
+        if (actualRead != sizeof(szBuffer))
+            break;
+    }
+}
+
 static QByteArray getData(int cf, IDataObject *pDataObj)
 {
     QByteArray data;
     FORMATETC formatetc = setCf(cf);
     STGMEDIUM s;
     if (pDataObj->GetData(&formatetc, &s) == S_OK) {
-        DWORD * val = (DWORD*)GlobalLock(s.hGlobal);
-        data = QByteArray::fromRawData((char*)val, GlobalSize(s.hGlobal));
-        data.detach();
-        GlobalUnlock(s.hGlobal);
+        if (s.tymed != TYMED_ISTREAM) {
+            DWORD * val = (DWORD*)GlobalLock(s.hGlobal);
+            data = QByteArray::fromRawData((char*)val, GlobalSize(s.hGlobal));
+            data.detach();
+            GlobalUnlock(s.hGlobal);
+        }
+        else {
+            getDataFromStream(s.pstm, data);
+        }
         ReleaseStgMedium(&s);
     } else  {
         //Try reading IStream data
         formatetc.tymed = TYMED_ISTREAM;
         if (pDataObj->GetData(&formatetc, &s) == S_OK) {
-            char szBuffer[4096];
-            ULONG actualRead = 0;
-            LARGE_INTEGER pos = {{0, 0}};
-            //Move to front (can fail depending on the data model implemented)
-            HRESULT hr = s.pstm->Seek(pos, STREAM_SEEK_SET, NULL);
-            while(SUCCEEDED(hr)){
-                hr = s.pstm->Read(szBuffer, sizeof(szBuffer), &actualRead);
-                if (SUCCEEDED(hr) && actualRead > 0) {
-                    data += QByteArray::fromRawData(szBuffer, actualRead);
-                }
-                if (actualRead != sizeof(szBuffer))
-                    break;
-            }
-            data.detach();
+            getDataFromStream(s.pstm, data);
             ReleaseStgMedium(&s);
         }
     }
