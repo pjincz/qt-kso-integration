@@ -771,7 +771,7 @@ QWindowsMimeHtml::QWindowsMimeHtml()
 QVector<FORMATETC> QWindowsMimeHtml::formatsForMime(const QString &mimeType, const QMimeData *mimeData) const
 {
     QVector<FORMATETC> formatetcs;
-    if (mimeType == QLatin1String("text/html") && (!mimeData->html().isEmpty()))
+    if (mimeType == QLatin1String("text/html") && mimeData->hasHtml())
         formatetcs += setCf(CF_HTML);
     return formatetcs;
 }
@@ -791,7 +791,7 @@ bool QWindowsMimeHtml::canConvertToMime(const QString &mimeType, IDataObject *pD
 
 bool QWindowsMimeHtml::canConvertFromMime(const FORMATETC &formatetc, const QMimeData *mimeData) const
 {
-    return getCf(formatetc) == CF_HTML && (!mimeData->html().isEmpty());
+    return getCf(formatetc) == CF_HTML && mimeData->hasHtml();
 }
 
 /*
