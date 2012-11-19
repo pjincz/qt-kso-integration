@@ -1183,6 +1183,46 @@ void QPainterPath::addText(const QPointF &point, const QFont &f, const QString &
     }
 }
 
+void QPainterPath::addText(const QPointF &point, const QFont &f, const QString &text, const QVector<qreal> &advanceWidths)
+{
+    if (text.isEmpty())
+        return;
+    if (advanceWidths.size() < text.length())
+        return;
+
+    ensureData();
+    detach();
+
+    // Skip harfbuzz complex shaping, shape using glyph advances only
+    int len = text.length();
+    int numGlyphs = len;
+    QVarLengthGlyphLayoutArray glyphs(len);
+    QFontEngine *fontEngine = f.d->engineForScript(QUnicodeTables::Common);
+    if (!fontEngine->stringToCMap(text.data(), len, &glyphs, &numGlyphs, 0)) {
+        glyphs.resize(numGlyphs);
+        if (!fontEngine->stringToCMap(text.data(), len, &glyphs, &numGlyphs, 0))
+            Q_ASSERT_X(false, Q_FUNC_INFO, "stringToCMap shouldn't fail twice");
+    }
+
+    for (int i = 0; i < len; ++i) {
+        glyphs.advances_x[i] = QFixed::fromReal(advanceWidths[i]);
+    }
+
+    QPainterPath path;
+    fontEngine->addOutlineToPath(point.x(), point.y(), glyphs, &path, QTextItem::CustomAdvanceWidths);
+
+    if (!qFuzzyIsNull(f.escapementAngle())) {
+        QTransform matrix;
+        matrix.rotate(-f.escapementAngle());
+
+        path.translate(-point.x(), -point.y());
+        path = matrix.map(path);
+        path.translate(point.x(), point.y());
+    }
+
+    addPath(path);
+}
+
 /*!
     \fn void QPainterPath::addPath(const QPainterPath &path)
 

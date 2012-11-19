@@ -126,6 +126,7 @@ public:
     inline void addEllipse(const QPointF &center, qreal rx, qreal ry);
     void addPolygon(const QPolygonF &polygon);
     void addText(const QPointF &point, const QFont &f, const QString &text);
+	void addText(const QPointF &point, const QFont &f, const QString &text, const QVector<qreal> &advanceWidths);
     inline void addText(qreal x, qreal y, const QFont &f, const QString &text);
     void addPath(const QPainterPath &path);
     void addRegion(const QRegion &region);
