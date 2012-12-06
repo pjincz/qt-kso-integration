@@ -6814,7 +6814,7 @@ void QImageEffectsPrivate::transform_cpp(QRgb &rgb) const
 {
     quint8 *pb = (quint8*)&rgb;
     int r, g, b;
-    if (hasColorMatirx) {
+    if (hasColorMatirx || hasDuotone) {
         r =  (pb[2] * colorMatrixInt[0][0] 
             + pb[1] * colorMatrixInt[1][0]
             + pb[0] * colorMatrixInt[2][0] 
@@ -6828,7 +6828,7 @@ void QImageEffectsPrivate::transform_cpp(QRgb &rgb) const
             + pb[0] * colorMatrixInt[2][2] 
             + pb[3] * colorMatrixInt[3][2]) >> base_shift;
     } else {
-        if (hasDuotone || hasBilevel) {
+        if (hasBilevel) {
             r =  (pb[2] * colorMatrixInt[0][0] 
                 + pb[1] * colorMatrixInt[1][0]
                 + pb[0] * colorMatrixInt[2][0] 
@@ -6905,7 +6905,7 @@ void QImageEffectsPrivate::prepare()
     else
         checkBound = false;
 
-#ifdef QT_HAVA_SEE2
+#ifdef QT_HAVE_SSE2
     setTransformFunc();
 #endif
 }
@@ -7102,6 +7102,16 @@ void QImageEffects::resetState()
 	d->resetState();
 }
 
+extern void qt_makeEffects(const QImageEffectsPrivate *effects, uint *buffer, int length);
+
+void QImageEffects::makeEffects(uint *buffer, int length)
+{
+	if (buffer)
+	{
+		d->prepare();
+		return qt_makeEffects(d, buffer, length);
+	}
+}
 
 void QImageEffects::detach()
 {

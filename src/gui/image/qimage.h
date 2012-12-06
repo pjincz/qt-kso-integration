@@ -384,6 +384,8 @@ public:
     bool hasEffects() const;
 	void resetState();
 
+    void makeEffects(uint *buffer, int length);
+
 	void detach();
 
 private:

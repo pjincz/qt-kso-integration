@@ -940,17 +940,11 @@ Q_STATIC_TEMPLATE_FUNCTION inline void fetchTransformedBilinear_pixelBounds(int 
     Q_ASSERT(v2 >= 0 && v2 < max);
 }
 
-//handle colorkey and bilevel before bilinear blend
-inline void qt_transparent_bilevel(uint &clr, const QSpanData *data)
+inline void qt_transparent(uint &clr, const QSpanData *data)
 {
-    if (NULL != data && NULL != data->effects) {
+    if (NULL != data && NULL != data->effects)
+    {
         qt_handleColorKey(data->effects, &clr, 1);
-        if (0 != clr && data->effects->hasBilevel) {
-            qreal qgray = qRed(clr) * 0.299 + qGreen(clr) * 0.587 + qBlue(clr) * 0.114;
-            const int gray = qMin(255, qRound(qgray));
-            clr = qRgba(gray, gray, gray, qAlpha(clr));
-            qt_setbilevel(clr, data->effects->bilevelThreshold);
-        }            
     }
 }
 
@@ -1028,8 +1022,8 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                         Q_ASSERT(x <= image_x2);
                         uint t = fetch(s1, image_x1, data->texture.colorTable);
                         uint b = fetch(s2, image_x1, data->texture.colorTable);
-                        qt_transparent_bilevel(t, data);
-                        qt_transparent_bilevel(b, data);
+                        qt_transparent(t, data);
+                        qt_transparent(b, data);
                         quint32 rb = (((t & 0xff00ff) * idisty + (b & 0xff00ff) * disty) >> 8) & 0xff00ff;
                         quint32 ag = ((((t>>8) & 0xff00ff) * idisty + ((b>>8) & 0xff00ff) * disty) >> 8) & 0xff00ff;
                         do {
@@ -1147,8 +1141,8 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
 
                     uint t = fetch(s1, x, data->texture.colorTable);
                     uint b = fetch(s2, x, data->texture.colorTable);
-                    qt_transparent_bilevel(t, data);
-                    qt_transparent_bilevel(b, data);
+                    qt_transparent(t, data);
+                    qt_transparent(b, data);
 
                     intermediate_buffer[0][f] = (((t & 0xff00ff) * idisty + (b & 0xff00ff) * disty) >> 8) & 0xff00ff;
                     intermediate_buffer[1][f] = ((((t>>8) & 0xff00ff) * idisty + ((b>>8) & 0xff00ff) * disty) >> 8) & 0xff00ff;
@@ -1187,10 +1181,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
-                    qt_transparent_bilevel(tl, data);
-                    qt_transparent_bilevel(tr, data);
-                    qt_transparent_bilevel(bl, data);
-                    qt_transparent_bilevel(br, data);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
 
                     int distx = (fx & 0x0000ffff) >> 8;
                     int idistx = 256 - distx;
@@ -1224,10 +1218,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                         uint tr = fetch(s1, x2, data->texture.colorTable); \
                         uint bl = fetch(s2, x1, data->texture.colorTable); \
                         uint br = fetch(s2, x2, data->texture.colorTable); \
-                        qt_transparent_bilevel(tl, data); \
-                        qt_transparent_bilevel(tr, data); \
-                        qt_transparent_bilevel(bl, data); \
-                        qt_transparent_bilevel(br, data); \
+                        qt_transparent(tl, data); \
+                        qt_transparent(tr, data); \
+                        qt_transparent(bl, data); \
+                        qt_transparent(br, data); \
                         int distx = (fx & 0x0000ffff) >> 12; \
                         *b = interpolate_4_pixels_16(tl, tr, bl, br, distx, disty); \
                         fx += fdx; \
@@ -1270,10 +1264,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                             tr.i[i] = *addr_tr;
                             bl.i[i] = *(addr_tl+secondLine);
                             br.i[i] = *(addr_tr+secondLine);
-                            qt_transparent_bilevel(tl.i[i], data);
-                            qt_transparent_bilevel(tr.i[i], data);
-                            qt_transparent_bilevel(bl.i[i], data);
-                            qt_transparent_bilevel(br.i[i], data);
+                            qt_transparent(tl.i[i], data);
+                            qt_transparent(tr.i[i], data);
+                            qt_transparent(bl.i[i], data);
+                            qt_transparent(br.i[i], data);
                         }
                         __m128i v_distx = _mm_srli_epi16(v_fx.vect, 12);
                         v_distx = _mm_shufflehi_epi16(v_distx, _MM_SHUFFLE(2,2,0,0));
@@ -1343,10 +1337,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
-                    qt_transparent_bilevel(tl, data);
-                    qt_transparent_bilevel(tr, data);
-                    qt_transparent_bilevel(bl, data);
-                    qt_transparent_bilevel(br, data);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
                     int distx = (fx & 0x0000ffff) >> 12;
                     *b = interpolate_4_pixels_16(tl, tr, bl, br, distx, disty);
                     fx += fdx;
@@ -1372,10 +1366,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
-                    qt_transparent_bilevel(tl, data);
-                    qt_transparent_bilevel(tr, data);
-                    qt_transparent_bilevel(bl, data);
-                    qt_transparent_bilevel(br, data);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
 
                     int distx = (fx & 0x0000ffff) >> 8;
                     int disty = (fy & 0x0000ffff) >> 8;
@@ -1408,10 +1402,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
                     uint tr = fetch(s1, x2, data->texture.colorTable);
                     uint bl = fetch(s2, x1, data->texture.colorTable);
                     uint br = fetch(s2, x2, data->texture.colorTable);
-                    qt_transparent_bilevel(tl, data);
-                    qt_transparent_bilevel(tr, data);
-                    qt_transparent_bilevel(bl, data);
-                    qt_transparent_bilevel(br, data);
+                    qt_transparent(tl, data);
+                    qt_transparent(tr, data);
+                    qt_transparent(bl, data);
+                    qt_transparent(br, data);
 
                     int distx = (fx & 0x0000ffff) >> 12;
                     int disty = (fy & 0x0000ffff) >> 12;
@@ -1458,10 +1452,10 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
             uint tr = fetch(s1, x2, data->texture.colorTable);
             uint bl = fetch(s2, x1, data->texture.colorTable);
             uint br = fetch(s2, x2, data->texture.colorTable);
-            qt_transparent_bilevel(tl, data);
-            qt_transparent_bilevel(tr, data);
-            qt_transparent_bilevel(bl, data);
-            qt_transparent_bilevel(br, data);
+            qt_transparent(tl, data);
+            qt_transparent(tr, data);
+            qt_transparent(bl, data);
+            qt_transparent(br, data);
 
             uint xtop = INTERPOLATE_PIXEL_256(tl, idistx, tr, distx);
             uint xbot = INTERPOLATE_PIXEL_256(bl, idistx, br, distx);
@@ -1479,12 +1473,11 @@ const uint * QT_FASTCALL fetchTransformedBilinear(uint *buffer, const Operator *
     }
 
     if (NULL != data->effects) {
-        if (!hasColorKey && !data->effects->hasBilevel) {
+        if (!hasColorKey) {
             qt_makeEffects(data->effects, buffer, length);
         } else {
             QImageEffectsPrivate tmp(*data->effects);
             tmp.hasColorKey = false;
-            tmp.hasBilevel = false;
             qt_makeEffects(&tmp, buffer, length);
         }
     }
