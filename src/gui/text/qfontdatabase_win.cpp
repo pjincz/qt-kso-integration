@@ -724,7 +724,7 @@ QFontEngine *loadEngine(int script, const QFontPrivate *fp, const QFontDef &requ
 
         if (request.styleStrategy & QFont::PreferAntialias) {
             if (QSysInfo::WindowsVersion >= QSysInfo::WV_XP) {
-                qual = CLEARTYPE_QUALITY;
+                qual = CLEARTYPE_NATURAL_QUALITY;
                 preferClearTypeAA = true;
             } else {
                 qual = ANTIALIASED_QUALITY;
