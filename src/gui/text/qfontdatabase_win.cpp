@@ -385,7 +385,7 @@ void addFontToDatabase(QString familyName, const QString &scriptName,
 
 static
 int CALLBACK
-storeFont(ENUMLOGFONTEX* f, NEWTEXTMETRICEX *textmetric, int type, LPARAM /*p*/)
+storeFont(ENUMLOGFONTEX* f, NEWTEXTMETRICEX *textmetric, int type, LPARAM pParam)
 {
     QString familyName = QString::fromWCharArray(f->elfLogFont.lfFaceName);
     QString script = QString::fromWCharArray(f->elfScript);
@@ -397,6 +397,8 @@ storeFont(ENUMLOGFONTEX* f, NEWTEXTMETRICEX *textmetric, int type, LPARAM /*p*/)
     // anyway
     addFontToDatabase(familyName, script, (TEXTMETRIC *)textmetric, &signature, type);
     // keep on enumerating
+    if (pParam)
+        (*((int*)pParam))++;
     return 1;
 }
 
@@ -426,9 +428,9 @@ void populate_database(const QString& fam)
         memcpy(lf.lfFaceName, fam.utf16(), sizeof(wchar_t) * qMin(fam.length() + 1, 32));  // 32 = Windows hard-coded
     }
     lf.lfPitchAndFamily = 0;
-
+    int nEnumCount = 0;
     EnumFontFamiliesEx(dummy, &lf,
-        (FONTENUMPROC)storeFont, (LPARAM)privateDb(), 0);
+        (FONTENUMPROC)storeFont, (LPARAM)&nEnumCount, 0);
 
     ReleaseDC(0, dummy);
 
@@ -458,6 +460,56 @@ void populate_database(const QString& fam)
             DeleteObject(hfont);
             ReleaseDC(0, hdc);
         }
+    }
+
+    if (nEnumCount == 0)
+    {
+        LOGFONT tlf;
+        memset(&tlf, 0, sizeof(LOGFONT));
+        tlf.lfCharSet = DEFAULT_CHARSET;
+        memcpy(tlf.lfFaceName, lf.lfFaceName, sizeof(CHAR) * LF_FACESIZE);
+        tlf.lfPitchAndFamily = 0;
+
+        HDC hdc = GetDC(0);
+        HFONT hfont = CreateFontIndirect(&tlf);
+        HGDIOBJ oldobj = SelectObject(hdc, hfont);
+
+        TEXTMETRIC textMetrics;
+        GetTextMetrics(hdc, &textMetrics);
+        FONTSIGNATURE fontsig = {0};
+
+        LONG lSize = ::GetFontData(hdc, MAKE_TAG('O', 'S', '/', '2'), 0, NULL, 0); 
+        BYTE* pBuf = NULL;
+        if (lSize)
+        {
+            pBuf = new BYTE[lSize];
+            if (GDI_ERROR != ::GetFontData(hdc, MAKE_TAG('O', 'S', '/', '2'), 0, pBuf, lSize)) 
+            {
+                if (pBuf && lSize >= 86) {
+                    fontsig.fsUsb[0] = qFromBigEndian<quint32>(pBuf + 42);
+                    fontsig.fsUsb[1] = qFromBigEndian<quint32>(pBuf + 46);
+                    fontsig.fsUsb[2] = qFromBigEndian<quint32>(pBuf + 50);
+                    fontsig.fsUsb[3] = qFromBigEndian<quint32>(pBuf + 54);
+
+                    fontsig.fsCsb[0] = qFromBigEndian<quint32>(pBuf + 78);
+                    fontsig.fsCsb[1] = qFromBigEndian<quint32>(pBuf + 82);
+                }
+            }
+            if (pBuf)
+            {
+                delete[] pBuf;
+                pBuf = NULL;
+            }
+        }    
+
+        addFontToDatabase(QString::fromUtf16(tlf.lfFaceName), QString(),
+                            &textMetrics,
+                            &fontsig,
+                            TRUETYPE_FONTTYPE);
+
+        SelectObject(hdc, oldobj);
+        DeleteObject(hfont);
+        ReleaseDC(0, hdc);
     }
 
     if(!fam.isEmpty()) {
