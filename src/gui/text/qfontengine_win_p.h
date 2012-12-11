@@ -120,9 +120,10 @@ public:
     QString     _name;
     HFONT       hfont;
     LOGFONT     logfont;
-    uint        stockFont  : 1;
-    uint        ttf        : 1;
-    uint        hasOutline : 1;
+    uint        stockFont    : 1;
+    uint        ttf          : 1;
+    uint        hasOutline   : 1;
+	uint		nativeRender : 1;
     TEXTMETRIC  tm;
     int         lw;
     const unsigned char *cmap;

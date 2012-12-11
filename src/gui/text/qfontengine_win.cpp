@@ -190,6 +190,10 @@ static OUTLINETEXTMETRIC *getOutlineTextMetric(HDC hdc)
 void QFontEngineWin::getCMap()
 {
     ttf = (bool)(tm.tmPitchAndFamily & TMPF_TRUETYPE);
+	nativeRender = ttf;
+	// for PostScript OpenType font
+	nativeRender |= (tm.tmPitchAndFamily & TMPF_DEVICE) && (tm.tmPitchAndFamily & TMPF_VECTOR);
+
     HDC hdc = shared_dc();
     SelectObject(hdc, hfont);
     bool symb = false;

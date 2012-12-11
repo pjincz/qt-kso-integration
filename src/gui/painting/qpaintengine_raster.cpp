@@ -3760,7 +3760,7 @@ void QRasterPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textIte
 #if defined(Q_WS_WIN) && !defined(Q_WS_WINCE)
     QFontEngine::Type fontEngineType = ti.fontEngine->type();
     // qDebug() << "type" << fontEngineType << s->matrix.type();
-    if ((fontEngineType == QFontEngine::Win && !((QFontEngineWin *) ti.fontEngine)->ttf && s->matrix.type() > QTransform::TxTranslate)
+    if ((fontEngineType == QFontEngine::Win && !((QFontEngineWin *) ti.fontEngine)->nativeRender && s->matrix.type() > QTransform::TxTranslate)
         || (s->matrix.type() <= QTransform::TxTranslate
             && (fontEngineType == QFontEngine::TestFontEngine
                 || fontEngineType == QFontEngine::Box))) {
