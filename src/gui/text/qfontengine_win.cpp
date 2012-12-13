@@ -1197,7 +1197,9 @@ extern uint qt_pow_gamma[256];
 QImage QFontEngineWin::alphaMapForGlyph(glyph_t glyph, const QTransform &xform)
 {
     HFONT font = hfont;
-    if (qt_cleartype_enabled) {
+    bool replaceFont = (logfont.lfQuality == CLEARTYPE_QUALITY
+        || logfont.lfQuality == CLEARTYPE_NATURAL_QUALITY);
+    if (replaceFont) {
         LOGFONT lf = logfont;
         lf.lfQuality = ANTIALIASED_QUALITY;
         font = CreateFontIndirect(&lf);
@@ -1245,7 +1247,7 @@ QImage QFontEngineWin::alphaMapForGlyph(glyph_t glyph, const QTransform &xform)
 
     // Cleanup...
     delete mask;
-    if (qt_cleartype_enabled) {
+    if (replaceFont) {
         DeleteObject(font);
     }
 
