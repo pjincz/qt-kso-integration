@@ -1197,8 +1197,9 @@ extern uint qt_pow_gamma[256];
 QImage QFontEngineWin::alphaMapForGlyph(glyph_t glyph, const QTransform &xform)
 {
     HFONT font = hfont;
-    bool replaceFont = (logfont.lfQuality == CLEARTYPE_QUALITY
-        || logfont.lfQuality == CLEARTYPE_NATURAL_QUALITY);
+    bool replaceFont = qt_cleartype_enabled && (logfont.lfQuality == CLEARTYPE_QUALITY
+        || logfont.lfQuality == CLEARTYPE_NATURAL_QUALITY
+        || logfont.lfQuality == DEFAULT_QUALITY);
     if (replaceFont) {
         LOGFONT lf = logfont;
         lf.lfQuality = ANTIALIASED_QUALITY;
