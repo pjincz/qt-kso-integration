@@ -327,8 +327,12 @@ bool QWin32PrintEngine::newPage()
 
 bool QWin32PrintEngine::abort()
 {
-    // do nothing loop.
-    return false;
+    Q_D(QWin32PrintEngine);
+    if (d->state != QPrinter::Active)
+        return false;
+    bool ret = end();
+    d->state = QPrinter::Aborted;
+    return ret;
 }
 
 void QWin32PrintEngine::drawTextItem(const QPointF &p, const QTextItem &textItem)
@@ -1339,6 +1343,8 @@ void QWin32PrintEngine::setProperty(PrintEnginePropertyKey key, const QVariant &
         if (!d->devMode)
             break;
         int orientation = d->devMode->dmOrientation;
+        d->devMode->dmPaperSize = DMPAPER_USER;
+        d->devMode->dmFields |= DM_PAPERSIZE;
         DWORD needed = 0;
         DWORD returned = 0;
         if (!EnumForms(d->hPrinter, 1, 0, 0, &needed, &returned)) {
@@ -1360,8 +1366,16 @@ void QWin32PrintEngine::setProperty(PrintEnginePropertyKey key, const QVariant &
             }
             free(forms);
         }
+        if (d->devMode->dmPaperSize == DMPAPER_USER)
+        {
+            // convert the size from Points to 0.1mm
+            d->devMode->dmPaperWidth = (short)((d->paper_size.width() * 10.0) / (72.0/25.4));
+            d->devMode->dmPaperLength = (short)((d->paper_size.height() * 10.0) / (72.0/25.4));
+            d->devMode->dmFields |= DM_PAPERWIDTH | DM_PAPERLENGTH;
+        }
         if (orientation != DMORIENT_PORTRAIT)
             d->paper_size = QSizeF(d->paper_size.height(), d->paper_size.width());
+        d->doReinit();
         break;
     }
 
