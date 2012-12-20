@@ -750,6 +750,26 @@ namespace Phonon
             }
         }
 
+        inline bool isMidiFilter(Filter filter)
+        {
+            QList<InputPin> inputs = BackendNode::pins(filter, PINDIR_INPUT);
+            if (inputs.count() > 0) {
+                QAMMediaType type;
+                HRESULT hr = inputs.first()->ConnectionMediaType(&type);
+                if (SUCCEEDED(hr) && type.majortype == MEDIATYPE_Midi)
+                    return true;
+            }
+
+            QList<OutputPin> outputs = BackendNode::pins(filter, PINDIR_OUTPUT);
+            if (outputs.count() > 0) {
+                QAMMediaType type;
+                HRESULT hr = outputs.first()->ConnectionMediaType(&type);
+                if (SUCCEEDED(hr) && type.majortype == MEDIATYPE_Midi)
+                    return true;
+            }
+
+            return false;
+        }
 
         HRESULT MediaGraph::reallyFinishLoading(HRESULT hr, const Graph &graph)
         {
@@ -777,7 +797,8 @@ namespace Phonon
                     m_decoders += filter;
                     m_decoderPins += BackendNode::pins(filter, PINDIR_OUTPUT).first();
                 }  else {
-                    removedFilters += filter;
+                    if (!isMidiFilter(filter))
+                        removedFilters += filter;
                 }
             }
 
