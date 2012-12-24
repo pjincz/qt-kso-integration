@@ -5746,9 +5746,12 @@ void QPainter::drawImage(const QRectF &targetRect, const QImage &image, const QR
     }
     if (!userData->hasEffects())
         return drawImage(targetRect, image, sourceRect, flags);
-    else if (!d->extended) {
-        qWarning("QPainter::drawImage: image is drawed without any effects!");
-        return drawImage(targetRect, image, sourceRect, flags);
+    else if (d->engine->type() != QPaintEngine::Raster) {
+        QRect targetRectDev = combinedTransform().mapRect(targetRect).toRect();
+        QImage effectImg(targetRectDev.width(), targetRectDev.height(), QImage::Format_ARGB32_Premultiplied);
+        QPainter p(&effectImg);
+        p.drawImage(effectImg.rect(), image, sourceRect, userData, flags);
+        return drawImage(targetRect, effectImg, effectImg.rect(), flags);
     }
 
     qreal x = targetRect.x();
