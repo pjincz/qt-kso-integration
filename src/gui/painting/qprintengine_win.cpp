@@ -1345,26 +1345,62 @@ void QWin32PrintEngine::setProperty(PrintEnginePropertyKey key, const QVariant &
         int orientation = d->devMode->dmOrientation;
         d->devMode->dmPaperSize = DMPAPER_USER;
         d->devMode->dmFields |= DM_PAPERSIZE;
-        DWORD needed = 0;
-        DWORD returned = 0;
-        if (!EnumForms(d->hPrinter, 1, 0, 0, &needed, &returned)) {
-            BYTE *forms = (BYTE *) malloc(needed);
-            if (EnumForms(d->hPrinter, 1, forms, needed, &needed, &returned)) {
-                for (DWORD i=0; i< returned; ++i) {
-                    FORM_INFO_1 *formArray = reinterpret_cast<FORM_INFO_1 *>(forms);
-                    // the form sizes are specified in 1000th of a mm,
-                    // convert the size to Points
-                    QSizeF size((formArray[i].Size.cx * 72/25.4)/1000.0,
-                                (formArray[i].Size.cy * 72/25.4)/1000.0);
-                    if (qAbs(d->paper_size.width() - size.width()) <= 2
-                        && qAbs(d->paper_size.height() - size.height()) <= 2)
+
+        DWORD size = DeviceCapabilities((const wchar_t *)d->name.utf16(),
+            (const wchar_t *)d->port.utf16(), DC_PAPERS, 0, d->devMode);
+
+        if (size != -1)
+        {
+            WORD *papers = new WORD[size];
+            memset(papers, 0, size * sizeof(WORD));
+            size = DeviceCapabilities((const wchar_t *)d->name.utf16(),
+                (const wchar_t *)d->port.utf16(), DC_PAPERS, (wchar_t *)papers, d->devMode);
+
+            POINT *papersizes = new POINT[size];
+            memset(papersizes, 0, size * sizeof(POINT));
+            size = DeviceCapabilities((const wchar_t *)d->name.utf16(),
+                (const wchar_t *)d->port.utf16(), DC_PAPERSIZE, (wchar_t *)papersizes, d->devMode);
+
+            const qreal EXACT_ERROR_SUM = 0.5 * 72/25.4; // 0.5 mm
+            const qreal ACCEPTABLE_ERROR_SUM = 4 * 72/25.4; // 4 mm
+
+            DWORD nIndex;
+            for (nIndex = 0; nIndex < size; nIndex++)
+            {
+                QSizeF size((papersizes[nIndex].x * 72/25.4)/10.0,
+                    (papersizes[nIndex].y * 72/25.4)/10.0);
+                if (qAbs(d->paper_size.width() - size.width()) <= EXACT_ERROR_SUM && 
+                    qAbs(d->paper_size.height() - size.height()) <= EXACT_ERROR_SUM)
+                {
+                    d->devMode->dmPaperSize = papers[nIndex];
+                    break;
+                }
+            }
+
+            if (d->devMode->dmPaperSize == DMPAPER_USER)
+            {
+                for (nIndex = 0; nIndex < size; nIndex++)
+                {
+                    QSizeF size((papersizes[nIndex].x * 72/25.4)/10.0,
+                        (papersizes[nIndex].y * 72/25.4)/10.0);
+                    if (qAbs(d->paper_size.width() - size.width()) <= ACCEPTABLE_ERROR_SUM && 
+                        qAbs(d->paper_size.height() - size.height()) <= ACCEPTABLE_ERROR_SUM)
                     {
-                        d->devMode->dmPaperSize = i + 1;
+                        d->devMode->dmPaperSize = papers[nIndex];
                         break;
                     }
                 }
             }
-            free(forms);
+            delete [] papersizes;
+            delete [] papers;
+        }
+
+        if (d->devMode->dmPaperSize == DMPAPER_USER)
+        {
+            // convert the size from Points to 0.1mm
+            d->devMode->dmPaperWidth = (short)((d->paper_size.width() * 10.0) / (72.0/25.4));
+            d->devMode->dmPaperLength = (short)((d->paper_size.height() * 10.0) / (72.0/25.4));
+            d->devMode->dmFields |= DM_PAPERWIDTH | DM_PAPERLENGTH;
         }
         if (d->devMode->dmPaperSize == DMPAPER_USER)
         {
@@ -1453,21 +1489,8 @@ QVariant QWin32PrintEngine::property(PrintEnginePropertyKey key) const
         break;
 
     case PPK_PageRect:
-        if (d->has_custom_paper_size) {
-            QRect rect(0, 0,
-                       qRound(d->paper_size.width() * d->resolution / 72.0),
-                       qRound(d->paper_size.height() * d->resolution / 72.0));
-            if (d->pageMarginsSet) {
-                rect = rect.adjusted(qRound(mmToInches(d->previousDialogMargins.left()/100.0) * d->resolution),
-                                     qRound(mmToInches(d->previousDialogMargins.top()/100.0) * d->resolution),
-                                     -qRound(mmToInches(d->previousDialogMargins.width()/100.0) * d->resolution),
-                                     -qRound(mmToInches(d->previousDialogMargins.height()/100.0) * d->resolution));
-            }
-            value = rect;
-        } else {
-            value = QTransform(1/d->stretch_x, 0, 0, 1/d->stretch_y, 0, 0)
-                    .mapRect(d->fullPage ? d->devPhysicalPageRect : d->devPageRect);
-        }
+        value = QTransform(1/d->stretch_x, 0, 0, 1/d->stretch_y, 0, 0)
+            .mapRect(d->fullPage ? d->devPhysicalPageRect : d->devPageRect);
         break;
 
     case PPK_PaperSize:
@@ -1483,13 +1506,7 @@ QVariant QWin32PrintEngine::property(PrintEnginePropertyKey key) const
         break;
 
     case PPK_PaperRect:
-        if (d->has_custom_paper_size) {
-            value = QRect(0, 0,
-                          qRound(d->paper_size.width() * d->resolution / 72.0),
-                          qRound(d->paper_size.height() * d->resolution / 72.0));
-        } else {
-            value = QTransform(1/d->stretch_x, 0, 0, 1/d->stretch_y, 0, 0).mapRect(d->devPaperRect);
-        }
+        value = QTransform(1/d->stretch_x, 0, 0, 1/d->stretch_y, 0, 0).mapRect(d->devPaperRect);
         break;
 
     case PPK_PaperSource:
