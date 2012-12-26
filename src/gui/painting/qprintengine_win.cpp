@@ -1402,13 +1402,7 @@ void QWin32PrintEngine::setProperty(PrintEnginePropertyKey key, const QVariant &
             d->devMode->dmPaperLength = (short)((d->paper_size.height() * 10.0) / (72.0/25.4));
             d->devMode->dmFields |= DM_PAPERWIDTH | DM_PAPERLENGTH;
         }
-        if (d->devMode->dmPaperSize == DMPAPER_USER)
-        {
-            // convert the size from Points to 0.1mm
-            d->devMode->dmPaperWidth = (short)((d->paper_size.width() * 10.0) / (72.0/25.4));
-            d->devMode->dmPaperLength = (short)((d->paper_size.height() * 10.0) / (72.0/25.4));
-            d->devMode->dmFields |= DM_PAPERWIDTH | DM_PAPERLENGTH;
-        }
+
         if (orientation != DMORIENT_PORTRAIT)
             d->paper_size = QSizeF(d->paper_size.height(), d->paper_size.width());
         d->doReinit();
