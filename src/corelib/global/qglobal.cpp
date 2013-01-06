@@ -1775,6 +1775,8 @@ QSysInfo::WinVersion QSysInfo::windowsVersion()
             winver = QSysInfo::WV_VISTA;
         } else if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 1) {
             winver = QSysInfo::WV_WINDOWS7;
+        } else if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 2) {
+            winver = QSysInfo::WV_WINDOWS8;
         } else {
             qWarning("Qt: Untested Windows version %d.%d detected!",
                      int(osver.dwMajorVersion), int(osver.dwMinorVersion));
@@ -1806,6 +1808,8 @@ QSysInfo::WinVersion QSysInfo::windowsVersion()
             winver = QSysInfo::WV_VISTA;
         else if (override == "WINDOWS7")
             winver = QSysInfo::WV_WINDOWS7;
+        else if (override == "WINDOWS8")
+            winver = QSysInfo::WV_WINDOWS8;
     }
 #endif
 

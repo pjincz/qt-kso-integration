@@ -3548,6 +3548,9 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
          case QSysInfo::WV_WINDOWS7:
             firstPartTemp += QString::fromLatin1("Windows NT 6.1");
             break;
+         case QSysInfo::WV_WINDOWS8:
+            firstPartTemp += QString::fromLatin1("Windows NT 6.2");
+            break;
          case QSysInfo::WV_CE:
             firstPartTemp += QString::fromLatin1("Windows CE");
             break;
