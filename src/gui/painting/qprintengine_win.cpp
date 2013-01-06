@@ -285,6 +285,7 @@ bool QWin32PrintEngine::newPage()
             qErrnoWarning("QWin32PrintEngine::newPage: ResetDC failed");
             return false;
         }
+        d->initDevRects();
         d->reinit = false;
     }
 
@@ -330,8 +331,8 @@ bool QWin32PrintEngine::abort()
     Q_D(QWin32PrintEngine);
     if (d->state != QPrinter::Active)
         return false;
-    bool ret = end();
     d->state = QPrinter::Aborted;
+    bool ret = end();
     return ret;
 }
 

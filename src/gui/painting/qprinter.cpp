@@ -1100,7 +1100,8 @@ QPrinter::PaperSize QPrinter::paperSize() const
 void QPrinter::setPaperSize(PaperSize newPaperSize)
 {
     Q_D(QPrinter);
-    if (d->paintEngine->type() != QPaintEngine::Pdf)
+    if (d->paintEngine->type() != QPaintEngine::Pdf &&
+        d->paintEngine->type() != QPaintEngine::Windows)
         ABORT_IF_ACTIVE("QPrinter::setPaperSize");
     if (newPaperSize < 0 || newPaperSize >= NPaperSize) {
         qWarning("QPrinter::setPaperSize: Illegal paper size %d", newPaperSize);
@@ -1148,7 +1149,8 @@ void QPrinter::setPageSize(PageSize newPageSize)
 void QPrinter::setPaperSize(const QSizeF &paperSize, QPrinter::Unit unit)
 {
     Q_D(QPrinter);
-    if (d->paintEngine->type() != QPaintEngine::Pdf)
+    if (d->paintEngine->type() != QPaintEngine::Pdf &&
+        d->paintEngine->type() != QPaintEngine::Windows)
         ABORT_IF_ACTIVE("QPrinter::setPaperSize");
     const qreal multiplier = qt_multiplierForUnit(unit, resolution());
     QSizeF size(paperSize.width() * multiplier, paperSize.height() * multiplier);
