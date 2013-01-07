@@ -1104,14 +1104,13 @@ bool QKeyMapperPrivate::translateKeyEvent(QWidget *widget, const MSG &msg, bool 
 #if !defined(Q_OS_WINCE)
                 if (msgType == WM_SYSKEYDOWN && !k0 && a) {
                     HWND parent = GetParent(widget->internalWinId());
-                    while (parent) {
-                        if (GetMenu(parent)) {
-                            SendMessage(parent, WM_SYSCOMMAND, SC_KEYMENU, a);
-                            store = false;
-                            k0 = true;
-                            break;
-                        }
+                    while (parent && GetParent(parent)) {
                         parent = GetParent(parent);
+                    }
+                    if (parent && !QWidget::find(parent)) {
+                        SendMessage(parent, WM_SYSCOMMAND, SC_KEYMENU, a);
+                        store = false;
+                        k0 = true;
                     }
                 }
 #endif
@@ -1148,12 +1147,11 @@ bool QKeyMapperPrivate::translateKeyEvent(QWidget *widget, const MSG &msg, bool 
                 if (code == Qt::Key_Alt) {
                     k0 = true;
                     HWND parent = GetParent(widget->internalWinId());
-                    while (parent) {
-                        if (!QWidget::find(parent) && GetMenu(parent)) {
-                            k0 = false;
-                            break;
-                        }
+                    while (parent && GetParent(parent)) {
                         parent = GetParent(parent);
+                    }
+                    if (parent && !QWidget::find(parent)) {
+                        k0 = false;
                     }
                 }
 #endif
