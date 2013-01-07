@@ -72,8 +72,14 @@ void QtCeFlushClipboard();
 #endif
 
 typedef BOOL (WINAPI *PtrIsHungAppWindow)(HWND);
+typedef BOOL (WINAPI *PtrAddClipboardFormatListener)(HWND);
+
+#ifndef WM_CLIPBOARDUPDATE
+#define WM_CLIPBOARDUPDATE              0x031D
+#endif // WM_CLIPBOARDUPDATE
 
 static PtrIsHungAppWindow ptrIsHungAppWindow = 0;
+static DWORD lastClipboardSequenceNumber = -1;
 
 class QClipboardWatcher : public QInternalMimeData {
 public:
@@ -182,7 +188,14 @@ static QClipboardData *clipboardData()
         ptrClipboardData = new QClipboardData;
         // this needs to be done here to avoid recursion
         Q_ASSERT(ptrClipboardData->clipBoardViewer->testAttribute(Qt::WA_WState_Created));
-        ptrClipboardData->nextClipboardViewer = SetClipboardViewer(ptrClipboardData->clipBoardViewer->internalWinId());
+
+        QSystemLibrary library(QLatin1String("User32"));
+        PtrAddClipboardFormatListener ptrAddClipboardFormatListener = 
+            (PtrAddClipboardFormatListener)library.resolve("AddClipboardFormatListener");
+        if (ptrAddClipboardFormatListener)
+            ptrAddClipboardFormatListener(ptrClipboardData->clipBoardViewer->internalWinId());
+        else
+            ptrClipboardData->nextClipboardViewer = SetClipboardViewer(ptrClipboardData->clipBoardViewer->internalWinId());
     }
     return ptrClipboardData;
 }
@@ -325,11 +338,20 @@ bool QClipboard::event(QEvent *e)
         else
             propagate = true;
     } else if (m->message == WM_DRAWCLIPBOARD) {
+        DWORD clipboardSequenceNumber = GetClipboardSequenceNumber();
+        if (lastClipboardSequenceNumber != clipboardSequenceNumber) {
+            emitChanged(QClipboard::Clipboard);
+            if (!ownsClipboard() && d->iData)
+                // clean up the clipboard object if we no longer own the clipboard
+                d->releaseIData();
+            propagate = true;
+            lastClipboardSequenceNumber = clipboardSequenceNumber;
+        }
+    } else if (m->message == WM_CLIPBOARDUPDATE) {
         emitChanged(QClipboard::Clipboard);
         if (!ownsClipboard() && d->iData)
             // clean up the clipboard object if we no longer own the clipboard
             d->releaseIData();
-        propagate = true;
     }
     if (propagate && d->nextClipboardViewer) {
         if (ptrIsHungAppWindow == 0) {

@@ -372,6 +372,11 @@ extern HRGN qt_tryCreateRegion(QRegion::RegionType type, int left, int top, int 
 #define APPCOMMAND_MEDIA_CHANNEL_DOWN     52
 #endif // APPCOMMAND_MICROPHONE_VOLUME_MUTE
 
+
+#ifndef WM_CLIPBOARDUPDATE
+#define WM_CLIPBOARDUPDATE              0x031D
+#endif // WM_CLIPBOARDUPDATE
+
 #if (_WIN32_WINNT < 0x0400)
 // This struct is defined in winuser.h if the _WIN32_WINNT >= 0x0400 -- in the
 // other cases we have to define it on our own.
@@ -2324,6 +2329,7 @@ extern "C" LRESULT QT_WIN_CALLBACK QtWndProc(HWND hwnd, UINT message, WPARAM wPa
 #ifndef Q_WS_WINCE
         case WM_CHANGECBCHAIN:
         case WM_DRAWCLIPBOARD:
+        case WM_CLIPBOARDUPDATE:
 #endif
         case WM_RENDERFORMAT:
         case WM_RENDERALLFORMATS:
