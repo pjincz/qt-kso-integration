@@ -3361,6 +3361,23 @@ void QT_FASTCALL rasterop_SourceAndDestination(uint *dest,
     }
 }
 
+void QT_FASTCALL rasterop_GdiSourceAndDestination(uint *dest,
+	const uint *src,
+	int length,
+	uint const_alpha)
+{
+	Q_UNUSED(const_alpha);
+	uint u;
+	while (length--) {
+		u = *src;
+		if (u == 0xff000000)
+			*dest = 0xff000000;
+		else
+			*dest &= u;
+		++dest; ++src;
+	}
+}
+
 void QT_FASTCALL rasterop_solid_SourceXorDestination(uint *dest,
                                                      int length,
                                                      uint color,
@@ -3382,6 +3399,21 @@ void QT_FASTCALL rasterop_SourceXorDestination(uint *dest,
         *dest = (*src ^ *dest) | 0xff000000;
         ++dest; ++src;
     }
+}
+
+void QT_FASTCALL rasterop_GdiSourceXorDestination(uint *dest,
+	const uint *src,
+	int length,
+	uint const_alpha)
+{
+	Q_UNUSED(const_alpha);
+	uint u;
+	while (length--) {
+		u = *src;
+		if (u != 0xff000000)
+			*dest = (u ^ *dest) | 0xff000000;
+		++dest; ++src;
+	}
 }
 
 void QT_FASTCALL rasterop_solid_NotSourceAndNotDestination(uint *dest,
@@ -3594,7 +3626,9 @@ static CompositionFunction functionForMode_C[] = {
         rasterop_NotSourceXorDestination,
         rasterop_NotSource,
         rasterop_NotSourceAndDestination,
-        rasterop_SourceAndNotDestination
+        rasterop_SourceAndNotDestination,
+		rasterop_GdiSourceAndDestination,
+		rasterop_GdiSourceXorDestination
 };
 
 static const CompositionFunction *functionForMode = functionForMode_C;

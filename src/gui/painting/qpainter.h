@@ -171,8 +171,13 @@ public:
         RasterOp_NotSourceXorDestination,
         RasterOp_NotSource,
         RasterOp_NotSourceAndDestination,
-        RasterOp_SourceAndNotDestination
-    };
+        RasterOp_SourceAndNotDestination,
+
+		// extend for GDI
+		RasterOp_GdiSourceAndDestination,
+		RasterOp_GdiSourceXorDestination
+
+	};
     void setCompositionMode(CompositionMode mode);
     CompositionMode compositionMode() const;
 

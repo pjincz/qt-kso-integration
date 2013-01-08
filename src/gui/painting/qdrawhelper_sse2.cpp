@@ -347,7 +347,9 @@ CompositionFunctionSolid qt_functionForModeSolid_onlySSE2[numCompositionFunction
     rasterop_solid_NotSourceXorDestination,
     rasterop_solid_NotSource,
     rasterop_solid_NotSourceAndDestination,
-    rasterop_solid_SourceAndNotDestination
+    rasterop_solid_SourceAndNotDestination,
+	rasterop_solid_SourceAndDestination,
+	rasterop_solid_SourceXorDestination
 };
 
 CompositionFunction qt_functionForMode_onlySSE2[numCompositionFunctions] = {
@@ -383,7 +385,9 @@ CompositionFunction qt_functionForMode_onlySSE2[numCompositionFunctions] = {
     rasterop_NotSourceXorDestination,
     rasterop_NotSource,
     rasterop_NotSourceAndDestination,
-    rasterop_SourceAndNotDestination
+    rasterop_SourceAndNotDestination,
+	rasterop_GdiSourceAndDestination,
+	rasterop_GdiSourceXorDestination
 };
 
 void qt_memfill16_sse2(quint16 *dest, quint16 value, int count)

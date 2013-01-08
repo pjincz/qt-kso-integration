@@ -69,7 +69,9 @@ CompositionFunctionSolid qt_functionForModeSolid_MMX[numCompositionFunctions] = 
     rasterop_solid_NotSourceXorDestination<QMMXIntrinsics>,
     rasterop_solid_NotSource<QMMXIntrinsics>,
     rasterop_solid_NotSourceAndDestination<QMMXIntrinsics>,
-    rasterop_solid_SourceAndNotDestination<QMMXIntrinsics>
+    rasterop_solid_SourceAndNotDestination<QMMXIntrinsics>,
+	rasterop_solid_SourceAndDestination<QMMXIntrinsics>,
+	rasterop_solid_SourceXorDestination<QMMXIntrinsics>
 };
 
 CompositionFunction qt_functionForMode_MMX[numCompositionFunctions] = {
@@ -105,7 +107,9 @@ CompositionFunction qt_functionForMode_MMX[numCompositionFunctions] = {
     rasterop_NotSourceXorDestination,
     rasterop_NotSource,
     rasterop_NotSourceAndDestination,
-    rasterop_SourceAndNotDestination
+    rasterop_SourceAndNotDestination,
+	rasterop_GdiSourceAndDestination,
+	rasterop_GdiSourceXorDestination
 };
 
 void qt_blend_color_argb_mmx(int count, const QSpan *spans, void *userData)

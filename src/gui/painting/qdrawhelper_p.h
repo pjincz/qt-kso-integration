@@ -2010,6 +2010,8 @@ void QT_FASTCALL rasterop_NotSourceXorDestination(uint *dest, const uint *src, i
 void QT_FASTCALL rasterop_NotSource(uint *dest, const uint *src, int length, uint const_alpha);
 void QT_FASTCALL rasterop_NotSourceAndDestination(uint *dest, const uint *src, int length, uint const_alpha);
 void QT_FASTCALL rasterop_SourceAndNotDestination(uint *dest, const uint *src, int length, uint const_alpha);
+void QT_FASTCALL rasterop_GdiSourceAndDestination(uint *dest, const uint *src, int length, uint const_alpha);
+void QT_FASTCALL rasterop_GdiSourceXorDestination(uint *dest, const uint *src, int length, uint const_alpha);
 
 // prototypes of all the solid composition functions
 void QT_FASTCALL comp_func_solid_SourceOver(uint *dest, int length, uint color, uint const_alpha);

@@ -77,7 +77,9 @@ CompositionFunctionSolid qt_functionForModeSolid_SSE3DNOW[numCompositionFunction
     rasterop_solid_NotSourceXorDestination<QSSE3DNOWIntrinsics>,
     rasterop_solid_NotSource<QSSE3DNOWIntrinsics>,
     rasterop_solid_NotSourceAndDestination<QSSE3DNOWIntrinsics>,
-    rasterop_solid_SourceAndNotDestination<QSSE3DNOWIntrinsics>
+    rasterop_solid_SourceAndNotDestination<QSSE3DNOWIntrinsics>,
+	rasterop_solid_SourceAndDestination<QSSE3DNOWIntrinsics>,
+	rasterop_solid_SourceXorDestination<QSSE3DNOWIntrinsics>
 };
 
 CompositionFunction qt_functionForMode_SSE3DNOW[numCompositionFunctions] = {
@@ -113,7 +115,9 @@ CompositionFunction qt_functionForMode_SSE3DNOW[numCompositionFunctions] = {
     rasterop_NotSourceXorDestination,
     rasterop_NotSource,
     rasterop_NotSourceAndDestination,
-    rasterop_SourceAndNotDestination
+    rasterop_SourceAndNotDestination,
+	rasterop_GdiSourceAndDestination,
+	rasterop_GdiSourceXorDestination
 };
 
 void qt_blend_color_argb_sse3dnow(int count, const QSpan *spans, void *userData)
