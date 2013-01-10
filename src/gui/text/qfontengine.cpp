@@ -892,6 +892,7 @@ const uchar *QFontEngine::getCMap(const uchar *table, uint tableSize, bool *isSy
         Symbol,
         Unicode11,
         Unicode,
+        MicrosoftGB2312,
         MicrosoftUnicode,
         MicrosoftUnicodeExtended
     };
@@ -928,6 +929,12 @@ const uchar *QFontEngine::getCMap(const uchar *table, uint tableSize, bool *isSy
                 if (score < Symbol) {
                     tableToUse = n;
                     score = Symbol;
+                }
+                break;
+            case 3: // Chinese GB2312
+                if (score < MicrosoftGB2312) {
+                    tableToUse = n;
+                    score = MicrosoftGB2312;
                 }
                 break;
             case 1:
