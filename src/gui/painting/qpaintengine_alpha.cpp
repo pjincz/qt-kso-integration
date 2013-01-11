@@ -307,7 +307,7 @@ void QAlphaPaintEngine::flushAndInit(bool init)
 
         // set clip region
         d->m_alphargn = d->m_alphargn.intersected(QRect(0, 0, d->m_pdev->width(), d->m_pdev->height()));
-
+        QRegion region = d->m_alphargn;
         // just use the bounding rect if it's a complex region..
         QVector<QRect> rects = d->m_alphargn.rects();
         if (rects.size() > 10) {
@@ -317,7 +317,7 @@ void QAlphaPaintEngine::flushAndInit(bool init)
             rects.append(br);
         }
 
-        d->m_cliprgn = d->m_alphargn;
+        d->m_cliprgn = region;
 
         // now replay the QPicture
         ++d->m_pass; // we are now doing pass #2
@@ -338,6 +338,7 @@ void QAlphaPaintEngine::flushAndInit(bool init)
         d->m_cliprgn = QRegion();
         d->resetState(painter());
 
+        painter()->setClipRegion(region);
         // fill in the alpha images
         for (int i=0; i<rects.size(); ++i)
             d->drawAlphaImage(rects.at(i));
