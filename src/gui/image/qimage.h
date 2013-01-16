@@ -371,13 +371,20 @@ public:
 
     void setBilevel(qreal threshold = 0.5);
     void unsetBilevel();
+    qreal bilevel() const;
     void setBrightness(qreal brightness);
+    qreal brightness() const;
     void setColorKey(QRgb key, quint8 tolerance = 0);
     void unsetColorKey();
+    bool hasColorKey() const;
+    qreal colorKey() const;
+    quint8 colorKeyTolerance() const;
+
     void setRemapTable(const QMap<QRgb, QRgb>& colorMap);
     void setColorMatrix(const QMatrix4x4 &mtx);
     void unsetColorMatrix();
     void setContrast(qreal contrast);
+    qreal contrast() const;
     void setDuotone(QRgb color1, QRgb color2);
     void unsetDuotone();
 

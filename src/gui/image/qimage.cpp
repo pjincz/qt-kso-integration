@@ -7125,4 +7125,34 @@ void QImageEffects::detach()
 	d = x;
 }
 
+bool QImageEffects::hasColorKey() const
+{
+	return d->hasColorKey;
+}
+
+qreal QImageEffects::bilevel() const
+{
+	return d->bilevelThreshold;
+}
+
+qreal QImageEffects::brightness() const
+{
+	return d->brightness;
+}
+
+qreal QImageEffects::colorKey() const
+{
+	return d->colorKey;
+}
+
+quint8 QImageEffects::colorKeyTolerance() const
+{
+	return d->tolerance;
+}
+
+qreal QImageEffects::contrast() const
+{
+	return d->contrast;
+}
+
 QT_END_NAMESPACE
