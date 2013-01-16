@@ -1462,7 +1462,27 @@ QVariant QWin32PrintEngine::property(PrintEnginePropertyKey key) const
         break;
 
     case PPK_SupportsMultipleCopies:
-        value = true;
+        {
+            int nCollate = ::DeviceCapabilities((const wchar_t *)d->name.utf16(),
+                (const wchar_t *)d->port.utf16(), DC_COLLATE, 0, d->devMode);
+
+            if (nCollate == 0)
+            {
+                value = false;
+                break;
+            }
+
+            int nCopies = ::DeviceCapabilities((const wchar_t *)d->name.utf16(),
+                (const wchar_t *)d->port.utf16(), DC_COPIES, 0, d->devMode);
+
+            if (nCopies <= d->num_copies)
+            {
+                value = false;
+                break;
+            }
+
+            value = true;
+        }
         break;
 
     case PPK_NumberOfCopies:
