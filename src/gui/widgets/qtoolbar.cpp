@@ -181,19 +181,16 @@ void QToolBarPrivate::setWindowState(bool floating, bool unplug, const QRect &re
     if (floating != wasFloating)
         layout->checkUsePopupMenu();
 
-	if (!floating)
+	QMainWindow *win = qobject_cast<QMainWindow*>(parent);
+	if (!floating && win && win->isVisible())
 	{
 		bool bHorizontal = true;
 
-		QMainWindow *win = qobject_cast<QMainWindow*>(parent);
-		if (win)
+		QMainWindowLayout *layout = qt_mainwindow_layout(win);
+		if (layout)
 		{
-			QMainWindowLayout *layout = qt_mainwindow_layout(win);
-			if (layout)
-			{
-				Qt::ToolBarArea area = layout->toolBarArea(q);
-				bHorizontal = (area != Qt::LeftToolBarArea) && (area != Qt::RightToolBarArea);
-			}
+			Qt::ToolBarArea area = layout->toolBarArea(q);
+			bHorizontal = (area != Qt::LeftToolBarArea) && (area != Qt::RightToolBarArea);
 		}
 
 		q->setOrientation(bHorizontal ? Qt::Horizontal : Qt::Vertical);
