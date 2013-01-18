@@ -112,16 +112,21 @@ public:
 	//position 0.0 for the center color and 1.0 for the boundary
 	QGradientStops m_stops;
 	QMatrix m_mtx;
+	qreal m_xscale, m_yscale;
 
 public:
 	QPathGradientBrush(const QPainterPath& path,
 		const QPointF& centerPt,
 		const QGradientStops& stops,
-		const QMatrix& mtx):
+		const QMatrix& mtx,
+		qreal xscale = 0,
+		qreal yscale = 0):
 		m_path(path),
 		m_centerPoint(centerPt),
 		m_stops(stops),
-		m_mtx(mtx)
+		m_mtx(mtx),
+		m_xscale(xscale),
+		m_yscale(yscale)
 	{
 		Q_ASSERT(path.elementCount() > 2);
 		Q_ASSERT(m_stops.size() >= 2);
@@ -148,24 +153,27 @@ public:
 #endif
 
 public:
-	argb8():
-	  a(255),
-	  r(0), 
-	  g(0), 
-	  b(0)		
-	  {}
-	argb8(unsigned r_, unsigned g_, unsigned b_) :
-		a(255),
-		r(value_type(r_)), 
-		g(value_type(g_)), 
-		b(value_type(b_))		
-	{}
-	argb8(unsigned a_, unsigned r_, unsigned g_, unsigned b_) :
-			a(value_type(a_)),
-			r(value_type(r_)), 
-			g(value_type(g_)), 
-			b(value_type(b_))
-	{}
+	argb8()
+	 {
+		a = 255;
+		r = 0;
+		g = 0;
+		b = 0;
+	 }
+	argb8(unsigned r_, unsigned g_, unsigned b_)
+	{
+		a = 255;
+		r = value_type(r_);
+		g = value_type(g_);
+		b = value_type(b_);
+	}
+	argb8(unsigned a_, unsigned r_, unsigned g_, unsigned b_)
+	{
+		a = value_type(a_);
+		r = value_type(r_);
+		g = value_type(g_);
+		b = value_type(b_);
+	}
     argb8(const argb8 &other)
     {
         memcpy(this, &other, sizeof(argb8));
@@ -260,7 +268,7 @@ public:
 		Q_ASSERT(inter_offset.size() >= 2);
 		Q_ASSERT(inter_offset.front() == 0 && inter_offset.back() == 1);
 
-		const int& s = inter_offset.size();
+		const int s = inter_offset.size();
 		for (int i = 0; i < s; ++i)
 		{
 			ColorT pc = inter_colors[i];
@@ -275,7 +283,7 @@ public:
 	ColorT GetColor(qreal offset) const
 	{
 		Q_ASSERT(offset >= 0 && offset <= 1);
-		const int& s = m_interColors.size();
+		const int s = m_interColors.size();
 		for (int i = 1; i < s; ++i)
 		{
 			if (offset <= m_interColors[i].offset())
@@ -348,8 +356,8 @@ private:
 	void generate_same(const color_type& cl, bool bFlipX)
 	{
 		Q_ASSERT(sizeof(color_type) == 4);
-		const int& cv = *((int*)(&cl));
-		const int& vl = bFlipX ? color_base_num_flipx : color_base_num;
+		const int cv = *((int*)(&cl));
+		const int vl = bFlipX ? color_base_num_flipx : color_base_num;
 		memset((int*)m_clr, cv, vl);
 	}
 
@@ -361,7 +369,7 @@ private:
 		c1.premultiply();
 		c2.premultiply();
 		
-		static const qreal& spd = 1.0f / 256.0f;
+		static const qreal spd = 1.0f / 256.0f;
 		if (bFlipX)
 		{	
 			qreal scale = 0;
@@ -408,7 +416,7 @@ private:
 		if (!inter_offset.empty())
 		{
 			InterpolationColor<color_type> ic(inter_offset, inter_colors);
-			static const qreal& spd = 1.0f / 256.0f;
+			static const qreal spd = 1.0f / 256.0f;
 			qreal offset = 0;
 			for (int i = 0; i < color_base_num; ++i)
 			{
@@ -600,8 +608,8 @@ public:
 			return false;
 		}
 		
-		const qreal& dx = m_pt1.x() - m_pt2.x();
-		const qreal& dy = m_pt1.y() - m_pt2.y();
+		const qreal dx = m_pt1.x() - m_pt2.x();
+		const qreal dy = m_pt1.y() - m_pt2.y();
 		if (qFuzzyIsNull(dy))
 		{
 			return false;
@@ -624,7 +632,7 @@ public:
 		case InterpolationColor:
 			{
 				Q_ASSERT(m_pInterOffset && m_pInterColors);
-				const qreal& dist = calc_distance(cn.p.x(), cn.p.y(), m_pt1.x(), m_pt1.y());
+				const qreal dist = calc_distance(cn.p.x(), cn.p.y(), m_pt1.x(), m_pt1.y());
 				qreal scale = dist / m_dist;
 				if (scale > 1)
 				{
@@ -632,8 +640,8 @@ public:
 				}
 				for (int i = 0; i < m_pInterOffset->size() - 1; ++i)
 				{
-					const qreal& prev_offset = (*m_pInterOffset)[i];
-					const qreal& next_offset = (*m_pInterOffset)[i+1];
+					const qreal prev_offset = (*m_pInterOffset)[i];
+					const qreal next_offset = (*m_pInterOffset)[i+1];
 					if (scale >= prev_offset &&
 						scale <= next_offset)
 					{
@@ -665,6 +673,56 @@ private:
 };
 
 
+class SolidSpanWrapper
+{
+public:
+	typedef argb8 color_type;
+
+	SolidSpanWrapper(color_type *span, int x1, int x2, const color_type& clr)
+		: m_span(span)
+		, m_x1(x1)
+		, m_x2(x2)
+		, m_clr(clr)
+	{
+	}
+
+	void insert(qreal ix)
+	{
+		m_ixs.push_back(ix);
+	}
+
+	void generate()
+	{
+		if (m_ixs.size() > 1)
+		{
+			std::sort(m_ixs.begin(), m_ixs.end());
+			const int ix1 = (int)(m_ixs.front() + 0.5);
+			const int ix2 = (int)(m_ixs.back()  + 0.5);
+			const int strt= qMax(m_x1, ix1);
+			const int end = qMin(m_x2, ix2);
+			if (strt > end ||
+				strt < m_x1 || 
+				end  > m_x2)
+			{
+				return;
+			}
+			const int off = strt - m_x1;
+			color_type *span = m_span + off;
+			int i = end - strt + 1;
+			while (i--)
+			{
+				*span++ = m_clr;
+			}
+		}
+	}
+
+private:
+	color_type * const m_span;
+	const int m_x1;
+	const int m_x2;
+	QVector<qreal> m_ixs;
+	const color_type& m_clr;
+};
 // ------------------------------------------------------GradientSpanWrapper
 class GradientSpanWrapper
 {
@@ -719,10 +777,10 @@ public:
 private:
 	bool get_range(int& x1, int& x2) const
 	{
-		const int& ix1 = (int)(m_nodes.front().p.x() + 0.5);
-		const int& ix2 = (int)(m_nodes.back().p.x()  + 0.5);
-		const int& strt= qMax(m_x1, ix1);
-		const int& end = qMin(m_x2, ix2);
+		const int ix1 = (int)(m_nodes.front().p.x() + 0.5);
+		const int ix2 = (int)(m_nodes.back().p.x()  + 0.5);
+		const int strt= qMax(m_x1, ix1);
+		const int end = qMin(m_x2, ix2);
 		if (strt > end ||
 			strt < m_x1 || 
 			end  > m_x2)
@@ -743,8 +801,8 @@ private:
 		end_next_index  = m_nodes.size() - 1;
 		for (int i = 0; i < m_nodes.size() - 1; ++i)
 		{
-			const qreal& x1 = m_nodes[i].p.x();
-			const qreal& x2 = m_nodes[i+1].p.x();
+			const qreal x1 = m_nodes[i].p.x();
+			const qreal x2 = m_nodes[i+1].p.x();
 			if (x1 <= strt)
 			{
 				strt_prev_index = i;	
@@ -760,7 +818,7 @@ private:
 	void generate_prev(const int& strt_prev_index,
 		               int& strt, const int& end, int& curx) const
 	{
-		const int& istrt = static_cast<int>(m_nodes[strt_prev_index].p.x()) + 1;
+		const int istrt = static_cast<int>(m_nodes[strt_prev_index].p.x()) + 1;
 		const color_type& cl = m_nodes[strt_prev_index].c;
 		curx = strt;
 		color_type *span = m_span + curx - m_x1;
@@ -816,17 +874,17 @@ private:
         {
             const color_type& cl1 = m_nodes[cur_prev_index].c;
             const color_type& cl2 = m_nodes[cur_next_index].c;
-            const qreal& rcurx = static_cast<qreal>(curx);
-            const qreal& istr = m_nodes[cur_prev_index].p.x();
-            const qreal& iend = m_nodes[cur_next_index].p.x();	
+            const qreal rcurx = static_cast<qreal>(curx);
+            const qreal istr = m_nodes[cur_prev_index].p.x();
+            const qreal iend = m_nodes[cur_next_index].p.x();
             if (!qFuzzyCompare(istr, iend))
             {
                 qreal scale = (rcurx - istr) / (iend - istr);
                 Q_ASSERT(scale >= 0 && "current index is less than the start index");
-                const qreal& incr = 1.0f / (iend - istr);
-                const int& offset= curx - m_x1;
+                const qreal incr = 1.0f / (iend - istr);
+                const int offset= curx - m_x1;
                 color_type *span = m_span + offset;
-                const int& lastx = qMin(end, static_cast<int>(iend));
+                const int lastx = qMin(end, static_cast<int>(iend));
                 generate_gradient(span, lastx - curx + 1, cl1, cl2, scale, incr);
                 curx = lastx + 1;
             }
@@ -838,7 +896,7 @@ private:
 	void generate_next(const int& end_next_index, 
 		               const int& strt, const int& end, int& curx) const
 	{
-		const int& iend = static_cast<int>(m_nodes[end_next_index].p.x());
+		const int iend = static_cast<int>(m_nodes[end_next_index].p.x());
 		const color_type& cl = m_nodes[end_next_index].c;
 		color_type *span = m_span + curx - m_x1;
 		while (curx >= iend && curx <= end && curx >= strt)
@@ -871,7 +929,7 @@ public:
 	gradient_triangle(const QPointF& pt0, 
 		              const QPointF& pt1, 
 					  const QPointF& pt2,
-		              const color_type& cl0, 
+		              const color_type& cl0,
 					  const color_type& cl1,
 		              const color_type& cl2)
 	{
@@ -994,19 +1052,19 @@ private:
 		if (!inter_colors.empty())
 		{
 			// 20、12... 10
-			const qreal& dx10 = pt0.x() - pt1.x();
-			const qreal& dy10 = pt0.y() - pt1.y();
-			const qreal& dx20 = pt0.x() - pt2.x();
-			const qreal& dy20 = pt0.y() - pt2.y();
+			const qreal dx10 = pt0.x() - pt1.x();
+			const qreal dy10 = pt0.y() - pt1.y();
+			const qreal dx20 = pt0.x() - pt2.x();
+			const qreal dy20 = pt0.y() - pt2.y();
 			
 			bevels.push_back(SuperColorBevel(
 			                 SuperColorBevel::InterpolationColor, 
 				             pt2, pt0, cl2, cl0, inter_offset, inter_colors));
 
-			const int& s = inter_offset.size();
+			const int s = inter_offset.size();
 			for (int i = s - 2; i > 0; --i)
 			{
-				const qreal& offset = inter_offset[i];
+				const qreal offset = inter_offset[i];
 				const QPointF ptA(pt1.x() + offset * dx10,
 					             pt1.y() + offset * dy10);
 				const QPointF ptB(pt2.x() + offset * dx20,
@@ -1032,6 +1090,304 @@ private:
 	QVector<SuperColorBevel> m_bevels;
 };
 
+
+class gradient_quadrangle
+{
+public:
+	typedef argb8 color_type;
+
+	gradient_quadrangle()
+	{
+	}
+
+	gradient_quadrangle(const QPointF& pt00, 
+		const QPointF& pt11, const QPointF& pt12,
+		const QPointF& pt21, const QPointF& pt22,
+		const color_type& clr0, const color_type& clr1)
+		: m_centerTriangle(pt00, pt11, pt12, 
+		SolidTriangle::GenerateCenterColor(clr0))
+	{
+		GenerateBevels(pt11, pt12, pt21, pt22, clr0, clr1, m_bevels);
+	}
+
+	gradient_quadrangle(const QPointF& pt00, 
+		const QPointF& pt11, const QPointF& pt12,
+		const QPointF& pt21, const QPointF& pt22,
+		const color_type& clr0, const color_type& clr1,
+		const QVector<qreal>&  inter_offset,
+		const QVector<color_type>&inter_colors)
+		: m_centerTriangle(pt00, pt11, pt12,
+		SolidTriangle::GenerateCenterColor(
+		clr0, clr1, inter_offset, inter_colors))
+	{
+		GenerateBevels(pt11, pt12, pt21, pt22, clr0, clr1, 
+			inter_offset, inter_colors, m_bevels);
+	}
+
+	void reset(const QPointF& pt00, 
+		const QPointF& pt11, const QPointF& pt12,
+		const QPointF& pt21, const QPointF& pt22,
+		const color_type& clr0, const color_type& clr1)
+	{
+		m_centerTriangle.reset(pt00, pt11, pt12, 
+			SolidTriangle::GenerateCenterColor(clr0));
+		GenerateBevels(pt11, pt12, pt21, pt22, clr0, clr1, m_bevels);
+	}
+
+	void reset(const QPointF& pt00, 
+		const QPointF& pt11, const QPointF& pt12,
+		const QPointF& pt21, const QPointF& pt22,
+		const color_type& clr0, const color_type& clr1,
+		const QVector<qreal>&  inter_offset,
+		const QVector<color_type>&inter_colors)
+	{
+		m_centerTriangle.reset(pt00, pt11, pt12,
+			SolidTriangle::GenerateCenterColor(clr0, clr1,
+			inter_offset, inter_colors));
+		GenerateBevels(pt11, pt12, pt21, pt22, clr0, clr1, 
+			inter_offset, inter_colors, m_bevels);
+	}
+
+	void prepare(int hy,
+		bool& prevbi0011, qreal &prev0011ix, 
+		bool& prevbi1121, ColorNode& prev1121cn) const
+	{
+		if (!m_bevels.empty())
+		{
+			Q_ASSERT(m_bevels.size() > 3);
+			const SuperColorBevel& bevel1121 = m_bevels.back();
+			prevbi1121 = bevel1121.cross_horizontal(hy, prev1121cn);
+			m_centerTriangle.prepare(hy, prevbi0011, prev0011ix);
+		}
+	}
+
+	void generate_gradient_quadrangle(int x0, int x1, int y, color_type *span,
+		bool& prevbi1121, ColorNode& prev1121cn,
+		bool& bi1112, qreal& ix1112) const
+	{
+		Q_ASSERT(size() > 2);
+		GradientSpanWrapper spanWrapper(span, x0, x1);
+		if (prevbi1121)
+		{
+			spanWrapper.insert(prev1121cn);
+		}
+
+		const SuperColorBevel& bevel1112 = m_bevels.front();
+		ColorNode cn;
+		bi1112 = bevel1112.cross_horizontal(y, cn);
+		ix1112 = cn.p.rx();
+		if (bi1112)
+		{
+			spanWrapper.insert(cn);
+		}
+
+		for (int i = 1; i < size() - 1; ++i)
+		{
+			const SuperColorBevel& bevel = m_bevels[i];
+			if (bevel.cross_horizontal(y, cn))
+			{
+				spanWrapper.insert(cn);
+			}
+		}
+
+		const SuperColorBevel& bevel1222 = m_bevels[size() - 1];
+		prevbi1121 = bevel1222.cross_horizontal(y, prev1121cn);
+		if (prevbi1121)
+		{
+			spanWrapper.insert(prev1121cn);
+		}
+
+		spanWrapper.prepare();
+		spanWrapper.generate();
+	}
+
+	void generate_solid_triangle(int x0, int x1, int y, color_type *span,
+		bool& prev0011, qreal& prev0011ix,
+		const bool& bi1112, const qreal& ix1112) const
+	{
+		m_centerTriangle.generate(
+			x0, x1, y, span, prev0011, prev0011ix, bi1112, ix1112);
+	}
+
+private:
+	int size() const
+	{
+		return m_bevels.size() - 1;
+	}
+
+	class SolidTriangle
+	{
+	public:
+		SolidTriangle()
+		{
+		}
+
+		SolidTriangle(const QPointF &pt0, const QPointF &pt1, 
+			const QPointF &pt2, const color_type &clr)
+			: m_pt0(pt0)
+			, m_pt1(pt1)
+			, m_pt2(pt2)
+			, m_clr(clr)
+		{
+		}
+
+		void reset(const QPointF &pt0, const QPointF &pt1, 
+			const QPointF &pt2, const color_type &clr)
+		{
+			m_pt0 = pt0;
+			m_pt1 = pt1;
+			m_pt2 = pt2;
+			m_clr = clr;
+		}
+
+		void prepare(int hy, bool& prev1121, qreal &prev1121ix) const
+		{
+			calc_segment_intersect_horizontal(
+				m_pt0.x(), m_pt0.y(), m_pt1.x(), m_pt1.y(), hy, prev1121, prev1121ix);
+		}
+
+		void generate(int x1, int x2, int hy, color_type *span,
+			bool& bi01, qreal& i01,
+			const bool& bi12, const qreal& i12) const
+		{
+			Q_ASSERT(span);
+
+			qreal i20 = 0.0f;
+			bool bi20 = false;
+			calc_segment_intersect_horizontal(
+				m_pt2.x(), m_pt2.y(), m_pt0.x(), m_pt0.y(), hy, bi20, i20);
+
+			SolidSpanWrapper spanWrapper(span, x1, x2, m_clr);
+			if (bi01) spanWrapper.insert(i01);
+			if (bi12) spanWrapper.insert(i12);
+			if (bi20) spanWrapper.insert(i20);
+
+			spanWrapper.generate();	
+			i01 = i20;
+			bi01 = bi20;
+		}
+
+		static color_type GenerateCenterColor(const color_type& clr0)
+		{
+			color_type c(clr0);
+			c.demultiply();
+			return c;
+		}
+
+		static color_type GenerateCenterColor(const color_type& clr0, const color_type& /*clr1*/,
+			const QVector<qreal>&  inter_offset,
+			const QVector<color_type>& inter_colors)
+		{
+			color_type c(clr0);
+			if (!inter_offset.empty())
+			{
+				c = inter_colors.back();
+			}
+			c.demultiply();
+			return c;
+		}
+
+	private:
+		void calc_segment_intersect_horizontal(const qreal& x1, const qreal& y1,
+			const qreal& x2, const qreal& y2,
+			int hy, bool& bi, qreal& ix) const
+		{
+			const qreal rhy = static_cast<qreal>(hy);
+			if ((y1 < rhy && y2 < rhy) ||
+				(y1 > rhy && y2 > rhy) ||
+				(y1 == y2 && y1 == rhy))
+			{
+				bi = false;
+				return;
+			}
+
+			const qreal dx = x1 - x2;
+			const qreal dy = y1 - y2;
+			ix = x1 - (y1 - rhy) * dx / dy;
+			bi = true;
+			return;
+		}
+
+		QPointF m_pt0;
+		QPointF m_pt1;
+		QPointF m_pt2;
+		color_type m_clr;
+	};
+
+
+	static void GenerateBevels(const QPointF& pt11, const QPointF& pt12,
+		const QPointF& pt21, const QPointF& pt22,
+		const color_type& clr0, const color_type& clr1,
+		QVector<SuperColorBevel>& bevels)
+	{	
+		// 1112、2122、1222、1121
+		bevels.push_back(SuperColorBevel(
+			SuperColorBevel::SolidColor, 
+			pt11, pt12, clr0, clr0));
+		bevels.push_back(SuperColorBevel(
+			SuperColorBevel::SolidColor, 
+			pt21, pt22, clr1, clr1));
+		bevels.push_back(SuperColorBevel(
+			SuperColorBevel::GradientColor,
+			pt12, pt22, clr0, clr1));
+		bevels.push_back(SuperColorBevel(
+			SuperColorBevel::GradientColor,
+			pt11, pt21, clr0, clr1));
+	}
+
+	
+
+	static void GenerateBevels(const QPointF& pt11, const QPointF& pt12,
+		const QPointF& pt21, const QPointF& pt22,
+		const color_type& clr0, const color_type& clr1,
+		const QVector<qreal>&  inter_offset,
+		const QVector<color_type>& inter_colors,
+		QVector<SuperColorBevel>& bevels)
+	{
+		if (!inter_colors.empty())
+		{
+			// 1112... 2122、2212、2111
+			const qreal dx2111 = pt11.x() - pt21.x();
+			const qreal dy2111 = pt11.y() - pt21.y();
+			const qreal dx2212 = pt12.x() - pt22.x();
+			const qreal dy2212 = pt12.y() - pt22.y();
+
+			bevels.push_back(SuperColorBevel(
+				SuperColorBevel::SolidColor, 
+				pt11, pt12, inter_colors.back(), inter_colors.back()));
+			const int s = inter_offset.size();
+			for (int i = 1; i < s - 1; ++i)
+			{
+				const qreal offset = inter_offset[i];
+				const QPointF pt1(pt21.x() + offset * dx2111,
+					pt21.y() + offset * dy2111);
+				const QPointF pt2(pt22.x() + offset * dx2212,
+					pt22.y() + offset * dy2212);
+				bevels.push_back(SuperColorBevel(
+					SuperColorBevel::SolidColor, 
+					pt1, pt2, inter_colors[i], inter_colors[i]));
+			}
+			bevels.push_back(SuperColorBevel(
+				SuperColorBevel::SolidColor, 
+				pt21, pt22, inter_colors.front(), inter_colors.front()));
+			bevels.push_back(SuperColorBevel(
+				SuperColorBevel::InterpolationColor,
+				pt22, pt12, clr0, clr1, inter_offset, inter_colors));
+			bevels.push_back(SuperColorBevel(
+				SuperColorBevel::InterpolationColor,
+				pt21, pt11, clr0, clr1, inter_offset, inter_colors));
+		}
+		else
+		{
+			GenerateBevels(pt11, pt12, pt21, pt22, clr0, clr1, bevels);
+		}
+	}
+
+	SolidTriangle m_centerTriangle;
+	QVector<SuperColorBevel> m_bevels;	
+};
+
+
 //--------------------------------------------------------------------------
 class path_gradient_clamp_span_gen
 {
@@ -1051,7 +1407,7 @@ public:
 		Transform(surround_path, tmtx);
 		Flatten(surround_path);
 
-		const int& surround_point_count = surround_path.elementCount();
+		const int surround_point_count = surround_path.elementCount();
 		if (1 > surround_point_count)
 		{
 			qWarning("path is empty!");
@@ -1112,11 +1468,32 @@ public:
 				m_inter_colors.push_back(interNodes[j].pcolor());
 			}
 		}
-		
-        m_generater.reset_inter_triangles(m_center_point,
-            m_surround_points,
-            m_center_color, m_surround_colors,
-            m_inter_offset, m_inter_colors);	
+		m_xscale = pgb.m_xscale;
+		m_yscale = pgb.m_yscale;
+		if (qFuzzyCompare(m_xscale, 0) && qFuzzyCompare(m_yscale, 0))
+		{
+			m_generater.reset_inter_triangles(m_center_point,
+				m_surround_points,
+				m_center_color, m_surround_colors,
+				m_inter_offset, m_inter_colors);
+		}
+		else
+		{
+			QPainterPath focus_path(surround_path);
+			QMatrix scalemtx;
+			scalemtx.translate(m_center_point.x(), m_center_point.y());
+			scalemtx.scale(m_xscale, m_yscale);
+			scalemtx.translate(-m_center_point.x(), -m_center_point.y());
+			Transform(focus_path, scalemtx);
+
+			const int focus_points_count = focus_path.elementCount();
+			m_focus_points.resize(focus_points_count);
+			GetPathPoints(focus_path, &m_focus_points[0], focus_points_count);
+
+			m_generater.reset_inter_quadrangles(m_center_point, 
+				m_focus_points, m_surround_points, m_center_color, 
+				m_surround_colors, m_inter_offset, m_inter_colors);
+		}
     }
 	
 	//----------------------------------------------------------------------
@@ -1148,7 +1525,7 @@ private:
 			const QVector<color_type>& surround_colors)
 		{
 			clear();
-			const int& s = surround_points.size();
+			const int s = surround_points.size();
 			m_triangles.resize(s);
 			for (int j = 0; j < s; ++j)
 			{
@@ -1200,31 +1577,87 @@ private:
 			}			
 		}
 
+		void reset_inter_quadrangles(const QPointF& center_point,
+			const QVector<QPointF>& focus_points,
+			const QVector<QPointF>& surround_points,
+			const color_type& center_color,
+			const QVector<color_type>& surround_colors,
+			const QVector<qreal>& inter_offset,
+			const QVector<color_type>& inter_colors)
+		{
+			clear();
+			const int s = surround_points.size();
+			m_quadrangles.resize(s);
+			for (int j = 0; j < s; ++j)
+			{
+				int i = j + 1;
+
+				if (i == s)
+				{
+					i = 0;
+				}
+
+				m_quadrangles[j].reset(center_point,
+					focus_points[j],
+					focus_points[i],
+					surround_points[j],
+					surround_points[i],
+					center_color,
+					surround_colors[0],
+					inter_offset,
+					inter_colors);
+			}
+		}
+
 		void generate(color_type* span, int x, int y, unsigned len) const
 		{
-            if (m_triangles.empty())
-                return;
-
-			const int& x0 = x;
-			const int& x1 = x + len - 1;
-            bool prevbi01 = false;
-            ColorNode prev01cn;	
-            m_triangles[0].prepare(y, prevbi01, prev01cn);
-            const int& s = m_triangles.size();
-            for (int i = 0; i < s; ++i)
-            {
-                m_triangles[i].generate(x0, x1, y, span, prevbi01, prev01cn);
-            }
+			const int x0 = x;
+			const int x1 = x + len - 1;
+			if (!m_triangles.empty())
+			{
+				bool prevbi01 = false;
+				ColorNode prev01cn;	
+				m_triangles[0].prepare(y, prevbi01, prev01cn);
+				const int s = m_triangles.size();
+				for (int i = 0; i < s; ++i)
+				{
+					m_triangles[i].generate(x0, x1, y, span, prevbi01, prev01cn);
+				}
+			}
+			else
+			{
+				Q_ASSERT(m_quadrangles.size() > 0);
+				bool prevbi0011 = false;
+				qreal prev0011ix = 0.0f; 
+				bool prevbi1121 = false;
+				ColorNode prev1121cn;
+				m_quadrangles[0].prepare(y, prevbi0011, prev0011ix, prevbi1121, prev1121cn);
+				const int s = m_quadrangles.size();
+				QVector<XNode> xNodes(s);
+				for (int i = 0; i < s; ++i)
+				{
+					m_quadrangles[i].generate_gradient_quadrangle(
+						x0, x1, y, span, prevbi1121, prev1121cn, xNodes[i].bi, xNodes[i].ix);
+				}
+				for (int i = 0; i < s; ++i)
+				{
+					m_quadrangles[i].generate_solid_triangle(
+						x0, x1, y, span, prevbi0011, prev0011ix, xNodes[i].bi, xNodes[i].ix);
+				}
+			}
+			
 		}
 
 	private:
 		void clear()
 		{
 			m_triangles.clear();
+			m_quadrangles.clear();
 		}
 
 	private:
 		QVector<gradient_triangle> m_triangles;
+		QVector<gradient_quadrangle> m_quadrangles;
 	};
 
 
@@ -1236,6 +1669,8 @@ private:
 	color_type m_center_color;
 	QVector<qreal> m_inter_offset;
 	QVector<color_type> m_inter_colors;
+	qreal m_xscale, m_yscale;
+	QVector<QPointF> m_focus_points;
    };
 
 //--------------------------------------------------------------------------

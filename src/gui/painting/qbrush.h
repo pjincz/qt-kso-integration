@@ -290,6 +290,7 @@ private:
         } conical;
         struct {
             qreal cx, cy;
+            qreal scaleX, scaleY;
             // QPainterPath *pPath;
         } path;
     } m_data;
@@ -359,18 +360,20 @@ class Q_GUI_EXPORT QPathGradient : public QGradient
 public:
     QPathGradient();
     QPathGradient(const QPainterPath &path);
-    QPathGradient(const QPointF &center, const QPainterPath &path);
-    QPathGradient(qreal cx, qreal cy, const QPainterPath &path);
+    QPathGradient(const QPointF &center, const QPainterPath &path, qreal scaleX = 0, qreal scaleY = 0);
+    QPathGradient(qreal cx, qreal cy, const QPainterPath &path, qreal scaleX = 0, qreal scaleY = 0);
 
     QPointF center() const;
     void setCenter(const QPointF &center);
     inline void setCenter(qreal x, qreal y) { setCenter(QPointF(x, y)); }
 
     QPainterPath path() const;
+    qreal xscale() const;
+    qreal yscale() const;
     void setPath(const QPainterPath &path);
 
 private:
-    void init(qreal cx, qreal cy, const QPainterPath &path = QPainterPath());
+    void init(qreal cx, qreal cy, const QPainterPath &path = QPainterPath(), qreal xscale = 0, qreal yscale = 0);
 };
 
 QT_END_NAMESPACE

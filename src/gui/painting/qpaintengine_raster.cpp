@@ -5569,7 +5569,7 @@ static path_gradient_span_gen* qt_createPGSpanGenerator(const QSpanData *data
     else
         qWarning("matrix is not inverted!");
 
-    QPathGradientBrush pgb(pg->path(), pg->center(), pg->stops(), qmtx);
+    QPathGradientBrush pgb(pg->path(), pg->center(), pg->stops(), qmtx, pg->xscale(), pg->yscale());
 
     path_gradient_span_gen *span_gen = new path_gradient_span_gen(pgb);
     span_gen->prepare();

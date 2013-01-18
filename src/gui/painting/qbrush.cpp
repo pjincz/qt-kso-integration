@@ -2646,12 +2646,12 @@ QPathGradient::QPathGradient(const QPainterPath &path)
     \sa QGradient::setColorAt(), setStart(), setFinalStop(), setCenter()
     setPath()
 */
-QPathGradient::QPathGradient(const QPointF &center, const QPainterPath &path)
+QPathGradient::QPathGradient(const QPointF &center, const QPainterPath &path, qreal scaleX, qreal scaleY)
 {
     if (path.isEmpty())
         qWarning("path is empty!");
 
-    init(center.x(), center.y(), path);
+    init(center.x(), center.y(), path, scaleX, scaleY);
 }
 
 /*!
@@ -2665,12 +2665,12 @@ QPathGradient::QPathGradient(const QPointF &center, const QPainterPath &path)
     \sa QGradient::setColorAt(), setStart(), setFinalStop(), setCenter()
     setPath()
 */
-QPathGradient::QPathGradient(qreal cx, qreal cy, const QPainterPath &path)
+QPathGradient::QPathGradient(qreal cx, qreal cy, const QPainterPath &path, qreal scaleX, qreal scaleY)
 {
     if (path.isEmpty())
         qWarning("path is empty!");
 
-    init(cx, cy, path);
+    init(cx, cy, path, scaleX, scaleY);
 }
 
 /*!
@@ -2713,6 +2713,15 @@ QPainterPath QPathGradient::path() const
     return m_path;
 }
 
+qreal QPathGradient::xscale() const
+{
+    return m_data.path.scaleX;
+}
+
+qreal QPathGradient::yscale() const
+{
+    return m_data.path.scaleY;
+}
 /*!
     Sets the path of this path gradient in logical coordinates to
     \a path.
@@ -2731,12 +2740,14 @@ void QPathGradient::setPath(const QPainterPath &path)
 /*!
     Initialize the path gradient.
 */
-void QPathGradient::init(qreal cx, qreal cy, const QPainterPath &path)
+void QPathGradient::init(qreal cx, qreal cy, const QPainterPath &path, qreal scaleX, qreal scaleY)
 {
     m_type = PathGradient;
     m_spread = PadSpread;
     m_data.path.cx = cx;
     m_data.path.cy = cy;
+    m_data.path.scaleX = scaleX;
+    m_data.path.scaleY = scaleY;
     m_path = path;
     setColorAt(0, Qt::black);
     setColorAt(1, Qt::white);
