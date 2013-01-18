@@ -129,8 +129,7 @@ void QAlphaPaintEngine::updateState(const QPaintEngineState &state)
             d->m_advancedPen = false;
             d->m_alphaPen = false;
         } else {
-            d->m_advancedPen = (d->m_pen.brush().style() != Qt::SolidPattern)
-                || qpen_is_complex(d->m_pen);
+            d->m_advancedPen = (d->m_pen.brush().style() != Qt::SolidPattern);
             d->m_alphaPen = !d->m_pen.brush().isOpaque();
         }
     }

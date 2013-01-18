@@ -55,6 +55,7 @@
 #include <qvector.h>
 #include <qpicture.h>
 #include <private/qpicture_p.h>
+#include "QtGui/qcomplexstroker.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -839,14 +840,20 @@ void QWin32PrintEnginePrivate::fillPath_dev(const QPainterPath &path, const QCol
     DeleteObject(SelectObject(hdc, old_brush));
 }
 
-void QWin32PrintEnginePrivate::strokePath_dev(const QPainterPath &path, const QColor &color, qreal penWidth)
+HPEN createGdiPen(const QPen &pen, const QColor &color, qreal penWidth)
 {
-    composeGdiPath(path);
+    Q_ASSERT(pen.style() != Qt::NoPen);
+
     LOGBRUSH brush;
     brush.lbStyle = BS_SOLID;
     brush.lbColor = RGB(color.red(), color.green(), color.blue());
+	DWORD nPenWidth = qMax(1, qRound(penWidth));
     DWORD capStyle = PS_ENDCAP_SQUARE;
     DWORD joinStyle = PS_JOIN_BEVEL;
+    DWORD dashStyle = PS_SOLID;
+    DWORD cStyle = 0;
+    DWORD *pStyles = NULL;
+
     if (pen.capStyle() == Qt::FlatCap)
         capStyle = PS_ENDCAP_FLAT;
     else if (pen.capStyle() == Qt::RoundCap)
@@ -857,10 +864,50 @@ void QWin32PrintEnginePrivate::strokePath_dev(const QPainterPath &path, const QC
     else if (pen.joinStyle() == Qt::RoundJoin)
         joinStyle = PS_JOIN_ROUND;
 
-    HPEN pen = ExtCreatePen(((penWidth == 0) ? PS_COSMETIC : PS_GEOMETRIC)
-                            | PS_SOLID | capStyle | joinStyle,
-                            (penWidth == 0) ? 1 : penWidth, &brush, 0, 0);
+    switch (pen.style())
+    {
+    case Qt::SolidLine:
+        dashStyle = PS_SOLID;
+        break;
+    case Qt::DashLine:
+        dashStyle = PS_DASH;
+        break;
+    case Qt::DotLine:
+        dashStyle = PS_DOT;
+        break;
+    case Qt::DashDotLine:
+        dashStyle = PS_DASHDOT;
+        break;
+    case Qt::DashDotDotLine:
+        dashStyle = PS_DASHDOTDOT;
+        break;
+    case Qt::CustomDashLine:
+        {
+            dashStyle = PS_USERSTYLE;
+            const QVector<qreal> dashs = pen.dashPattern();
+            cStyle = dashs.count();
+            pStyles = new DWORD[cStyle];
+            for (DWORD i = 0; i < cStyle; i++)
+                pStyles[i] = qMax(1, qRound(dashs.at(i) * penWidth));
+        }
+        break;
+    default:
+        break;
+    }
 
+    HPEN hpen = ExtCreatePen(PS_GEOMETRIC
+                            | capStyle | joinStyle | dashStyle ,
+                            nPenWidth, &brush, cStyle, pStyles);
+    if (pStyles)
+        delete pStyles;
+
+    return hpen;
+}
+
+void QWin32PrintEnginePrivate::strokePath_dev(const QPainterPath &path, const QColor &color, qreal penWidth)
+{
+    composeGdiPath(path);
+    HPEN pen = createGdiPen(this->pen, color, penWidth);
     HGDIOBJ old_pen = SelectObject(hdc, pen);
     StrokePath(hdc);
     DeleteObject(SelectObject(hdc, old_pen));
@@ -872,38 +919,22 @@ void QWin32PrintEnginePrivate::fillPath(const QPainterPath &path, const QColor &
     fillPath_dev(path * matrix, color);
 }
 
+extern inline QComplexStroker createStrokerFromPen(const QPen &pen);
 void QWin32PrintEnginePrivate::strokePath(const QPainterPath &path, const QColor &color)
 {
-    QPainterPathStroker stroker;
-    if (pen.style() == Qt::CustomDashLine) {
-        stroker.setDashPattern(pen.dashPattern());
-        stroker.setDashOffset(pen.dashOffset());
-    } else {
-        stroker.setDashPattern(pen.style());
+    if (qpen_is_complex(pen)) {
+        QComplexStroker stroker = createStrokerFromPen(pen);
+        QPainterPath path2fill = stroker.createStroke(path);
+        return fillPath(path2fill, color);
     }
-    stroker.setCapStyle(pen.capStyle());
-    stroker.setJoinStyle(pen.joinStyle());
-    stroker.setMiterLimit(pen.miterLimit());
 
-    QPainterPath stroke;
     qreal width = pen.widthF();
-    if (pen.style() == Qt::SolidLine && (pen.isCosmetic() || matrix.type() < QTransform::TxScale)) {
-        strokePath_dev(path * matrix, color, width);
-    } else {
-        stroker.setWidth(width);
-        if (pen.isCosmetic()) {
-            stroke = stroker.createStroke(path * matrix);
-        } else {
-            stroke = stroker.createStroke(path) * painterMatrix;
-            QTransform stretch(stretch_x, 0, 0, stretch_y, origin_x, origin_y);
-            stroke = stroke * stretch;
-        }
-
-        if (stroke.isEmpty())
-            return;
-
-        fillPath_dev(stroke, color);
+    if (!pen.isCosmetic() && matrix.type() >= QTransform::TxScale) {
+        QLineF line(0, 0, width, 0);
+        width = matrix.map(line).length();
     }
+
+    strokePath_dev(path * matrix, color, width);
 }
 
 
