@@ -138,17 +138,14 @@ static inline bool is_pen_transparent(const QPen &pen) {
 /* Discards the emulation flags that are not relevant for line drawing
    and returns the result
 */
-static inline uint line_emulation(uint emulation)
-{
-    return emulation & (QPaintEngine::PrimitiveTransform
-                        | QPaintEngine::AlphaBlend
-                        | QPaintEngine::Antialiasing
-                        | QPaintEngine::BrushStroke
-                        | QPaintEngine::ConstantOpacity
-                        | QGradient_StretchToDevice
-                        | QPaintEngine::ObjectBoundingModeGradients
-                        | QPaintEngine_OpaqueBackground);
-}
+    const uint line_emulation = (QPaintEngine::PrimitiveTransform
+                                | QPaintEngine::AlphaBlend
+                                | QPaintEngine::Antialiasing
+                                | QPaintEngine::BrushStroke
+                                | QPaintEngine::ConstantOpacity
+                                | QGradient_StretchToDevice
+                                | QPaintEngine::ObjectBoundingModeGradients
+                                | QPaintEngine_OpaqueBackground);
 
 #ifndef QT_NO_DEBUG
 static bool qt_painter_thread_test(int devType, const char *what, bool extraCondition = false)
@@ -345,6 +342,10 @@ void QPainterPrivate::detachPainterPrivate(QPainter *q)
     }
 }
 
+bool QPainterPrivate::needEmulation(uint emulation/* = 0xffffffff*/)
+{
+    return ((state->emulationSpecifier & emulation) && engine->type() != QPaintEngine::Windows);
+}
 
 void QPainterPrivate::draw_helper(const QPainterPath &originalPath, DrawOperation op)
 {
@@ -3395,7 +3396,7 @@ void QPainter::drawPath(const QPainterPath &path)
     }
     d->updateState(d->state);
 
-    if (d->engine->hasFeature(QPaintEngine::PainterPaths) && d->state->emulationSpecifier == 0) {
+    if (d->engine->hasFeature(QPaintEngine::PainterPaths) && !d->needEmulation()) {
         d->engine->drawPath(path);
     } else {
         d->draw_helper(path);
@@ -3512,7 +3513,7 @@ void QPainter::drawRects(const QRectF *rects, int rectCount)
 
     d->updateState(d->state);
 
-    if (!d->state->emulationSpecifier) {
+    if (!d->needEmulation()) {
         d->engine->drawRects(rects, rectCount);
         return;
     }
@@ -3572,7 +3573,7 @@ void QPainter::drawRects(const QRect *rects, int rectCount)
 
     d->updateState(d->state);
 
-    if (!d->state->emulationSpecifier) {
+    if (!d->needEmulation()) {
         d->engine->drawRects(rects, rectCount);
         return;
     }
@@ -3672,7 +3673,7 @@ void QPainter::drawPoints(const QPointF *points, int pointCount)
 
     d->updateState(d->state);
 
-    if (!d->state->emulationSpecifier) {
+    if (!d->needEmulation()) {
         d->engine->drawPoints(points, pointCount);
         return;
     }
@@ -4274,7 +4275,7 @@ void QPainter::drawEllipse(const QRectF &r)
     }
 
     d->updateState(d->state);
-    if (d->state->emulationSpecifier) {
+    if (d->needEmulation()) {
         if (d->state->emulationSpecifier == QPaintEngine::PrimitiveTransform
             && d->state->matrix.type() == QTransform::TxTranslate) {
             rect.translate(QPointF(d->state->matrix.dx(), d->state->matrix.dy()));
@@ -4316,7 +4317,7 @@ void QPainter::drawEllipse(const QRect &r)
 
     d->updateState(d->state);
 
-    if (d->state->emulationSpecifier) {
+    if (d->needEmulation()) {
         if (d->state->emulationSpecifier == QPaintEngine::PrimitiveTransform
             && d->state->matrix.type() == QTransform::TxTranslate) {
             rect.translate(QPoint(qRound(d->state->matrix.dx()), qRound(d->state->matrix.dy())));
@@ -4607,7 +4608,7 @@ void QPainter::drawLineSegments(const QPolygon &a, int index, int nlines)
     d->updateState(d->state);
 
     QVector<QLineF> lines;
-    if (d->state->emulationSpecifier) {
+    if (d->needEmulation()) {
         if (d->state->emulationSpecifier == QPaintEngine::PrimitiveTransform
             && d->state->matrix.type() == QTransform::TxTranslate) {
             QPointF offset(d->state->matrix.dx(), d->state->matrix.dy());
@@ -4656,10 +4657,8 @@ void QPainter::drawLines(const QLineF *lines, int lineCount)
 
     d->updateState(d->state);
 
-    uint lineEmulation = line_emulation(d->state->emulationSpecifier);
-
-    if (lineEmulation) {
-        if (lineEmulation == QPaintEngine::PrimitiveTransform
+    if (d->needEmulation(line_emulation)) {
+        if ((line_emulation & d->state->emulationSpecifier) == QPaintEngine::PrimitiveTransform
             && d->state->matrix.type() == QTransform::TxTranslate) {
             for (int i = 0; i < lineCount; ++i) {
                 QLineF line = lines[i];
@@ -4705,10 +4704,8 @@ void QPainter::drawLines(const QLine *lines, int lineCount)
 
     d->updateState(d->state);
 
-    uint lineEmulation = line_emulation(d->state->emulationSpecifier);
-
-    if (lineEmulation) {
-        if (lineEmulation == QPaintEngine::PrimitiveTransform
+    if (d->needEmulation(line_emulation)) {
+        if ((line_emulation & d->state->emulationSpecifier) == QPaintEngine::PrimitiveTransform
             && d->state->matrix.type() == QTransform::TxTranslate) {
             for (int i = 0; i < lineCount; ++i) {
                 QLineF line = lines[i];
@@ -4823,9 +4820,7 @@ void QPainter::drawPolyline(const QPointF *points, int pointCount)
 
     d->updateState(d->state);
 
-    uint lineEmulation = line_emulation(d->state->emulationSpecifier);
-
-    if (lineEmulation) {
+    if (d->needEmulation(line_emulation)) {
         // ###
 //         if (lineEmulation == QPaintEngine::PrimitiveTransform
 //             && d->state->matrix.type() == QTransform::TxTranslate) {
@@ -4864,9 +4859,7 @@ void QPainter::drawPolyline(const QPoint *points, int pointCount)
 
     d->updateState(d->state);
 
-    uint lineEmulation = line_emulation(d->state->emulationSpecifier);
-
-    if (lineEmulation) {
+    if (d->needEmulation(line_emulation)) {
         // ###
 //         if (lineEmulation == QPaintEngine::PrimitiveTransform
 //             && d->state->matrix.type() == QTransform::TxTranslate) {
@@ -4963,9 +4956,7 @@ void QPainter::drawPolygon(const QPointF *points, int pointCount, Qt::FillRule f
 
     d->updateState(d->state);
 
-    uint emulationSpecifier = d->state->emulationSpecifier;
-
-    if (emulationSpecifier) {
+    if (d->needEmulation()) {
         QPainterPath polygonPath(points[0]);
         for (int i=1; i<pointCount; ++i)
             polygonPath.lineTo(points[i]);
@@ -5002,9 +4993,7 @@ void QPainter::drawPolygon(const QPoint *points, int pointCount, Qt::FillRule fi
 
     d->updateState(d->state);
 
-    uint emulationSpecifier = d->state->emulationSpecifier;
-
-    if (emulationSpecifier) {
+    if (d->needEmulation()) {
         QPainterPath polygonPath(points[0]);
         for (int i=1; i<pointCount; ++i)
             polygonPath.lineTo(points[i]);
@@ -5182,9 +5171,7 @@ void QPainter::drawConvexPolygon(const QPoint *points, int pointCount)
 
     d->updateState(d->state);
 
-    uint emulationSpecifier = d->state->emulationSpecifier;
-
-    if (emulationSpecifier) {
+    if (d->needEmulation()) {
         QPainterPath polygonPath(points[0]);
         for (int i=1; i<pointCount; ++i)
             polygonPath.lineTo(points[i]);
@@ -5216,9 +5203,7 @@ void QPainter::drawConvexPolygon(const QPointF *points, int pointCount)
 
     d->updateState(d->state);
 
-    uint emulationSpecifier = d->state->emulationSpecifier;
-
-    if (emulationSpecifier) {
+    if (d->needEmulation()) {
         QPainterPath polygonPath(points[0]);
         for (int i=1; i<pointCount; ++i)
             polygonPath.lineTo(points[i]);

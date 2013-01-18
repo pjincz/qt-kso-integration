@@ -249,6 +249,8 @@ public:
     static bool attachPainterPrivate(QPainter *q, QPaintDevice *pdev);
     void detachPainterPrivate(QPainter *q);
 
+    bool needEmulation(uint emulation = 0xffffffff);
+
     QPaintDevice *device;
     QPaintDevice *original_device;
     QPaintDevice *helper_device;
