@@ -33,21 +33,15 @@
 
 namespace WebCore {
 
-    static unsigned char buffer[1024];
-
     class TextBreakIterator : public QTextBoundaryFinder {
     public:
-        TextBreakIterator(QTextBoundaryFinder::BoundaryType type, const UChar* string, int length)
-            : QTextBoundaryFinder(type, (const QChar*)string, length, buffer, sizeof(buffer))
-            , length(length)
-            , string(string) {}
+        TextBreakIterator(QTextBoundaryFinder::BoundaryType type, const QString& string)
+            : QTextBoundaryFinder(type, string)
+        {}
+
         TextBreakIterator()
             : QTextBoundaryFinder()
-            , length(0)
-            , string(0) {}
-
-        int length;
-        const UChar* string;
+        {}
     };
 
     TextBreakIterator* setUpIterator(TextBreakIterator& iterator, QTextBoundaryFinder::BoundaryType type, const UChar* string, int length)
@@ -55,13 +49,13 @@ namespace WebCore {
         if (!string || !length)
             return 0;
 
-        if (iterator.isValid() && type == iterator.type() && length == iterator.length
-            && memcmp(string, iterator.string, length) == 0) {
+        if (iterator.isValid() && type == iterator.type() && 
+            iterator.string() == QString::fromRawData(reinterpret_cast<const QChar*>(string), length)) {
             iterator.toStart();
             return &iterator;
         }
 
-        iterator = TextBreakIterator(type, string, length);
+        iterator = TextBreakIterator(type, QString(reinterpret_cast<const QChar*>(string), length));
 
         return &iterator;
     }
