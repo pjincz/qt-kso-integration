@@ -3750,7 +3750,8 @@ void QRasterPaintEngine::drawTextItem(const QPointF &p, const QTextItem &textIte
 
     // don't try to cache huge fonts
     const qreal pixelSize = ti.fontEngine->fontDef.pixelSize;
-    if (pixelSize * pixelSize * qAbs(s->matrix.determinant()) >= 100 * 100)
+    const qreal horzStretch = ti.fontEngine->fontDef.stretch / 100.0;
+    if (pixelSize * pixelSize * horzStretch * qAbs(s->matrix.determinant()) >= 100 * 100)
         drawCached = false;
 
     // ### Remove the TestFontEngine and Box engine crap, in these
