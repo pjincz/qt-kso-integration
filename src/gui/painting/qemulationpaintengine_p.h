@@ -81,6 +81,9 @@ public:
     virtual void drawStaticTextItem(QStaticTextItem *item);
     virtual void drawTiledPixmap(const QRectF &r, const QPixmap &pixmap, const QPointF &s);
     virtual void drawImage(const QRectF &r, const QImage &pm, const QRectF &sr, Qt::ImageConversionFlags flags);
+    virtual void drawImage(const QRectF &, const QImage &, const QRectF &, 
+                           const QImageEffects *,
+                           Qt::ImageConversionFlags flags = Qt::AutoColor);
     
     virtual void clipEnabledChanged();
     virtual void penChanged();

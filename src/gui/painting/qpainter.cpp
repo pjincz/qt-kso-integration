@@ -5731,7 +5731,7 @@ void QPainter::drawImage(const QRectF &targetRect, const QImage &image, const QR
     }
     if (!userData->hasEffects())
         return drawImage(targetRect, image, sourceRect, flags);
-    else if (d->engine->type() != QPaintEngine::Raster) {
+    else if (!d->extended || d->extended->type() != QPaintEngine::Raster) {
         QRect targetRectDev = combinedTransform().mapRect(targetRect).toRect();
         QImage effectImg(targetRectDev.width(), targetRectDev.height(), QImage::Format_ARGB32_Premultiplied);
         QPainter p(&effectImg);

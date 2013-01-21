@@ -245,6 +245,13 @@ void QEmulationPaintEngine::drawImage(const QRectF &r, const QImage &pm, const Q
     real_engine->drawImage(r, pm, sr, flags);
 }
 
+void QEmulationPaintEngine::drawImage(const QRectF &r, const QImage &pm, const QRectF &sr, 
+                           const QImageEffects *effects,
+                           Qt::ImageConversionFlags flags/* = Qt::AutoColor*/)
+{
+    real_engine->drawImage(r, pm, sr, effects, flags);
+}
+
 void QEmulationPaintEngine::clipEnabledChanged()
 {
     real_engine->clipEnabledChanged();
