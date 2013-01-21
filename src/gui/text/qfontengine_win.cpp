@@ -949,19 +949,12 @@ void QFontEngineWin::addGlyphsToPath(glyph_t *glyphs, QFixedPoint *positions, in
                                      QPainterPath *path, QTextItem::RenderFlags)
 {
     LOGFONT lf = logfont;
-    // The sign must be negative here to make sure we match against character height instead of
-    // hinted cell height. This ensures that we get linear matching, and we need this for
-    // paths since we later on apply a scaling transform to the glyph outline to get the
-    // font at the correct pixel size.
-    lf.lfHeight = -unitsPerEm;
-    lf.lfWidth = 0;
     HFONT hf = CreateFontIndirect(&lf);
     HDC hdc = shared_dc();
     HGDIOBJ oldfont = SelectObject(hdc, hf);
 
     for(int i = 0; i < nglyphs; ++i) {
-        if (!addGlyphToPath(glyphs[i], positions[i], hdc, path, ttf, /*metric*/0,
-                            qreal(fontDef.pixelSize) / unitsPerEm)) {
+        if (!addGlyphToPath(glyphs[i], positions[i], hdc, path, ttf, /*metric*/0)) {
             // Some windows fonts, like "Modern", are vector stroke
             // fonts, which are reported as TMPF_VECTOR but do not
             // support GetGlyphOutline, and thus we set this bit so
