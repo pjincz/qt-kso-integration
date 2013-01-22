@@ -601,9 +601,9 @@ public:
 	bool cross_horizontal(int y, ColorNode& cn) const
 	{
 		const qreal hy = (qreal)y;
-		if ((m_pt1.y() < hy && m_pt2.y() < hy) ||
-			(m_pt1.y() > hy && m_pt2.y() > hy) ||
-			(m_pt1.y() == m_pt2.y() && m_pt1.y() == hy))
+		const qreal max = qCeil(qMax(m_pt1.y(), m_pt2.y()));
+		const qreal min = qFloor(qMin(m_pt1.y(), m_pt2.y()));
+		if (hy > max || hy < min)
 		{
 			return false;
 		}
@@ -777,7 +777,7 @@ public:
 private:
 	bool get_range(int& x1, int& x2) const
 	{
-		const int ix1 = (int)(m_nodes.front().p.x() + 0.5);
+		const int ix1 = (int)(m_nodes.front().p.x());
 		const int ix2 = (int)(m_nodes.back().p.x()  + 0.5);
 		const int strt= qMax(m_x1, ix1);
 		const int end = qMin(m_x2, ix2);
