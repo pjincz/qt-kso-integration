@@ -3411,7 +3411,7 @@ void QT_FASTCALL rasterop_GdiSourceXorDestination(uint *dest,
 	while (length--) {
 		u = *src;
 		if (u != 0xff000000)
-			*dest = (u ^ *dest) | 0xff000000;
+			*dest = (u & 0xffffff) ^ *dest;
 		++dest; ++src;
 	}
 }
